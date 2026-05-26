@@ -18,3 +18,26 @@ assets/export_models/
 applications/efficientvit_gazesam/models/pytorch
 applications/efficientvit_gazesam/models/onnx
 applications/efficientvit_gazesam/models/tensorrt
+
+# ===== EdgeSeg-EfficientViT phase1 (baseline & profiling) =====
+# 大体积权重 / 数据 / Nsight 报告不入库，仅保留脚本、文档与小型指标 csv
+phase1/weights/*
+!phase1/weights/.gitkeep
+phase1/data/*
+!phase1/data/.gitkeep
+phase1/results/nsight/*
+!phase1/results/nsight/.gitkeep
+
+# Nsight 报告与中间文件
+*.nsys-rep
+*.qdrep
+*.sqlite
+*.qdstrm
+
+# 模型与权重通用后缀
+*.pt
+*.pth
+*.onnx
+*.engine
+*.plan
+*.trt
