@@ -41,3 +41,41 @@ phase1/results/nsight/*
 *.engine
 *.plan
 *.trt
+
+# ===== EdgeSeg-EfficientViT phase3 (TensorRT Plugin, C++/CUDA) =====
+# 跟进 Floatboat.md V3.0：阶段三新增自定义算子开发，预排编译产物
+# 构建目录（CMake / Make / Ninja 通用）
+phase3/build/
+phase3/*/build/
+build/
+out/
+cmake-build-*/
+
+# 目标文件与中间产物
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.exp
+*.ilk
+
+# CUDA 编译产物
+*.cubin
+*.fatbin
+*.ptx
+*.gpu
+
+# IDE / 编译数据库
+compile_commands.json
+.cache/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# Windows MSVC 调试产物
+*.pdb
+*.idb
+*.suo
