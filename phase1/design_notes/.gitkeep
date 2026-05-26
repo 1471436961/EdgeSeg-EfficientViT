@@ -1,0 +1,5 @@
+# Placeholder to keep this directory in git.
+#
+# Purpose: house code-level design documents (per PROJECT_CONVENTIONS.md §2.3).
+# Naming:  {script_basename}_design.md  (e.g. baseline_inference_design.md)
+# Trigger: script > 200 lines OR contains >= 3 non-trivial decisions.

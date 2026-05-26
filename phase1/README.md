@@ -5,6 +5,12 @@
 > 📌 **跟进 Floatboat.md V3.0**：项目核心定位已升级为 **TensorRT 自定义算子开发**。阶段一的剖析目标因此从"找瓶颈"进一步精细化为"找融合机会"。
 >
 > ⚠️ **2026-05-26 架构精读后修正**：原 V3.0 文档预设的"`MatMul+Softmax+Scale`""`LayerNorm+残差`"两类融合目标 **在 EfficientViT 上不成立**——本模型采用 **LiteMLA 线性注意力**（无 softmax）+ **BN2d**（无 LayerNorm）。真实的融合候选请见 [`architecture_analysis.md`](./architecture_analysis.md) §4。
+>
+> 📚 **文档分层导航**：
+> - 项目级战略：[`../../Floatboat.md`](../../../Floatboat.md)（仓库外，需在文件系统打开）
+> - 横切协作契约：[`../../PROJECT_CONVENTIONS.md`](../../../PROJECT_CONVENTIONS.md)（仓库外，AI 协作流程见 §1）
+> - 阶段执行（本文件）：`phase1/README.md`
+> - 代码级设计：脚本 docstring 或 `phase1/design_notes/xxx_design.md`（按需创建）
 
 ---
 
