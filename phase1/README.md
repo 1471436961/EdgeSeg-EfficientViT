@@ -40,11 +40,18 @@ phase1/
 - [x] **Step 1.5**：**EfficientViT-Seg-B0 源码精读**，产出 `architecture_analysis.md`
 - [ ] **Step 2**：下载 EfficientViT-Seg-B0 预训练权重（Cityscapes 版）
 - [ ] **Step 3**：准备 1~2 张 Cityscapes 样图放入 `data/`
-- [ ] **Step 4**：编写 `scripts/baseline_inference.py`
-  - CUDA Event 精确计时（**不能用 time.time()**）
-  - 预热 20 次 + 正式 100 次
-  - 记录 avg/p50/p95/p99 延迟、峰值显存、FPS
-  - **NVTX 标注**：详见下方"决策 3"小节
+- [x] **Step 4**：编写 `scripts/baseline_inference.py` ✅ **commit `ec4cda2`**
+  - CUDA Event 精确计时（**不能用 time.time()**）✅
+  - 预热 20 次 + 正式 100 次（默认值；smoke 用 3+5）✅
+  - 记录 avg/p50/p95/p99 延迟、峰值显存、FPS ✅
+  - **NVTX 标注**：双跑策略，`--nvtx-level {A,B,C}` ✅（详见"决策 3"小节）
+  - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）：
+    - Plan A: mean ≈ 23.9 ms
+    - Plan B: mean ≈ 23.6 ms（mid-grain hooks 已注入，hook_count=14）
+    - Plan C: mean ≈ 23.5 ms（4 个 LiteMLA monkey-patch + sanity_check 全过，max_abs_diff=0.0）
+  - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）
+  - 使用速查：[`scripts/README.md`](./scripts/README.md)
+  - ⚠️ **以上仅为脚本链路验证**。**正式 baseline 仍需**：真实 Cityscapes 权重（Step 2）+ 固定输入图（Step 3）+ 1024×2048 + warmup 20 + measure 100，并将 JSON 落到 `results/metrics/`。在 Step 2/3 完成前，禁止把 smoke 的 24 ms / 42 FPS 写入任何性能结论。
 - [ ] **Step 5**：用 Nsight Systems 剖析推理过程
   - 命令模板：`nsys profile -t cuda,nvtx,osrt -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
   - 截 3 类关键图：CPU↔GPU 时间线、**算子序列耗时排序（重点）**、显存使用曲线
@@ -79,8 +86,10 @@ phase1/
 - **选择**：PyTorch 2.4.1+cu124
 - **原因**：PyTorch 2.7+ 已放弃 Pascal 架构（sm_61）预编译 wheel，2.4.x 是最后一批官方支持 MX250 的版本。
 
-### 决策 3：NVTX 标注粒度 🟡 **待最终确认**
-> 详细讨论见下方"NVTX 标注方案"小节，已给出 3 档可选方案，**默认推荐方案 B**。
+### 决策 3：NVTX 标注粒度 ✅ **已确定（commit `ec4cda2` 实装）**
+> **采纳双跑策略**：正式 baseline 用 Plan B（mid-grain，stem/stage0..4/head 共 ~7 个 range），Plugin 设计用 Plan C（LiteMLA-internal，4 个实例级 monkey-patch + sanity check）。
+> 实装方式：`baseline_inference.py --nvtx-level {A,B,C}`；Plan A 无 NVTX 用于干净 latency 参考。
+> 详细讨论见下方"NVTX 标注方案"小节。
 
 ### 决策 4：模型变种 / 输入分辨率
 - **变种**：先选 EfficientViT-Seg-B0（MX250 仅 2GB，B1+ 极易 OOM）
@@ -146,7 +155,7 @@ lite_mla
 >
 > 这样既不让 NVTX 开销污染主基线，又能拿到 Plugin 设计需要的细粒度数据，**是性价比最高的策略**。
 
-如果你认可这个"双跑策略"，我就直接把它写进 `baseline_inference.py` 的 `--nvtx-level {B,C}` 命令行参数里。
+**[已实装 ✅]** 双跑策略已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C}` 参数（commit `ec4cda2`）。三档 smoke test 全部通过，详见上方 Step 4。
 
 ---
 
