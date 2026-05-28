@@ -104,7 +104,7 @@ phase1/
 
 ## 🔍 NVTX 标注方案（决策 3 候选）
 
-> **共同原则**：所有方案都用 `torch.cuda.nvtx.range_push/pop`（或 `nvtx.annotate` 上下文管理器）插入；每次都包住 `torch.cuda.synchronize()` 之后才结束 range，否则 timeline 会错位。
+> **共同原则**：NVTX range 只做 `torch.cuda.nvtx.range_push/range_pop`（或等价的 `nvtx.annotate` 上下文管理器），用于 Nsight 归因；**range 内禁止插入 `torch.cuda.synchronize()`**。同步只允许出现在 warmup/measure 边界，以及 latency 模式下 CUDA Event 读取处。NVTX 不是计时工具，latency 以 CUDA Events 为准。
 
 ### 方案 A · 最粗（3 个 range）
 仅区分 `total / backbone / head`。
