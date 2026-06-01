@@ -611,7 +611,7 @@ def _find_seg_components(model: torch.nn.Module) -> Dict[str, torch.nn.Module]:
     if bb is not None:
         if hasattr(bb, "input_stem"):
             out["stem"] = bb.input_stem
-        # `stages` is a nn.ModuleList of length 5 in upstream repo (stage0..4)
+        # `stages` is a nn.ModuleList of length 4 in upstream repo (stage0..3)
         stages = getattr(bb, "stages", None)
         if stages is not None:
             for i, s in enumerate(stages):

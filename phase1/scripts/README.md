@@ -83,7 +83,7 @@ nsys profile `
         --warmup 20 --measure 100
 ```
 
-Nsight UI 中应能看到 `stem / stage0 / stage1 / stage2 / stage3 / stage4 / head` 七个 range。
+Nsight UI 中应能看到 `stem / stage0 / stage1 / stage2 / stage3 / head` 六个 range。
 
 ### 场景 3：Nsight Plan C（LiteMLA 内部归因，含 sanity）
 

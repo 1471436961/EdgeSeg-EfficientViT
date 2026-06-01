@@ -20,7 +20,7 @@
 ### 1.1 目标（必须达成）
 
 1. **可复现**：给定 `--weights` + `--input-image`（或固定 dummy seed），任意主机重跑应得到统计上等价的 latency 分布（mean ±3σ 之内）。
-2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..4 / head；或 LiteMLA 内部）。
+2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；或 LiteMLA 内部）。
 3. **机器可读**：单次运行产出一份 JSON，包含**测时 + 环境 + 权重 + 输入 + sanity + 可选 MACs**，无需 grep 控制台。
 4. **零侵入**：不修改 `efficientvit/` 源码；NVTX 通过 hook + 实例级 monkey-patch 注入，运行结束后还原。
 5. **契约对齐**：严格满足用户在三段式 §2 中提出的 7 条实现约束（见 §6）。
@@ -90,8 +90,10 @@
 | 档位 | 注入方式 | range 粒度 | 用途 | 风险 |
 |------|---------|----------|-----|------|
 | A（默认） | 无 | 0 | **干净 latency 基准**，与 Phase 2/3 对比的 anchor | 0 |
-| B | `register_forward_pre_hook` + `register_forward_hook` 在 `stem / stage0..4 / head` 上 | ~7 ranges | **整体瓶颈定位**（stage 级） | hook 极轻量，几乎可忽略 |
+| B | `register_forward_pre_hook` + `register_forward_hook` 在 `stem / stage0..3 / head` 上 | 6 ranges | **整体瓶颈定位**（stage 级） | hook 极轻量，几乎可忽略 |
 | C | 实例级 `MethodType` monkey-patch 每个 `LiteMLA.forward` | ~8 ranges（B0 在 stage3/4 各 2 个 LiteMLA × 2 个 stage 边界） | **Plugin 设计输入**（验证 LiteMLA 是否真的是瓶颈，量化它占比） | 改写了 forward 调用路径，需要 sanity check 兜底 |
+
+> 编号说明：Plan B 的 `stage0..3` 是 `backbone.stages` 的 `ModuleList` 索引；架构分析中的 `stage1..4` 是语义阶段编号，两者一一对应。
 
 **取舍 1：为何 B 与 C 分开跑，而不合并？**
 - 合并 = 同一份 timeline 上既有 stage 级、又有 LiteMLA 内部级 → Nsight UI 看着乱，且 Plan C 的 patch 会改变 `LiteMLA.forward` 的入口栈帧，Plan B 的 hook 可能与之打架。
@@ -572,4 +574,3 @@ efficientvit-seg-{variant}-{dataset}
 - 官方 triton wheel 应可用，`_install_triton_stub()` 自动 no-op（检测到 `sys.modules["triton"]` 已存在则 `return False`）
 - 本 stub 代码仍保留，不需删除（对实装环境零开销、零影响）
 - 可考虑抽取到 `phase1/scripts/_compat.py` 供 Phase 2 的 `export_onnx.py` 复用
-
