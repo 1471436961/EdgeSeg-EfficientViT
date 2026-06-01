@@ -38,8 +38,13 @@ phase1/
 - [x] **Step 0**：搭建 `phase1-baseline` 分支与目录骨架
 - [x] **Step 1**：环境验证（PyTorch 2.4.1+cu124 ✅ / Nsight Systems 2026.2.1 ✅）
 - [x] **Step 1.5**：**EfficientViT-Seg-B0 源码精读**，产出 `architecture_analysis.md`
-- [ ] **Step 2**：下载 EfficientViT-Seg-B0 预训练权重（Cityscapes 版）
-- [ ] **Step 3**：准备 1~2 张 Cityscapes 样图放入 `data/`
+- [x] **Step 2**：下载 EfficientViT-Seg-B0 预训练权重（Cityscapes 版）✅
+  - 文件：`phase1/weights/efficientvit_seg_b0_cityscapes.pt`（不入库）
+  - SHA256：`923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50`
+- [x] **Step 3**：准备固定输入样图放入 `data/` ✅
+  - 文件：`phase1/data/city_asset_cityscapes_like.png`
+  - 来源：上游仓库自带 `assets/fig/city.png`，用于 Phase 1 latency/profiling，不用于 mIoU 评估
+  - SHA256：`34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630`
 - [x] **Step 4**：编写 `scripts/baseline_inference.py` ✅ **commit `ec4cda2`**
   - CUDA Event 精确计时（**不能用 time.time()**）✅
   - 预热 20 次 + 正式 100 次（默认值；smoke 用 3+5）✅
@@ -47,11 +52,11 @@ phase1/
   - **NVTX 标注**：双跑策略，`--nvtx-level {A,B,C}` ✅（详见"决策 3"小节）
   - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）：
     - Plan A: mean ≈ 23.9 ms
-    - Plan B: mean ≈ 23.6 ms（mid-grain hooks 已注入，hook_count=14）
+    - Plan B: mean ≈ 23.6 ms（mid-grain hooks 已注入，hook_count=12）
     - Plan C: mean ≈ 23.5 ms（4 个 LiteMLA monkey-patch + sanity_check 全过，max_abs_diff=0.0）
   - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）
   - 使用速查：[`scripts/README.md`](./scripts/README.md)
-  - ⚠️ **以上仅为脚本链路验证**。**正式 baseline 仍需**：真实 Cityscapes 权重（Step 2）+ 固定输入图（Step 3）+ 1024×2048 + warmup 20 + measure 100，并将 JSON 落到 `results/metrics/`。在 Step 2/3 完成前，禁止把 smoke 的 24 ms / 42 FPS 写入任何性能结论。
+  - ✅ **正式 Plan A baseline 已完成**：真实 Cityscapes 权重 + 固定输入图 + 1024×2048 + warmup 20 + measure 100，结果见 [`results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json`](./results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json)
 - [ ] **Step 5**：用 Nsight Systems 剖析推理过程
   - 命令模板：`nsys profile -t cuda,nvtx,osrt -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
   - 截 3 类关键图：CPU↔GPU 时间线、**算子序列耗时排序（重点）**、显存使用曲线
@@ -87,7 +92,7 @@ phase1/
 - **原因**：PyTorch 2.7+ 已放弃 Pascal 架构（sm_61）预编译 wheel，2.4.x 是最后一批官方支持 MX250 的版本。
 
 ### 决策 3：NVTX 标注粒度 ✅ **已确定（commit `ec4cda2` 实装）**
-> **采纳双跑策略**：正式 baseline 用 Plan B（mid-grain，stem/stage0..4/head 共 ~7 个 range），Plugin 设计用 Plan C（LiteMLA-internal，4 个实例级 monkey-patch + sanity check）。
+> **采纳双跑策略**：正式 baseline 用 Plan B（mid-grain，stem/stage0..3/head 共 6 个 range），Plugin 设计用 Plan C（LiteMLA-internal，4 个实例级 monkey-patch + sanity check）。
 > 实装方式：`baseline_inference.py --nvtx-level {A,B,C}`；Plan A 无 NVTX 用于干净 latency 参考。
 > 详细讨论见下方"NVTX 标注方案"小节。
 

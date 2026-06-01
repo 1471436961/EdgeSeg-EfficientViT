@@ -25,6 +25,7 @@ phase1/weights/*
 !phase1/weights/.gitkeep
 phase1/data/*
 !phase1/data/.gitkeep
+!phase1/data/city_asset_cityscapes_like.png
 phase1/results/nsight/*
 !phase1/results/nsight/.gitkeep
 
