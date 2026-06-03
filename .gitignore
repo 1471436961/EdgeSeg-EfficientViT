@@ -44,7 +44,7 @@ phase1/results/nsight/*
 *.trt
 
 # ===== EdgeSeg-EfficientViT phase3 (TensorRT Plugin, C++/CUDA) =====
-# 跟进 Floatboat.md V3.0：阶段三新增自定义算子开发，预排编译产物
+# 跟进 PROJECT_STRATEGY.md V3.1：阶段三新增自定义算子开发，预排编译产物
 # 构建目录（CMake / Make / Ninja 通用）
 phase3/build/
 phase3/*/build/

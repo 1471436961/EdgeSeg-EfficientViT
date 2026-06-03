@@ -106,7 +106,7 @@ nsys profile `
 - LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 子算子级 profiling 需要另写专门脚本。
 - 组件占比分析不要直接使用 NVTX range duration；请从 Nsight sqlite 中用 CUDA runtime/kernel `correlationId` 将 kernel duration 归因到 NVTX range。
 
-> Windows Nsight Systems 2026.2.1 实测：`osrt` 不是合法 trace 值；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 建议统一使用 `--trace=cuda,nvtx`。
+> Windows Nsight Systems 2026.2.1 实测：`osrt` 不是合法 trace 值；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 建议统一使用 `--trace=cuda,nvtx`。在自动化/AI 执行上下文中，优先使用全路径 `D:\software\nsight_systems\target-windows-x64\nsys.exe`；普通沙箱可能导致 nsys 固定 75 秒超时，需在非沙箱权限下运行。
 
 ### 场景 4：Smoke test（无权重，快速跑通流程）
 

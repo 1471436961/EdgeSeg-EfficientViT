@@ -1,0 +1,116 @@
+{
+  "metrics_file": "phase1/results/metrics/baseline_b0_cityscapes_1024x2048_levelB_latency_nsys.json",
+  "script_version": "baseline_inference.py@4c57d90",
+  "nvtx_level": "B",
+  "warmup": 20,
+  "measure": 100,
+  "forward_mean_ms": 88.19558364868163,
+  "attributed_kernel_avg_ms": 86.81736670000001,
+  "attributed_share_of_forward_mean_pct": 98.43731750313981,
+  "ranges": [
+    {
+      "name": "stage0",
+      "count": 100,
+      "launches": 4300,
+      "matched_launches": 2000,
+      "total_kernel_ms": 2452.790674,
+      "avg_kernel_ms": 24.52790674,
+      "share_of_attributed_pct": 28.25230443208087,
+      "share_of_forward_mean_pct": 27.810810615761085
+    },
+    {
+      "name": "stage2",
+      "count": 100,
+      "launches": 17100,
+      "matched_launches": 8100,
+      "total_kernel_ms": 1845.805115,
+      "avg_kernel_ms": 18.45805115,
+      "share_of_attributed_pct": 21.26078208958162,
+      "share_of_forward_mean_pct": 20.928543569172145
+    },
+    {
+      "name": "stage1",
+      "count": 100,
+      "launches": 4300,
+      "matched_launches": 2000,
+      "total_kernel_ms": 1222.305226,
+      "avg_kernel_ms": 12.22305226,
+      "share_of_attributed_pct": 14.079040547540588,
+      "share_of_forward_mean_pct": 13.859029845178322
+    },
+    {
+      "name": "head",
+      "count": 100,
+      "launches": 6800,
+      "matched_launches": 3300,
+      "total_kernel_ms": 1088.174077,
+      "avg_kernel_ms": 10.881740769999999,
+      "share_of_attributed_pct": 12.534059927896891,
+      "share_of_forward_mean_pct": 12.33819236725768
+    },
+    {
+      "name": "stage3",
+      "count": 100,
+      "launches": 29500,
+      "matched_launches": 15500,
+      "total_kernel_ms": 1040.282335,
+      "avg_kernel_ms": 10.40282335,
+      "share_of_attributed_pct": 11.982422118315645,
+      "share_of_forward_mean_pct": 11.795174905172821
+    },
+    {
+      "name": "stem",
+      "count": 100,
+      "launches": 2100,
+      "matched_launches": 1000,
+      "total_kernel_ms": 1032.379243,
+      "avg_kernel_ms": 10.323792430000001,
+      "share_of_attributed_pct": 11.891390884584387,
+      "share_of_forward_mean_pct": 11.705566200597758
+    }
+  ],
+  "groups": [
+    {
+      "name": "stage0",
+      "total_kernel_ms": 2452.790674,
+      "avg_kernel_ms": 24.52790674,
+      "share_of_attributed_pct": 28.25230443208087,
+      "share_of_forward_mean_pct": 27.810810615761085
+    },
+    {
+      "name": "stage2",
+      "total_kernel_ms": 1845.805115,
+      "avg_kernel_ms": 18.45805115,
+      "share_of_attributed_pct": 21.26078208958162,
+      "share_of_forward_mean_pct": 20.928543569172145
+    },
+    {
+      "name": "stage1",
+      "total_kernel_ms": 1222.305226,
+      "avg_kernel_ms": 12.22305226,
+      "share_of_attributed_pct": 14.079040547540588,
+      "share_of_forward_mean_pct": 13.859029845178322
+    },
+    {
+      "name": "head",
+      "total_kernel_ms": 1088.174077,
+      "avg_kernel_ms": 10.881740769999999,
+      "share_of_attributed_pct": 12.534059927896891,
+      "share_of_forward_mean_pct": 12.33819236725768
+    },
+    {
+      "name": "stage3",
+      "total_kernel_ms": 1040.282335,
+      "avg_kernel_ms": 10.40282335,
+      "share_of_attributed_pct": 11.982422118315645,
+      "share_of_forward_mean_pct": 11.795174905172821
+    },
+    {
+      "name": "stem",
+      "total_kernel_ms": 1032.379243,
+      "avg_kernel_ms": 10.323792430000001,
+      "share_of_attributed_pct": 11.891390884584387,
+      "share_of_forward_mean_pct": 11.705566200597758
+    }
+  ]
+}

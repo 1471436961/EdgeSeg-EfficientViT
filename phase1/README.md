@@ -2,12 +2,12 @@
 
 > **阶段目标**：在 PyTorch 原生推理路径上建立 EfficientViT-Seg-B0 的完整性能基线，并用 NVIDIA Nsight Systems 完成系统级剖析。**关键产出是《性能瓶颈与融合机会分析报告》，为阶段三的 TensorRT 自定义算子（C++/CUDA Plugin）开发选定融合目标**。
 >
-> 📌 **跟进 Floatboat.md V3.0**：项目核心定位已升级为 **TensorRT 自定义算子开发**。阶段一的剖析目标因此从"找瓶颈"进一步精细化为"找融合机会"。
+> 📌 **跟进 PROJECT_STRATEGY.md V3.1**：项目核心定位已升级为 **TensorRT 自定义算子开发**。阶段一的剖析目标因此从"找瓶颈"进一步精细化为"找融合机会"。
 >
 > ⚠️ **2026-05-26 架构精读后修正**：原 V3.0 文档预设的"`MatMul+Softmax+Scale`""`LayerNorm+残差`"两类融合目标 **在 EfficientViT 上不成立**——本模型采用 **LiteMLA 线性注意力**（无 softmax）+ **BN2d**（无 LayerNorm）。真实的融合候选请见 [`architecture_analysis.md`](./architecture_analysis.md) §4。
 >
 > 📚 **文档分层导航**：
-> - 项目级战略：[`../../Floatboat.md`](../../../Floatboat.md)（仓库外，需在文件系统打开）
+> - 项目级战略：[`../../PROJECT_STRATEGY.md`](../../../PROJECT_STRATEGY.md)（仓库外，需在文件系统打开）
 > - 横切协作契约：[`../../PROJECT_CONVENTIONS.md`](../../../PROJECT_CONVENTIONS.md)（仓库外，AI 协作流程见 §1）
 > - 阶段执行（本文件）：`phase1/README.md`
 > - 代码级设计：脚本 docstring 或 `phase1/design_notes/xxx_design.md`（按需创建）
@@ -57,14 +57,16 @@ phase1/
   - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）
   - 使用速查：[`scripts/README.md`](./scripts/README.md)
   - ✅ **正式 Plan A baseline 已完成**：真实 Cityscapes 权重 + 固定输入图 + 1024×2048 + warmup 20 + measure 100，结果见 [`results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json`](./results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json)
-- [ ] **Step 5**：用 Nsight Systems 剖析推理过程
+- [x] **Step 5**：用 Nsight Systems 剖析推理过程
   - 命令模板（Windows Nsight Systems 2026.2.1）：`nsys profile -t cuda,nvtx -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
   - 注：Windows 版 `nsys` 不接受 `osrt` trace；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 归因主口径使用 `cuda,nvtx`。
   - 截 3 类关键图：CPU↔GPU 时间线、**CUDA kernel 耗时归因排序（重点）**、显存使用曲线
   - 分析口径：端到端 latency 以 JSON 中 CUDA Events 为准；NVTX range 只提供结构边界，组件占比应从 Nsight sqlite 中用 CUDA runtime/kernel `correlationId` 归因统计，不能直接用 NVTX range 的 `end-start` 当 GPU 耗时
+  - ✅ Plan B/C Nsight attribution 表已生成：[`planB_nsys_attribution_summary.md`](./results/metrics/planB_nsys_attribution_summary.md)、[`planC_nsys_attribution_summary.md`](./results/metrics/planC_nsys_attribution_summary.md)
 - [ ] **Step 6**：撰写 `bottleneck_analysis_report.md`
   - 不只是"哪里慢"，更要标注 **"哪些算子序列适合融合为 Plugin"**
   - 给出每个候选融合点的实测耗时 + 预期加速理论估算
+  - 报告必须区分两条排序：**端到端耗时收益**（当前 `stage0` 最大）与 **Plugin 展示价值**（LiteMLA 仍是高区分度主线）
 
 ---
 
@@ -163,6 +165,7 @@ head
 ```
 - ✅ **直接回答热点区域里到底是 LiteMLA、MBConv 还是 SegHead 更慢**；
 - ✅ `stage0 + stage2 + head` 覆盖 Plan B 约 60% 的 GPU kernel 耗时，同时避免把 Plan C 膨胀成全模型递归 profiler；
+- ✅ 支撑 Phase 3 的双维度判断：`stage0` 端到端收益最高，`stage2/LiteMLA` 自定义算子展示价值最高，`head/middle` 是工程优化候选；
 - ✅ 使用 forward hooks，不改写 forward 数值路径，因此不需要 sanity check；
 - ⚠️ `head` 内部的 merge add 不是独立 module，当前 hook-only 方案不单独计入一个 range；
 - ℹ️ 若后续需要 LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 子算子级耗时，应另写专门的 `litemla_internal_profile.py`；
@@ -172,6 +175,8 @@ head
 > **跑两遍**：第一遍用 **方案 B** 得到稳定的端到端 baseline 数字（提交报告主表）；第二遍用 **方案 C** 展开 `stage0/stage2/head` 的热点组件，专门给阶段三 Plugin 设计提供组件级耗时。
 >
 > 这样既不让 NVTX 开销污染主基线，又能拿到 Plugin 设计需要的细粒度数据，**是性价比最高的策略**。
+
+> **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：LiteMLA 是 TensorRT 难自动融合的高区分度 Plugin 主线；`stage0` 与 `head` 是端到端收益更明确的工程优化候选。
 
 **[已实装 ✅]** 双跑策略已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C}` 参数（commit `ec4cda2`）。三档 smoke test 全部通过，详见上方 Step 4。
 

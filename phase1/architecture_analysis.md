@@ -18,8 +18,8 @@
 | 1 | **EfficientViT 不是传统 Transformer**：没有 LayerNorm、没有 Softmax、没有 Patch Embedding、没有位置编码。 | V3.0 文档中"LayerNorm+残差""MatMul+Softmax+Scale"的融合假设 **需要修正**。 |
 | 2 | **核心创新 = LiteMLA（轻量多尺度线性注意力）**：`ReLU(Q), ReLU(K), V` 后做 `(V·K^T)·Q` 的线性顺序乘法，复杂度 O(N·d²) 而非 O(N²·d)。 | 真正的融合机会是 `Conv1x1(QKV) → 多尺度 DWConv → ReLU → MatMul → MatMul → 归一化除法` 这一序列。 |
 | 3 | **归一化全部用 BN2d**（而非 LN）。 | TRT 部署时 **BN 直接折叠进 Conv**，几乎零开销；**不必单独融合 LN**。 |
-| 4 | **B0 注意力只在 stage3/stage4 出现**，且只有 2 个 `EfficientViTBlock`。 | Nsight 时间线上，**注意力占比可能并不主导**；瓶颈大概率在 stage1/2 的 MBConv 堆叠 + Seg Head 的多尺度 UpSample。 |
-| 5 | **B0 在 stage4 仅 128 通道，dim=16**，多尺度只有一个 5×5 DW 分支。 | 注意力本身的算力非常小，**FP16 / Plugin 收益的绝对值可能有限**，但**相对加速比仍可观**，仍然是好的展示题材。 |
+| 4 | **B0 注意力只在 stage3/stage4 出现**，且只有 2 个 `EfficientViTBlock`。 | Nsight attribution 已验证：注意力/context 不是全模型最大瓶颈；最大热点在早期高分辨率 `stage0`，其次是 `stage2`，`head` 也有明确耗时。 |
+| 5 | **B0 在 stage4 仅 128 通道，dim=16**，多尺度只有一个 5×5 DW 分支。 | LiteMLA Plugin 的定位应是**高区分度非标准算子展示**，而不是最大端到端收益点；收益预期要保守估算。 |
 | 6 | LiteMLA 内部含一个 **形状自适应分支**：`H*W > dim` 走线性注意力，否则走二次注意力。 | TRT 部署时必须**冻结输入分辨率**，否则 Plugin 行为无法静态确定。 |
 
 ---
@@ -235,17 +235,17 @@ SegHead (DAG, head_width=32, head_stride=8):
 ```
 
 **算力直觉（粗估）**：
-- stage1/2 的 MBConv（256×512 / 128×256 大特征图） 是 backbone 里 **绝对算力大头**。
+- 早期高分辨率 MBConv / Conv（语义 stage1/2；代码中对应 `backbone.stages.0/1`）是 backbone 里 **绝对算力大头**；Phase 1 Nsight 已验证 `backbone.stages.0` 是最大 GPU kernel 热点。
 - stage3/4 的 LiteMLA 特征图小（64×128 / 32×64），单次算力不大，但 **算子种类多、kernel launch 多、cast 多**，更容易出现 launch overhead 而非计算 bound。
 - Seg Head 的两次 bicubic upsample + add + final_expand 是一个常被忽视的耗时点（H/8 上的 1×1 Conv 输入是 128×256 = 32768 像素）。
 
 ---
 
-## 4. 候选融合目标（直接喂给阶段三 Plugin）
+## 4. 候选融合目标（喂给阶段三 Plugin / 工程优化）
 
-按"实现复杂度从低到高 / 工程价值从高到低"排序：
+> **Phase 1 Nsight attribution 后修正**：候选目标不能只按论文模块排序。当前 B0/MX250 profile 下，`stage0` 是最大 GPU kernel 热点，`stage2` 第二，`head/middle` 是明显组件热点；LiteMLA/context 值得做，但不是最大瓶颈。因此本节按"求职展示价值"与"端到端收益潜力"双维度排序。
 
-### 🥇 优先级 1：**LiteMLA 注意力核** —— 阶段三 Plugin 的核心交付物
+### 🥇 优先级 1：**LiteMLA 注意力核** —— 高区分度 Plugin 主交付物
 **融合范围**：从 `qkv 与多尺度聚合的 concat 之后`，到 `proj 之前`。
 即把 ③ reshape → ④ ReLU → ⑤ pad+transpose → ⑥ 两次 MatMul → 归一化除法 → ⑦ reshape 这一整段写成一个 CUDA kernel（或几个紧凑 kernel）。
 
@@ -253,20 +253,27 @@ SegHead (DAG, head_width=32, head_stride=8):
 - 消除 reshape / transpose / pad 这些 view/layout 算子（PyTorch 里它们看似免费，TRT 里却常常 materialize 为真实 kernel）；
 - 让 `V·K^T` 和 `VK·Q` 共享 shared memory，省一次 HBM 来回；
 - 把"末尾 1 行的归一化除法"做成 fused epilogue，消除一次完整 traversal。
-- 预期端到端注意力段加速 **1.5×~2.5×**（待实测验证）。
+- 预期注意力/context 段加速 **1.5×~2.5×**（待实测验证），但端到端收益需按该段真实占比保守估算。
 
 **简历卖点**：直接对标论文中的 LiteMLA 模块，明确"为线性注意力写了一个 TRT Plugin"，比"我做了 MatMul+Softmax 融合"具体得多。
 
-### 🥈 优先级 2：**多尺度 QKV 聚合段**
-**融合范围**：`Conv1x1(qkv) → DWConv 5×5 → Conv1x1 grouped → concat`。
-- 这里有一个 **concat 操作**，TRT 里 concat 经常拖累——可以重写为"直接写入连续缓冲区，省掉 concat"。
-- B0 scales 只 1 个，融合收益相对有限；但对 B1/B2 如果未来用到（scales 可能更多），价值更高。
-
-### 🥉 优先级 3：**Seg Head 的 multi-input add**
+### 🥈 优先级 2：**Seg Head / head middle 多输入融合**
 **融合范围**：head 的 3 路 1×1 Conv 输出 + 2 路 bicubic upsample + add。
 - 真正的痛点：**bicubic upsample 在 TRT 不原生支持**，要么走 plugin，要么降级 bilinear。
 - 如果走 plugin，可以顺手把 add 也融进去：`Conv1x1 + bicubic_up + add` 三件套一锅炒。
 - 风险：bicubic→bilinear 降级会带来 mIoU 损失，需要阶段二实测。
+- Phase 1 Plan C 显示 `head/middle` 是明显组件热点，端到端收益和工程必要性都比预想更强。
+
+### 🥉 优先级 3：**stage0 early MBConv / Conv 堆叠优化**
+**融合范围**：`stage0/block0/main`、`stage0/block1/main` 中的早期高分辨率 Conv/BN/activation/Residual 序列。
+- Phase 1 Plan B/C 显示它是当前最大 GPU kernel 热点，端到端收益潜力最高。
+- 风险：这些是相对标准的卷积类结构，TensorRT/cuDNN 可能已经能较好优化；手写 Plugin 的差异化不如 LiteMLA，且维护成本更高。
+- 更适合作为 Phase 2 TRT baseline 后的工程优化候选，而不是一开始就替代 LiteMLA 主线。
+
+### 备选研究项：**多尺度 QKV 聚合段**
+**融合范围**：`Conv1x1(qkv) → DWConv 5×5 → Conv1x1 grouped → concat`。
+- 这里有一个 **concat 操作**，TRT 里 concat 经常拖累——可以重写为"直接写入连续缓冲区，省掉 concat"。
+- B0 scales 只 1 个，融合收益相对有限；但对 B1/B2 如果未来用到（scales 可能更多），价值更高。
 
 ### ⚠️ 不推荐融合
 - **MBConv / DSConv**：TRT 自己有非常成熟的 `Conv-BN-Act` 融合，自己写 plugin 反而更慢。
@@ -283,11 +290,10 @@ SegHead (DAG, head_width=32, head_stride=8):
 | "LayerNorm+残差 等算子序列" | "**EfficientViT 全程使用 BN2d，无 LN**。BN 可由 TRT 自动折叠，无需 Plugin。改为关注 **`Conv1x1 + bicubic_up + add`**（Seg Head 多输入融合）" |
 | "找出 N 个值得融合的算子序列" | 在 architecture_analysis.md 中已锁定 **3 个候选**，阶段一 Nsight 主要验证它们各自的耗时占比和加速空间 |
 
-> 我会**等你确认这个修订方向**后再去改 Floatboat.md，避免擅自改你的主文档。
+> 本修订方向已同步到仓库外的 `PROJECT_STRATEGY.md`，作为 Phase 2/3 的后续战略依据。
 
 ---
 
 ## 6. 阶段一 NVTX 标注建议（直接对应决策 3）
 
 详见 `phase1/README.md` 的"决策 3"小节。本报告负责回答"模型有哪些天然的层级断点"，README 负责落地为代码里的 NVTX range。
-
