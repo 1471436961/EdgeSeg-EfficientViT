@@ -12,7 +12,7 @@ This script is the **dual-run NVTX baseline** described in
 
 * ``--nvtx-level A``  : no NVTX (clean latency reference)
 * ``--nvtx-level B``  : mid-grain ranges (stem / stage0..3 / head)
-* ``--nvtx-level C``  : hotspot component ranges in stage2/stage3/head
+* ``--nvtx-level C``  : hotspot component ranges in stage0/stage2/head
                        (for Plugin design)
 
 Hard contracts (see design note for full rationale)
@@ -649,15 +649,17 @@ def _add_component(out: Dict[str, torch.nn.Module], name: str, mod: Any) -> None
 
 def _find_plan_c_components(model: torch.nn.Module) -> Dict[str, torch.nn.Module]:
     """
-    Locate hotspot components inside the Plan-B hot regions.
+    Locate hotspot components inside the selected Plan-B hot regions.
 
-    Plan B showed the dominant regions are backbone.stages.2,
-    backbone.stages.3, and head. Plan C intentionally expands only these
+    Correct Plan-B SQLite attribution shows stage0 and stage2 are the two
+    largest stage-level regions, while head is retained as a plugin-relevant
+    segmentation-head candidate. Plan C intentionally expands only these
     regions:
 
-      stage{2,3}/downsample
-      stage{2,3}/block{1,2}/context   # EfficientViTBlock runs context first
-      stage{2,3}/block{1,2}/local
+      stage0/block{0,1}/main
+      stage2/downsample
+      stage2/block{1,2}/context        # EfficientViTBlock runs context first
+      stage2/block{1,2}/local
       head/input_{stage4,stage3,stage2}, head/middle, head/output_segout
 
     The head merge add itself is not a module in DAGBlock.forward, so it is not
@@ -667,7 +669,22 @@ def _find_plan_c_components(model: torch.nn.Module) -> Dict[str, torch.nn.Module
     bb = getattr(model, "backbone", None)
     stages = getattr(bb, "stages", None) if bb is not None else None
     if stages is not None:
-        for stage_idx in (2, 3):
+        # stage0 is the largest Plan-B hotspot. Its blocks are MBConv-style
+        # ResidualBlocks without context/local split, so hook the block main op.
+        stage_idx = 0
+        if stage_idx < len(stages):
+            ops = getattr(stages[stage_idx], "op_list", None)
+            if ops is not None:
+                for block_idx, block in enumerate(ops):
+                    _add_component(
+                        out,
+                        f"stage{stage_idx}/block{block_idx}/main",
+                        getattr(block, "main", block),
+                    )
+
+        # stage2 is the second-largest Plan-B hotspot and contains LiteMLA
+        # context modules plus MBConv local modules.
+        for stage_idx in (2,):
             if stage_idx >= len(stages):
                 continue
             stage = stages[stage_idx]

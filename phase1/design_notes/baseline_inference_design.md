@@ -20,7 +20,7 @@
 ### 1.1 目标（必须达成）
 
 1. **可复现**：给定 `--weights` + `--input-image`（或固定 dummy seed），任意主机重跑应得到统计上等价的 latency 分布（mean ±3σ 之内）。
-2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；或 `stage2/stage3/head` 的热点组件）。
+2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；或 `stage0/stage2/head` 的热点组件）。
 3. **机器可读**：单次运行产出一份 JSON，包含**测时 + 环境 + 权重 + 输入 + NVTX 元信息 + 可选 MACs**，无需 grep 控制台。
 4. **零侵入**：不修改 `efficientvit/` 源码；NVTX 通过 forward hooks 注入，运行结束后移除。
 5. **契约对齐**：严格满足用户在三段式 §2 中提出的 7 条实现约束（见 §6）。
@@ -91,7 +91,7 @@
 |------|---------|----------|-----|------|
 | A（默认） | 无 | 0 | **干净 latency 基准**，与 Phase 2/3 对比的 anchor | 0 |
 | B | `register_forward_pre_hook` + `register_forward_hook` 在 `stem / stage0..3 / head` 上 | 6 ranges | **整体瓶颈定位**（stage 级） | hook 极轻量，几乎可忽略 |
-| C | `register_forward_pre_hook` + `register_forward_hook` 展开 `stage2/stage3/head` 热点组件 | 15 ranges / forward | **Plugin 设计输入**（比较 LiteMLA、MBConv、SegHead 组件谁更值得优化） | hook 数量增加，但仍不改 forward 数值路径 |
+| C | `register_forward_pre_hook` + `register_forward_hook` 展开 `stage0/stage2/head` 热点组件 | 约 12 ranges / forward | **Plugin 设计输入**（比较 early MBConv、LiteMLA/MBConv、SegHead 组件谁更值得优化） | hook 数量增加，但仍不改 forward 数值路径 |
 
 > 编号说明：Plan B 的 `stage0..3` 是 `backbone.stages` 的 `ModuleList` 索引；架构分析中的 `stage1..4` 是语义阶段编号，两者一一对应。
 
@@ -100,20 +100,30 @@
 - 分开 = 两次 nsys run，分别 `levelB.nsys-rep` / `levelC.nsys-rep`，分析时按需切换。
 - 代价：多跑一次。但 MX250 上单次 nsys + 100 iter ≈ 30 秒，可接受。
 
-**取舍 2：为何 Plan C 改为 hook-only，而不继续 monkey-patch LiteMLA？**
+**取舍 2：Nsight 占比分析采用什么口径？**
 
-- Plan B 结果显示热点不只在 LiteMLA，还包括后两个 backbone stage 的其他组件与 SegHead。
+- **端到端 latency**：以 JSON 中 CUDA Events 统计为准。
+- **结构边界**：NVTX range 只提供归属边界，不能把 `NVTX_EVENTS.end - start` 直接当 GPU 组件耗时；那个值主要反映 CPU 侧 enqueue 区间。
+- **组件占比**：从 Nsight sqlite 导出的 `CUPTI_ACTIVITY_KIND_RUNTIME` 与 `CUPTI_ACTIVITY_KIND_KERNEL` 表出发，用 `correlationId` 把 CUDA launch 与 kernel duration 关联，再按 launch 所在 NVTX range 归因。
+- **解释边界**：Plan C 只展开选中的热点组件，因此 Plan C 占比只代表这些组件内部的相对分布，不能替代 Plan B 的全模型占比。
+
+**取舍 3：为何 Plan C 改为 hook-only，而不继续 monkey-patch LiteMLA？**
+
+- Plan B 结果显示热点不只在 LiteMLA，还包括早期高分辨率 stage、stage2 与 SegHead。
 - 若 Plan C 继续只包 `LiteMLA.forward`，它只能回答"LiteMLA 是否有耗时"，不能回答"热点 stage 内到底是 LiteMLA、MBConv 还是 head 更值得优化"。
 - 当前 Plan C 使用 `register_forward_pre_hook` / `register_forward_hook` 展开热点组件，不改写任何 forward 数值路径，因此不需要 sanity check。
 - 旧 LiteMLA monkey-patch helper 已从主脚本移除；如未来需要 LiteMLA 内部实验，应另起专门脚本。
 
-**取舍 3：Plan C 为什么只展开 `stage2/stage3/head`，而不全模型细分？**
+**取舍 4：Plan C 为什么只展开 `stage0/stage2/head`，而不全模型细分？**
 
-- Plan B 已给出大区域热点：`stage2`、`stage3`、`head`。Plan C 应服务于热点解释，而不是制造全模型噪声。
-- B0 的 `EfficientViTBlock.forward()` 顺序是 `context_module -> local_module`，所以 Plan C range 也按这个顺序命名：
-  - `stage{2,3}/downsample`
-  - `stage{2,3}/block{1,2}/context`
-  - `stage{2,3}/block{1,2}/local`
+- 正确的 Plan B sqlite 归因排序显示：`stage0` 最大，`stage2` 第二，`head` 与 `stage3/stem` 接近但包含 SegHead 候选优化点。
+- `stage0 + stage2 + head` 覆盖全模型约 60% 的 GPU kernel 耗时，同时避免把 Plan C 膨胀成全模型递归 profiler。
+- `stage1` 与 `stage3` 暂不纳入 Plan C 主路径；若报告后续需要，可以作为 optional deep dive，而不是污染主口径。
+- B0 的 `EfficientViTBlock.forward()` 顺序是 `context_module -> local_module`，所以 stage2 range 也按这个顺序命名：
+  - `stage0/block{0,1}/main`
+  - `stage2/downsample`
+  - `stage2/block{1,2}/context`
+  - `stage2/block{1,2}/local`
   - `head/input_stage4`、`head/input_stage3`、`head/input_stage2`
   - `head/middle`
   - `head/output_segout`
@@ -244,7 +254,7 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
     "applied": true,
     "hook_count": 30,
     "patched_modules": [],
-    "component_ranges": ["stage2/downsample", "..."]  // Plan C only
+    "component_ranges": ["stage0/block0/main", "..."]  // Plan C only
   },
   "sanity_check": {
     "performed": false,
@@ -287,7 +297,7 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 | `_find_seg_components` | 定位 stem/stages/head | ❌ |
 | `apply_plan_b_hooks` / `remove_hooks` | Plan B 注入/还原 | ❌ |
 | `_find_litemla_modules` | 遍历找 LiteMLA 实例 | ❌ |
-| `_find_plan_c_components` | 定位 `stage2/stage3/head` 热点组件 | ❌ |
+| `_find_plan_c_components` | 定位 `stage0/stage2/head` 热点组件 | ❌ |
 | `apply_plan_c_hooks` | Plan C hook-only 组件级 NVTX 注入 | ❌ |
 | `maybe_profile_macs` | 可选 MACs | ❌ |
 | **`measure_latency_per_iter`** | **主测时口径** | ✅ |
@@ -304,7 +314,7 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 | # | 约束摘要 | 落实位置（文件:符号） | 验证方式 |
 |---|---------|-------------------|--------|
 | 1 | Plan C 不改写 forward | 当前 Plan C 只注册 hooks；无 monkey-patch、无 `MethodType` | code review + smoke test |
-| 2 | 只展开热点组件，不全模型细分 | `_find_plan_c_components()` 只定位 `stage2/stage3/head` | JSON `nvtx.component_ranges` |
+| 2 | 只展开热点组件，不全模型细分 | `_find_plan_c_components()` 只定位 `stage0/stage2/head` | JSON `nvtx.component_ranges` |
 | 3 | git 路径处理稳健 | `resolve_script_version()`：先 `--show-toplevel` 再相对路径 | 在仓库外/无 git/未 commit 三种场景验证 fallback |
 | 4 | NVTX hooks 不做同步 | hooks 只调用 `_nvtx_push/_nvtx_pop` | `grep synchronize` 与 hook 代码审查 |
 | 5 | `no_grad` → `inference_mode` | warmup/measure/MACs 全部用 `with torch.inference_mode():` | `grep -n "no_grad" baseline_inference.py` → 0 命中 |
@@ -321,7 +331,7 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 | **`autocast(enabled=False)` 与 inference_mode 交互未测** | — | LiteMLA 内部 decorator 不依赖 grad，理论无冲突；运行时若报错回退 `no_grad` |
 | **shape-adaptive 分支抖动**（`H*W > dim`） | 不同 input shape 切不同代码路径 | 固定分辨率，cudnn.benchmark=on 后稳态收敛即可 |
 | **`measurement-mode=throughput` 与 NVTX 不太兼容** | enqueue 100 次后单 sync，Plan B/C 的 range 全部挤在一起 | 设计上：throughput 模式建议配 `--nvtx-level A` |
-| **Plan C range 过多导致 timeline 噪声增加** | 15 个 range / forward，100 次 measure 会产生较多 NVTX 事件 | 只展开 Plan B 热点区域，不全模型递归细分 |
+| **Plan C range 过多导致 timeline 噪声增加** | 约 12 个 range / forward，100 次 measure 会产生较多 NVTX 事件 | 只展开 `stage0/stage2/head` 三个代表性热点区域，不全模型递归细分 |
 | **`torchprofile` 不支持的 op** | 自定义 op | best-effort，`status=error` 进 JSON，不阻塞 |
 
 ---
@@ -366,7 +376,7 @@ python phase1/scripts/baseline_inference.py `
 
 - [ ] 跑一次真实 Cityscapes b0 权重的 Plan A，确认 latency 落入合理区间（机器人场景 < 1s）
 - [ ] 跑 Plan B，确认 6 个 stage range 在 Nsight UI 中可见
-- [ ] 跑 Plan C，确认 `stage2/stage3/head` 组件级 range 可见
+- [ ] 跑 Plan C，确认 `stage0/stage2/head` 组件级 range 可见
 - [ ] 写 `compare_baselines.py` 对多份 JSON 做表格化对比
 - [ ] Phase 2 启动时，本设计文档要 cross-link 到 `phase2/design_notes/onnx_export_design.md`
 - [ ] 若引入 FP16/AMP，记录 autocast / dtype 设置并与 JSON schema 对齐

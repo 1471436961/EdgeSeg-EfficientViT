@@ -38,7 +38,7 @@
 --device        cuda
 --seed          INT                        # 默认 2026
 
---nvtx-level    {A,B,C}                    # A=无, B=stage-level, C=hotspot component-level
+--nvtx-level    {A,B,C}                    # A=无, B=stage-level, C=stage0/stage2/head component-level
 --profile-macs                             # 可选 torchprofile MACs
 
 --warmup        20
@@ -85,7 +85,7 @@ nsys profile `
 
 Nsight UI 中应能看到 `stem / stage0 / stage1 / stage2 / stage3 / head` 六个 range。
 
-### 场景 3：Nsight Plan C（热点组件级归因）
+### 场景 3：Nsight Plan C（stage0/stage2/head 热点组件级归因）
 
 ```powershell
 nsys profile `
@@ -100,10 +100,11 @@ nsys profile `
 ```
 
 **注意**：
-- Plan C 使用 forward hooks 展开 `backbone.stages.2`、`backbone.stages.3` 和 `head` 内部组件，不改写 forward 数值路径，因此不需要 sanity check。
-- EfficientViTBlock 的真实执行顺序是 `context_module -> local_module`；Plan C range 命名也按这个顺序。
+- Plan C 使用 forward hooks 展开 `backbone.stages.0`、`backbone.stages.2` 和 `head` 内部组件，不改写 forward 数值路径，因此不需要 sanity check。
+- `stage0` 展开为 `block0/main`、`block1/main`；`stage2` 中 EfficientViTBlock 的真实执行顺序是 `context_module -> local_module`，Plan C range 命名也按这个顺序。
 - `head` 的 merge add 是 `DAGBlock.forward()` 内部函数调用，不是独立 module，当前 hook-only 方案不单独计入一个 range。
 - LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 子算子级 profiling 需要另写专门脚本。
+- 组件占比分析不要直接使用 NVTX range duration；请从 Nsight sqlite 中用 CUDA runtime/kernel `correlationId` 将 kernel duration 归因到 NVTX range。
 
 > Windows Nsight Systems 2026.2.1 实测：`osrt` 不是合法 trace 值；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 建议统一使用 `--trace=cuda,nvtx`。
 
@@ -142,7 +143,7 @@ python phase1/scripts/baseline_inference.py `
 | `timing.mode` | `latency` / `throughput` | 比较时必须同模式 |
 | `timing.ms.p50/p95/p99` | 单帧延迟分位数（ms） | 主报告口径 |
 | `nvtx.level` | A/B/C | 与 nsys-rep 文件名对齐 |
-| `nvtx.component_ranges` | Plan C 组件级 range 列表 | 例如 `stage2/block1/context` |
+| `nvtx.component_ranges` | Plan C 组件级 range 列表 | 例如 `stage0/block0/main`、`stage2/block1/context` |
 | `sanity_check.performed` | 当前 A/B/C 均为 `false` | Plan C 是 hook-only，不改数值路径 |
 | `memory.max_memory_allocated_mb` | peak GPU memory | MX250 上盯紧 2GB 上限 |
 
