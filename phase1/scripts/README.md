@@ -108,6 +108,13 @@ nsys profile `
 
 > Windows Nsight Systems 2026.2.1 实测：`osrt` 不是合法 trace 值；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 建议统一使用 `--trace=cuda,nvtx`。在自动化/AI 执行上下文中，优先使用全路径 `D:\software\nsight_systems\target-windows-x64\nsys.exe`；普通沙箱可能导致 nsys 固定 75 秒超时，需在非沙箱权限下运行。
 
+已归档截图位于 `phase1/results/figures/`：
+
+- Plan B：`planB_timeline_overview.png`、`planB_single_forward_nvtx.png`
+- Plan C：`planC_timeline_overview.png`、`planC_stage0_components.png`、`planC_stage2_components.png`、`planC_head_components.png`
+
+读图口径：组件/阶段名称与边界看 `Threads -> NVTX`；GPU kernel 对应关系看 `CUDA HW -> Kernels`；`CUDA HW -> NVTX` 的宽度只作趋势参考。报告中的定量耗时仍以 `results/metrics/*_nsys_attribution_summary.md` 为准。
+
 ### 场景 4：Smoke test（无权重，快速跑通流程）
 
 ```powershell

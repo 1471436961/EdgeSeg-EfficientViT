@@ -106,6 +106,8 @@
 - **结构边界**：NVTX range 只提供归属边界，不能把 `NVTX_EVENTS.end - start` 直接当 GPU 组件耗时；那个值主要反映 CPU 侧 enqueue 区间。
 - **组件占比**：从 Nsight sqlite 导出的 `CUPTI_ACTIVITY_KIND_RUNTIME` 与 `CUPTI_ACTIVITY_KIND_KERNEL` 表出发，用 `correlationId` 把 CUDA launch 与 kernel duration 关联，再按 launch 所在 NVTX range 归因。
 - **解释边界**：Plan C 只展开选中的热点组件，因此 Plan C 占比只代表这些组件内部的相对分布，不能替代 Plan B 的全模型占比。
+- **截图口径**：`results/figures/` 中的 Nsight 图只作为可视化证据：`Threads -> NVTX` 用于确认逻辑阶段/组件边界，`CUDA HW -> Kernels` 用于观察对应 GPU kernel 执行，`CUDA HW -> NVTX` 只作为 GPU 侧投影趋势参考。定量结论仍以 JSON latency 与 sqlite attribution 表为准。
+- **显存口径**：当前 Phase 1 已记录 PyTorch peak memory（`max_memory_allocated_mb` / `max_memory_reserved_mb`）；连续显存曲线不是本轮 Nsight 截图的主证据，若报告需要曲线，应另加 PyTorch memory sampling。
 
 **取舍 3：为何 Plan C 改为 hook-only，而不继续 monkey-patch LiteMLA？**
 

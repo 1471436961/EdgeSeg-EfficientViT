@@ -24,8 +24,9 @@ phase1/
 ├── weights/                               ← 预训练权重（.pt/.pth，不入库）
 ├── data/                                  ← Cityscapes 样图（不入库）
 ├── results/
-│   ├── metrics/                           ← 延迟/显存/吞吐 csv（入库，体积小）
-│   └── nsight/                            ← .nsys-rep 报告 + 截图（不入库）
+│   ├── metrics/                           ← 延迟/显存/归因 JSON/MD（入库，体积小）
+│   ├── figures/                           ← Nsight 关键截图（入库，体积小）
+│   └── nsight/                            ← .nsys-rep / .sqlite 原始报告（不入库）
 └── bottleneck_analysis_report.md          ← 最终交付物（V3.0 重命名，待编写）
 ```
 
@@ -60,9 +61,13 @@ phase1/
 - [x] **Step 5**：用 Nsight Systems 剖析推理过程
   - 命令模板（Windows Nsight Systems 2026.2.1）：`nsys profile -t cuda,nvtx -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
   - 注：Windows 版 `nsys` 不接受 `osrt` trace；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 归因主口径使用 `cuda,nvtx`。
-  - 截 3 类关键图：CPU↔GPU 时间线、**CUDA kernel 耗时归因排序（重点）**、显存使用曲线
+  - ✅ Nsight 关键截图已归档到 [`results/figures/`](./results/figures/)：
+    - Plan B：[`planB_timeline_overview.png`](./results/figures/planB_timeline_overview.png)、[`planB_single_forward_nvtx.png`](./results/figures/planB_single_forward_nvtx.png)
+    - Plan C：[`planC_timeline_overview.png`](./results/figures/planC_timeline_overview.png)、[`planC_stage0_components.png`](./results/figures/planC_stage0_components.png)、[`planC_stage2_components.png`](./results/figures/planC_stage2_components.png)、[`planC_head_components.png`](./results/figures/planC_head_components.png)
+  - 截图口径：`Threads -> NVTX` 用于确认逻辑阶段/组件边界；`CUDA HW -> Kernels` 用于观察对应 GPU kernel 执行；`CUDA HW -> NVTX` 仅作 GPU 侧投影趋势参考
   - 分析口径：端到端 latency 以 JSON 中 CUDA Events 为准；NVTX range 只提供结构边界，组件占比应从 Nsight sqlite 中用 CUDA runtime/kernel `correlationId` 归因统计，不能直接用 NVTX range 的 `end-start` 当 GPU 耗时
   - ✅ Plan B/C Nsight attribution 表已生成：[`planB_nsys_attribution_summary.md`](./results/metrics/planB_nsys_attribution_summary.md)、[`planC_nsys_attribution_summary.md`](./results/metrics/planC_nsys_attribution_summary.md)
+  - ✅ 显存证据当前采用 JSON 中的 `max_memory_allocated_mb` / `max_memory_reserved_mb` 峰值字段；连续显存曲线不是本轮 Nsight 截图主证据
 - [ ] **Step 6**：撰写 `bottleneck_analysis_report.md`
   - 不只是"哪里慢"，更要标注 **"哪些算子序列适合融合为 Plugin"**
   - 给出每个候选融合点的实测耗时 + 预期加速理论估算
