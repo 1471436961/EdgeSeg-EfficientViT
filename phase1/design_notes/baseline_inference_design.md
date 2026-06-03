@@ -20,9 +20,9 @@
 ### 1.1 目标（必须达成）
 
 1. **可复现**：给定 `--weights` + `--input-image`（或固定 dummy seed），任意主机重跑应得到统计上等价的 latency 分布（mean ±3σ 之内）。
-2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；或 LiteMLA 内部）。
-3. **机器可读**：单次运行产出一份 JSON，包含**测时 + 环境 + 权重 + 输入 + sanity + 可选 MACs**，无需 grep 控制台。
-4. **零侵入**：不修改 `efficientvit/` 源码；NVTX 通过 hook + 实例级 monkey-patch 注入，运行结束后还原。
+2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；或 `stage2/stage3/head` 的热点组件）。
+3. **机器可读**：单次运行产出一份 JSON，包含**测时 + 环境 + 权重 + 输入 + NVTX 元信息 + 可选 MACs**，无需 grep 控制台。
+4. **零侵入**：不修改 `efficientvit/` 源码；NVTX 通过 forward hooks 注入，运行结束后移除。
 5. **契约对齐**：严格满足用户在三段式 §2 中提出的 7 条实现约束（见 §6）。
 
 ### 1.2 非目标（明确不做）
@@ -49,7 +49,7 @@
                                 ├─────────────────────────┤
                                 │   NVTX inject:          │
                                 │     B = hooks           │
-                                │     C = sanity + patch  │  *patch only if sanity OK*
+                                │     C = component hooks │  *hook-only, no patch*
                                 ├─────────────────────────┤
                                 │   warmup (no record)    │
                                 │   measure (CUDA Events) │  <-- only this is "timing"
@@ -62,10 +62,10 @@
 
 四个关键边界：
 
-- **`x` 在 GPU 上**之后，所有计时之前，先完成 hashing/MACs/sanity（约束 #6）。
+- **`x` 在 GPU 上**之后，所有计时之前，先完成 hashing/MACs（约束 #6）。
 - **NVTX 注入**只发生在 warmup 之前；运行结束在 `finally` 还原（约束 #1/#2）。
 - **CUDA sync** 只出现在 warmup/measure 边界、CUDA Event 读取，**绝不**出现在 NVTX range 内部。
-- **JSON 落盘**永远是 main 的最后一步，确保即便 sanity 失败也能留下取证报告。
+- **JSON 落盘**永远是 main 的最后一步，确保每次有效 run 都有机器可读记录。
 
 ---
 
@@ -91,55 +91,51 @@
 |------|---------|----------|-----|------|
 | A（默认） | 无 | 0 | **干净 latency 基准**，与 Phase 2/3 对比的 anchor | 0 |
 | B | `register_forward_pre_hook` + `register_forward_hook` 在 `stem / stage0..3 / head` 上 | 6 ranges | **整体瓶颈定位**（stage 级） | hook 极轻量，几乎可忽略 |
-| C | 实例级 `MethodType` monkey-patch 每个 `LiteMLA.forward` | ~8 ranges（B0 在 stage3/4 各 2 个 LiteMLA × 2 个 stage 边界） | **Plugin 设计输入**（验证 LiteMLA 是否真的是瓶颈，量化它占比） | 改写了 forward 调用路径，需要 sanity check 兜底 |
+| C | `register_forward_pre_hook` + `register_forward_hook` 展开 `stage2/stage3/head` 热点组件 | 15 ranges / forward | **Plugin 设计输入**（比较 LiteMLA、MBConv、SegHead 组件谁更值得优化） | hook 数量增加，但仍不改 forward 数值路径 |
 
 > 编号说明：Plan B 的 `stage0..3` 是 `backbone.stages` 的 `ModuleList` 索引；架构分析中的 `stage1..4` 是语义阶段编号，两者一一对应。
 
 **取舍 1：为何 B 与 C 分开跑，而不合并？**
-- 合并 = 同一份 timeline 上既有 stage 级、又有 LiteMLA 内部级 → Nsight UI 看着乱，且 Plan C 的 patch 会改变 `LiteMLA.forward` 的入口栈帧，Plan B 的 hook 可能与之打架。
+- 合并 = 同一份 timeline 上既有 stage 级、又有热点组件级 → Nsight UI 看着乱，且 Plan C 的 range 数更多，会稀释 Plan B 作为主基线的清晰度。
 - 分开 = 两次 nsys run，分别 `levelB.nsys-rep` / `levelC.nsys-rep`，分析时按需切换。
 - 代价：多跑一次。但 MX250 上单次 nsys + 100 iter ≈ 30 秒，可接受。
 
-**取舍 2：为何 Plan C 是实例级（`types.MethodType`）而不是类级？**
+**取舍 2：为何 Plan C 改为 hook-only，而不继续 monkey-patch LiteMLA？**
 
-| 维度 | 类级 `LiteMLA.forward = wrapper` | 实例级 `m.forward = MethodType(wrapper, m)` |
-|------|----------------------------------|--------------------------------------------|
-| 副作用范围 | **整个 Python 进程**所有 LiteMLA 实例 | 仅本次脚本构建的 model 内的实例 |
-| 还原难度 | 必须显式 `LiteMLA.forward = original` | `del m.forward` 即可自动回落到类方法 |
-| 重入风险 | 多次调用会层层包裹 → 需要 sentinel | 每个实例独立检查 `_edgeseg_nvtx_patched` 即可 |
-| 跨实例隔离 | ❌ 同 Notebook 里 import 多个 model 会互相污染 | ✅ 完全隔离 |
-| 实现复杂度 | 略低（一行赋值） | 略高（要遍历 + setattr） |
+- Plan B 结果显示热点不只在 LiteMLA，还包括后两个 backbone stage 的其他组件与 SegHead。
+- 若 Plan C 继续只包 `LiteMLA.forward`，它只能回答"LiteMLA 是否有耗时"，不能回答"热点 stage 内到底是 LiteMLA、MBConv 还是 head 更值得优化"。
+- 当前 Plan C 使用 `register_forward_pre_hook` / `register_forward_hook` 展开热点组件，不改写任何 forward 数值路径，因此不需要 sanity check。
+- 旧 LiteMLA monkey-patch helper 已从主脚本移除；如未来需要 LiteMLA 内部实验，应另起专门脚本。
 
-→ **采纳实例级**。代价是多 ~10 行代码，换来更安全的副作用边界（约束 #2）。
+**取舍 3：Plan C 为什么只展开 `stage2/stage3/head`，而不全模型细分？**
 
-**取舍 3：Plan C 内部只包一层 `LiteMLA` range，而不进入更细粒度？**
-- 用户原始 v2 草案曾考虑在 `qkv_proj / multiscale / relu_lin_attn / proj` 上各打一个 range。
-- 否决理由：
-  1. **会破坏 `@torch.autocast(enabled=False)` 的语义边界**——这些子模块都在 autocast disable 区间内，子粒度 range 没问题，但**子粒度 sanity 极难做**（要 hook 4 个 sub-attribute 而非一个 forward）。
-  2. **Plugin 的边界本来就是整个 LiteMLA**——Phase 3 要替换的就是这一整块（见 [`architecture_analysis.md`](../architecture_analysis.md) §结论 5），子粒度 range 对 Plugin 边界界定没增量信息。
-  3. Nsight timeline 上同一 LiteMLA range 内的 CUDA kernel 序列已足够暴露内部行为。
-- → 现版只包一层 `LiteMLA` range。若后续 Plugin 设计需要更细，再单独写 `litemla_internal_profile.py`，不污染本脚本。
+- Plan B 已给出大区域热点：`stage2`、`stage3`、`head`。Plan C 应服务于热点解释，而不是制造全模型噪声。
+- B0 的 `EfficientViTBlock.forward()` 顺序是 `context_module -> local_module`，所以 Plan C range 也按这个顺序命名：
+  - `stage{2,3}/downsample`
+  - `stage{2,3}/block{1,2}/context`
+  - `stage{2,3}/block{1,2}/local`
+  - `head/input_stage4`、`head/input_stage3`、`head/input_stage2`
+  - `head/middle`
+  - `head/output_segout`
+- `head` 的 merge add 是 `DAGBlock.forward()` 内部的函数调用，不是独立 module；当前 hook-only 方案不单独隔离它。
+- 若未来需要 LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 的子算子级耗时，应另写专门脚本，不污染 baseline 主脚本。
 
-### 3.3 Plan-C sanity check：逐模块 + hook 先于 patch
+### 3.3 Plan-C sanity check：当前主路径不需要
 
-完整流程（实现在 `run_sanity_check()`）：
+当前 `--nvtx-level C` 只注册 hooks，不 monkey-patch forward，因此它不改变模型数值路径，不需要 patched-vs-original sanity check。
 
-1. 用 `register_forward_hook` 给每个 `LiteMLA` 注册一个 capture hook，记录 `inp[0].detach().clone()` 与 `out.detach().clone()`。
-2. 跑一次 `model(x)`（**原始 forward**，因为此时尚未 patch）。
-3. **移除所有 hook**（约束 #4：hook 与 patch 不并存）。
-4. 应用 Plan-C monkey-patch。
-5. 对每个 LiteMLA `m`，**单独**调用 `m(cap['inp'])`（此时调用的是 patched forward）。
-6. 与 step 2 缓存的 `cap['out']` 比较：
-   - 记录 `max_abs_diff` 与 `mean_abs_diff`。
-   - 用 `torch.allclose(atol=1e-5, rtol=1e-5)` 作 pass/fail 判定。
-7. 任一模块失败 → 写一份带 `status=sanity_failed` 的 JSON 取证，`exit code 3`，**不进入 warmup/measure**。
-8. 全通过 → 保留 patch，进入 warmup/measure。
+JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only 路径下为：
 
-**关键设计点**：
-- ✅ **hook 在 patch 之前**：保证 step 2 跑的是货真价实的 original forward，不会出现"patched vs patched"的伪检查（约束 #1 的精神）。
-- ✅ **逐模块比较而非端到端**：如果某个 LiteMLA 的 patched forward 引入了误差，逐模块能直接定位是 `backbone.stages.3.0.context_module.main`（举例），端到端比较只能看到 segout 偏差，无从定位。
-- ✅ **FP32 阈值 1e-5**：Q1 选定。**未来加 FP16/AMP 时必须放宽**（典型 atol=1e-3），且 design note 这里要更新。
-- ✅ **失败时仍写 JSON**：方便复现 / 提交 issue / 后续回归对比。这是少数允许 `status != "ok"` 的 JSON 之一（与约束 #7 不冲突——#7 针对的是 weights 缺失，不是数值回归）。
+```json
+"sanity_check": {
+  "performed": false,
+  "passed": null,
+  "per_module": [],
+  "notes": ""
+}
+```
+
+旧版逐 LiteMLA sanity check 已从主脚本移除；如未来重新启用 LiteMLA monkey-patch 实验，需要在专门脚本中重新定义数值校验流程。
 
 ### 3.4 权重：强制 + hash + smoke-test 例外
 
@@ -166,7 +162,7 @@
 
 ### 3.6 `inference_mode` 替代 `no_grad`
 
-约束 #5 要求。`torch.inference_mode()` 比 `no_grad()` 多关闭了一些 autograd 内部簿记（view tracking、version counter），对纯推理 benchmark 更干净。所有 warmup / measure / sanity / MACs 全部包在 `inference_mode` 内。
+约束 #5 要求。`torch.inference_mode()` 比 `no_grad()` 多关闭了一些 autograd 内部簿记（view tracking、version counter），对纯推理 benchmark 更干净。所有 warmup / measure / MACs 全部包在 `inference_mode` 内。
 
 **注意**：`inference_mode` 下产生的 tensor 不能在退出 context 后被 autograd 操作。因为本脚本是 end-to-end 推理，无后续梯度需求，安全。
 
@@ -203,7 +199,7 @@
 - 用已在 `requirements.txt` 中的 `torchprofile`（不引入 `thop`）。
 - **跑在 warmup 之前**，结果存入 JSON 后再开始 warmup。
 - 失败 best-effort（`status=error`），不抛、不退出。
-- ⚠️ Plan C patched 状态下跑 MACs 可能数值不准（patched forward 多一层 Python 包装）→ 已在脚本顺序上把 MACs 放在 NVTX 注入**之前**。
+- MACs 放在 warmup/measure 之前，且默认关闭；即使 Plan C 打开 hooks，MACs 也不进入计时区间。
 
 ---
 
@@ -212,7 +208,7 @@
 ```json5
 {
   "json_schema_version": "1.0",
-  "status": "ok | sanity_failed",
+  "status": "ok",
   "script_version": "baseline_inference.py@<sha>[-dirty] | uncommitted | git_unavailable",
   "run_timestamp": "2026-05-28T12:34:56+0800",
   "is_smoke_test": false,
@@ -246,17 +242,15 @@
   "nvtx": {
     "level": "A | B | C",
     "applied": true,
-    "hook_count": 14,                    // Plan B only
-    "patched_modules": ["backbone.stages.3...", ...]  // Plan C only
+    "hook_count": 30,
+    "patched_modules": [],
+    "component_ranges": ["stage2/downsample", "..."]  // Plan C only
   },
   "sanity_check": {
-    "performed": true,
-    "passed": true,
-    "atol": 1e-5, "rtol": 1e-5,
-    "per_module": [
-      { "name": "...", "ok": true, "max_abs_diff": 0.0, "mean_abs_diff": 0.0 }
-    ],
-    "notes": "checked N LiteMLA modules"
+    "performed": false,
+    "passed": null,
+    "per_module": [],
+    "notes": ""
   },
   "macs": {
     "status": "skipped | ok | error | unavailable",
@@ -293,9 +287,8 @@
 | `_find_seg_components` | 定位 stem/stages/head | ❌ |
 | `apply_plan_b_hooks` / `remove_hooks` | Plan B 注入/还原 | ❌ |
 | `_find_litemla_modules` | 遍历找 LiteMLA 实例 | ❌ |
-| `_make_patched_litemla_forward` | 构造 patched closure | ❌ |
-| `apply_plan_c_monkey_patch` / `restore_plan_c_monkey_patch` | Plan C 注入/还原（实例级、幂等） | ❌ |
-| `run_sanity_check` | 逐模块 patched vs original 对照 | ❌ |
+| `_find_plan_c_components` | 定位 `stage2/stage3/head` 热点组件 | ❌ |
+| `apply_plan_c_hooks` | Plan C hook-only 组件级 NVTX 注入 | ❌ |
 | `maybe_profile_macs` | 可选 MACs | ❌ |
 | **`measure_latency_per_iter`** | **主测时口径** | ✅ |
 | `measure_throughput_batched` | 辅助测时 | ✅ |
@@ -310,12 +303,12 @@
 
 | # | 约束摘要 | 落实位置（文件:符号） | 验证方式 |
 |---|---------|-------------------|--------|
-| 1 | 保存 `original_forward` 引用；幂等；可恢复 | `apply_plan_c_monkey_patch()` 中 `setattr(m, _PATCH_ORIG, ...)` + `_PATCH_FLAG` 检查 + `restore_plan_c_monkey_patch()` | smoke test: `--nvtx-level C` 跑两次同一进程，第二次应零增量 |
-| 2 | 实例级 patch 优先 | `types.MethodType(...)` 绑定到实例；类的 `LiteMLA.forward` 全程**不动** | 检查脚本退出后 `LiteMLA.forward is <原始>` |
+| 1 | Plan C 不改写 forward | 当前 Plan C 只注册 hooks；无 monkey-patch、无 `MethodType` | code review + smoke test |
+| 2 | 只展开热点组件，不全模型细分 | `_find_plan_c_components()` 只定位 `stage2/stage3/head` | JSON `nvtx.component_ranges` |
 | 3 | git 路径处理稳健 | `resolve_script_version()`：先 `--show-toplevel` 再相对路径 | 在仓库外/无 git/未 commit 三种场景验证 fallback |
-| 4 | sanity 只用 forward_hook，不用 pre_hook | `run_sanity_check()` 内只调用 `register_forward_hook` | code review |
-| 5 | `no_grad` → `inference_mode` | warmup/measure/sanity/MACs 全部用 `with torch.inference_mode():` | `grep -n "no_grad" baseline_inference.py` → 0 命中 |
-| 6 | hash / sanity / MACs 不混入 timing | main 函数严格顺序：build → hash(in build) → MACs → NVTX → warmup → measure | 函数级地图见 §5 |
+| 4 | NVTX hooks 不做同步 | hooks 只调用 `_nvtx_push/_nvtx_pop` | `grep synchronize` 与 hook 代码审查 |
+| 5 | `no_grad` → `inference_mode` | warmup/measure/MACs 全部用 `with torch.inference_mode():` | `grep -n "no_grad" baseline_inference.py` → 0 命中 |
+| 6 | hash / MACs 不混入 timing | main 函数严格顺序：build → hash(in build) → MACs → NVTX → warmup → measure | 函数级地图见 §5 |
 | 7 | `weights_status="missing"` 不进入正式 JSON | `validate_args()` 在缺权重且无 smoke flag 时 `SystemExit` | smoke test |
 
 ---
@@ -328,7 +321,7 @@
 | **`autocast(enabled=False)` 与 inference_mode 交互未测** | — | LiteMLA 内部 decorator 不依赖 grad，理论无冲突；运行时若报错回退 `no_grad` |
 | **shape-adaptive 分支抖动**（`H*W > dim`） | 不同 input shape 切不同代码路径 | 固定分辨率，cudnn.benchmark=on 后稳态收敛即可 |
 | **`measurement-mode=throughput` 与 NVTX 不太兼容** | enqueue 100 次后单 sync，Plan B/C 的 range 全部挤在一起 | 设计上：throughput 模式建议配 `--nvtx-level A` |
-| **Plan-C sanity 在某些上下文偏移下假阳性** | `cudnn.benchmark` 在不同调用顺序下挑了不同 algo | sanity 在 patch 前后**同一进程**内连续跑，algo 一致；如出现假阳性，关 benchmark 重测 |
+| **Plan C range 过多导致 timeline 噪声增加** | 15 个 range / forward，100 次 measure 会产生较多 NVTX 事件 | 只展开 Plan B 热点区域，不全模型递归细分 |
 | **`torchprofile` 不支持的 op** | 自定义 op | best-effort，`status=error` 进 JSON，不阻塞 |
 
 ---
@@ -352,7 +345,7 @@ nsys profile -o phase1/results/nsight/levelB `
   --weights phase1/weights/b0.pt --nvtx-level B
 ```
 
-Nsight Plan C（含 sanity）：
+Nsight Plan C（热点组件级）：
 ```powershell
 nsys profile -o phase1/results/nsight/levelC `
   python phase1/scripts/baseline_inference.py `
@@ -372,11 +365,11 @@ python phase1/scripts/baseline_inference.py `
 ## 9. 后续演进 checklist
 
 - [ ] 跑一次真实 Cityscapes b0 权重的 Plan A，确认 latency 落入合理区间（机器人场景 < 1s）
-- [ ] 跑 Plan B，确认 7 个 stage range 在 Nsight UI 中可见
-- [ ] 跑 Plan C，sanity 全部通过 + LiteMLA range 可见
+- [ ] 跑 Plan B，确认 6 个 stage range 在 Nsight UI 中可见
+- [ ] 跑 Plan C，确认 `stage2/stage3/head` 组件级 range 可见
 - [ ] 写 `compare_baselines.py` 对多份 JSON 做表格化对比
 - [ ] Phase 2 启动时，本设计文档要 cross-link 到 `phase2/design_notes/onnx_export_design.md`
-- [ ] 若引入 FP16/AMP，**回到 §3.3 更新 sanity 阈值**
+- [ ] 若引入 FP16/AMP，记录 autocast / dtype 设置并与 JSON schema 对齐
 
 ---
 

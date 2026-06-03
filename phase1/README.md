@@ -53,12 +53,13 @@ phase1/
   - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）：
     - Plan A: mean ≈ 23.9 ms
     - Plan B: mean ≈ 23.6 ms（mid-grain hooks 已注入，hook_count=12）
-    - Plan C: mean ≈ 23.5 ms（4 个 LiteMLA monkey-patch + sanity_check 全过，max_abs_diff=0.0）
+    - Plan C: mean ≈ 23.8 ms（hotspot component-level hooks 已注入，15 个 range / 30 hooks；正式 nsys 需重跑）
   - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）
   - 使用速查：[`scripts/README.md`](./scripts/README.md)
   - ✅ **正式 Plan A baseline 已完成**：真实 Cityscapes 权重 + 固定输入图 + 1024×2048 + warmup 20 + measure 100，结果见 [`results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json`](./results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json)
 - [ ] **Step 5**：用 Nsight Systems 剖析推理过程
-  - 命令模板：`nsys profile -t cuda,nvtx,osrt -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
+  - 命令模板（Windows Nsight Systems 2026.2.1）：`nsys profile -t cuda,nvtx -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
+  - 注：Windows 版 `nsys` 不接受 `osrt` trace；`wddm` 需要管理员权限，普通终端会被禁用。Phase 1 归因主口径使用 `cuda,nvtx`。
   - 截 3 类关键图：CPU↔GPU 时间线、**算子序列耗时排序（重点）**、显存使用曲线
 - [ ] **Step 6**：撰写 `bottleneck_analysis_report.md`
   - 不只是"哪里慢"，更要标注 **"哪些算子序列适合融合为 Plugin"**
@@ -92,7 +93,7 @@ phase1/
 - **原因**：PyTorch 2.7+ 已放弃 Pascal 架构（sm_61）预编译 wheel，2.4.x 是最后一批官方支持 MX250 的版本。
 
 ### 决策 3：NVTX 标注粒度 ✅ **已确定（commit `ec4cda2` 实装）**
-> **采纳双跑策略**：正式 baseline 用 Plan B（mid-grain，stem/stage0..3/head 共 6 个 range），Plugin 设计用 Plan C（LiteMLA-internal，4 个实例级 monkey-patch + sanity check）。
+> **采纳双跑策略**：正式 baseline 用 Plan B（mid-grain，stem/stage0..3/head 共 6 个 range），Plugin 设计用 Plan C（hotspot component-level，展开 `stage2/stage3/head` 的关键组件）。
 > 实装方式：`baseline_inference.py --nvtx-level {A,B,C}`；Plan A 无 NVTX 用于干净 latency 参考。
 > 详细讨论见下方"NVTX 标注方案"小节。
 
@@ -136,27 +137,40 @@ total
 ```
 - ✅ 能直接回答"注意力 vs 卷积谁主导""head 的 upsample 是不是瓶颈"；
 - ✅ 输出报告里每个候选融合点都有对应数据；
-- ⚠️ 需要给 backbone / EfficientViTBlock / SegHead 各打 ~3 个 hook 或直接 monkey-patch forward。
+- ⚠️ 需要给 backbone / EfficientViTBlock / SegHead 注册 forward hooks。
 
-### 方案 C · 最细（≈25 个 range，含 LiteMLA 内部）
-在方案 B 基础上，**进一步细化 LiteMLA 内部**：
+### 方案 C · 热点组件级（stage2/stage3/head）
+在方案 B 基础上，**只展开已定位的热点区域**：
 ```
-lite_mla
-├── qkv_conv                    （Conv1x1 → 3*total_dim）
-├── multi_scale_aggreg          （Conv5x5 DW + Conv1x1 grouped + concat）
-├── reshape_split_qkv
-├── relu_qk
-├── linear_matmul_vkt           （V·K^T）
-├── linear_matmul_vkq           （VK·Q）
-├── norm_divide                 （末尾归一化除法）
-└── proj_conv                   （Conv1x1 + BN）
+stage2
+├── downsample
+├── block1/context_module   （LiteMLA + residual）
+├── block1/local_module     （MBConv + residual）
+├── block2/context_module
+└── block2/local_module
+
+stage3
+├── downsample
+├── block1/context_module
+├── block1/local_module
+├── block2/context_module
+└── block2/local_module
+
+head
+├── input_stage4
+├── input_stage3
+├── input_stage2
+├── middle
+└── output_segout
 ```
-- ✅ **直接指出 Plugin 内部每个子操作的耗时占比**，对阶段三 kernel 设计极有价值；
-- ⚠️ 需要短暂"侵入式"修改 `LiteMLA.forward`（写一个带 NVTX 的 patched 版本，仅用于剖析）；
+- ✅ **直接回答热点区域里到底是 LiteMLA、MBConv 还是 SegHead 更慢**；
+- ✅ 使用 forward hooks，不改写 forward 数值路径，因此不需要 sanity check；
+- ⚠️ `head` 内部的 merge add 不是独立 module，当前 hook-only 方案不单独计入一个 range；
+- ℹ️ 若后续需要 LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 子算子级耗时，应另写专门的 `litemla_internal_profile.py`；
 - ⚠️ NVTX range 本身有 ~1μs/次开销，B0 stage4 注意力本来就只有几百 μs，**range 太密可能反而扰动测量**。
 
 ### 🎯 我的明确建议
-> **跑两遍**：第一遍用 **方案 B** 得到稳定的端到端 baseline 数字（提交报告主表）；第二遍用 **方案 C 仅针对 LiteMLA** 单独打开（其他 range 关掉），专门给阶段三 Plugin 设计提供子算子级耗时。
+> **跑两遍**：第一遍用 **方案 B** 得到稳定的端到端 baseline 数字（提交报告主表）；第二遍用 **方案 C** 展开 `stage2/stage3/head` 的热点组件，专门给阶段三 Plugin 设计提供组件级耗时。
 >
 > 这样既不让 NVTX 开销污染主基线，又能拿到 Plugin 设计需要的细粒度数据，**是性价比最高的策略**。
 

@@ -11,19 +11,18 @@ This script is the **dual-run NVTX baseline** described in
 ``phase1/design_notes/baseline_inference_design.md``:
 
 * ``--nvtx-level A``  : no NVTX (clean latency reference)
-* ``--nvtx-level B``  : mid-grain ranges (stem / stage1..4 / head)
-* ``--nvtx-level C``  : LiteMLA-internal ranges via Plan-C
-                       instance-level monkey-patch (for Plugin design)
+* ``--nvtx-level B``  : mid-grain ranges (stem / stage0..3 / head)
+* ``--nvtx-level C``  : hotspot component ranges in stage2/stage3/head
+                       (for Plugin design)
 
 Hard contracts (see design note for full rationale)
 ---------------------------------------------------
 * batch_size = 1, dtype = fp32, CUDA Events timing, warmup=20, measure=100.
-* Plan-C patch is **instance-level**, idempotent, restorable.
-* sanity_check (Plan-C only) compares per-LiteMLA original vs patched
-  forward on identical input, atol=rtol=1e-5.
+* Plan-C uses hook-only hotspot component ranges and does not alter the
+  numerical forward path.
 * No torch.no_grad(); everything inference-bound runs under
   torch.inference_mode().
-* Hashing / sanity / MACs all happen **outside** the measure loop.
+* Hashing / optional MACs all happen **outside** the measure loop.
 * ``--weights`` is mandatory unless ``--allow-random-weights`` is set;
   the latter is for smoke tests only.
 
@@ -51,7 +50,6 @@ import subprocess
 import sys
 import time
 import types
-from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -272,15 +270,6 @@ import torch
 JSON_SCHEMA_VERSION = "1.0"
 SCRIPT_NAME = "baseline_inference.py"
 
-# Plan-C sanity check tolerance (FP32). Loosen for FP16/AMP in the future.
-SANITY_ATOL = 1e-5
-SANITY_RTOL = 1e-5
-
-# Sentinel attribute names set on patched LiteMLA instances.
-_PATCH_FLAG = "_edgeseg_nvtx_patched"
-_PATCH_ORIG = "_edgeseg_original_forward"
-
-
 # --------------------------------------------------------------------------- #
 # 1. Argument parsing                                                          #
 # --------------------------------------------------------------------------- #
@@ -319,7 +308,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     # --- NVTX / profiling --------------------------------------------------- #
     p.add_argument("--nvtx-level", default="A",
                    choices=["A", "B", "C"],
-                   help="A=no NVTX, B=mid-grain, C=LiteMLA-internal (Plan C).")
+                   help="A=no NVTX, B=mid-grain, C=hotspot component-level (Plan C).")
     p.add_argument("--profile-macs", action="store_true",
                    help="Optional FLOPs/MACs profiling via torchprofile. "
                         "Runs once, outside measure loop. May increase VRAM.")
@@ -595,7 +584,7 @@ def _nvtx_pop() -> None:
     torch.cuda.nvtx.range_pop()
 
 
-# ---- Plan B: mid-grain hooks (stem / stage1..4 / head) -------------------- #
+# ---- Plan B: mid-grain hooks (stem / stage0..3 / head) -------------------- #
 
 def _find_seg_components(model: torch.nn.Module) -> Dict[str, torch.nn.Module]:
     """
@@ -651,172 +640,93 @@ def remove_hooks(handles: List[Any]) -> None:
             pass
 
 
-# ---- Plan C: LiteMLA-internal instance-level monkey-patch ------------------ #
+# ---- Plan C: hotspot component-level hooks --------------------------------- #
 
-def _find_litemla_modules(model: torch.nn.Module) -> List[Tuple[str, torch.nn.Module]]:
-    """Return [(qualified_name, module), ...] of all LiteMLA instances."""
-    from efficientvit.models.nn.ops import LiteMLA  # type: ignore
-    found: List[Tuple[str, torch.nn.Module]] = []
-    for n, m in model.named_modules():
-        if isinstance(m, LiteMLA):
-            found.append((n, m))
-    return found
+def _add_component(out: Dict[str, torch.nn.Module], name: str, mod: Any) -> None:
+    if isinstance(mod, torch.nn.Module):
+        out[name] = mod
 
 
-def _make_patched_litemla_forward(original_forward: Callable) -> Callable:
+def _find_plan_c_components(model: torch.nn.Module) -> Dict[str, torch.nn.Module]:
     """
-    Wrap an unbound LiteMLA.forward with NVTX ranges that mirror the four
-    structural stages we want to attribute in Nsight:
+    Locate hotspot components inside the Plan-B hot regions.
 
-        litemla/qkv_proj  litemla/multiscale  litemla/relu_lin_attn  litemla/proj
+    Plan B showed the dominant regions are backbone.stages.2,
+    backbone.stages.3, and head. Plan C intentionally expands only these
+    regions:
 
-    NOTE: this is a lightweight wrapper around the *whole* forward; we do not
-    rewrite internal logic. Fine-grained internal NVTX (one range per Conv/MM)
-    is intentionally NOT done here -- see design note for rationale.
+      stage{2,3}/downsample
+      stage{2,3}/block{1,2}/context   # EfficientViTBlock runs context first
+      stage{2,3}/block{1,2}/local
+      head/input_{stage4,stage3,stage2}, head/middle, head/output_segout
+
+    The head merge add itself is not a module in DAGBlock.forward, so it is not
+    isolated by this hook-only scheme.
     """
-    def patched_forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[no-untyped-def]
-        _nvtx_push("LiteMLA")
-        try:
-            out = original_forward(self, x)
-        finally:
+    out: Dict[str, torch.nn.Module] = {}
+    bb = getattr(model, "backbone", None)
+    stages = getattr(bb, "stages", None) if bb is not None else None
+    if stages is not None:
+        for stage_idx in (2, 3):
+            if stage_idx >= len(stages):
+                continue
+            stage = stages[stage_idx]
+            ops = getattr(stage, "op_list", None)
+            if ops is None or len(ops) == 0:
+                continue
+            _add_component(out, f"stage{stage_idx}/downsample", ops[0])
+            for block_idx in range(1, len(ops)):
+                block = ops[block_idx]
+                _add_component(
+                    out,
+                    f"stage{stage_idx}/block{block_idx}/context",
+                    getattr(block, "context_module", None),
+                )
+                _add_component(
+                    out,
+                    f"stage{stage_idx}/block{block_idx}/local",
+                    getattr(block, "local_module", None),
+                )
+
+    head = getattr(model, "head", None)
+    if head is not None:
+        input_keys = list(getattr(head, "input_keys", []))
+        input_ops = getattr(head, "input_ops", None)
+        if input_ops is not None:
+            for key, op in zip(input_keys, input_ops):
+                _add_component(out, f"head/input_{key}", op)
+        _add_component(out, "head/middle", getattr(head, "middle", None))
+        output_keys = list(getattr(head, "output_keys", []))
+        output_ops = getattr(head, "output_ops", None)
+        if output_ops is not None:
+            for key, op in zip(output_keys, output_ops):
+                _add_component(out, f"head/output_{key}", op)
+    return out
+
+
+def apply_plan_c_hooks(model: torch.nn.Module) -> Tuple[List[Any], List[str]]:
+    """Register hooks for Plan-C hotspot component NVTX ranges."""
+    handles: List[Any] = []
+    comps = _find_plan_c_components(model)
+
+    def _mk_pre(name: str) -> Callable[..., None]:
+        def _pre(_mod, _inp):
+            _nvtx_push(name)
+        return _pre
+
+    def _mk_post(_name: str) -> Callable[..., None]:
+        def _post(_mod, _inp, _out):
             _nvtx_pop()
-        return out
-    return patched_forward
+        return _post
 
-
-def apply_plan_c_monkey_patch(model: torch.nn.Module) -> List[Tuple[str, torch.nn.Module]]:
-    """
-    Per user constraint #1+#2: instance-level patch, idempotent, restorable.
-
-    Returns the list of patched (name, module) pairs for later restore.
-    """
-    patched: List[Tuple[str, torch.nn.Module]] = []
-    for name, m in _find_litemla_modules(model):
-        if getattr(m, _PATCH_FLAG, False):
-            # Already patched; skip (per constraint #1: avoid double-wrap).
-            continue
-        # Capture the *class-level* original forward as an unbound function.
-        # We deliberately bind the original via the type, so even if some other
-        # instance gets patched, this closure stays correct.
-        original_forward = type(m).forward
-        setattr(m, _PATCH_ORIG, original_forward)
-        m.forward = types.MethodType(  # type: ignore[method-assign]
-            _make_patched_litemla_forward(original_forward), m
-        )
-        setattr(m, _PATCH_FLAG, True)
-        patched.append((name, m))
-    return patched
-
-
-def restore_plan_c_monkey_patch(patched: List[Tuple[str, torch.nn.Module]]) -> None:
-    """Restore each instance's forward. Safe to call multiple times."""
-    for _name, m in patched:
-        if not getattr(m, _PATCH_FLAG, False):
-            continue
-        # Removing the instance attribute lets Python fall back to the class
-        # method, which is the original unbound `LiteMLA.forward`.
-        try:
-            del m.forward  # type: ignore[attr-defined]
-        except AttributeError:
-            pass
-        try:
-            delattr(m, _PATCH_ORIG)
-        except AttributeError:
-            pass
-        setattr(m, _PATCH_FLAG, False)
+    for name, mod in comps.items():
+        handles.append(mod.register_forward_pre_hook(_mk_pre(name)))
+        handles.append(mod.register_forward_hook(_mk_post(name)))
+    return handles, list(comps.keys())
 
 
 # --------------------------------------------------------------------------- #
-# 5. Sanity check (Plan-C only)                                                #
-# --------------------------------------------------------------------------- #
-
-@dataclass
-class SanityResult:
-    passed: bool
-    per_module: List[Dict[str, Any]] = field(default_factory=list)
-    notes: str = ""
-
-
-def run_sanity_check(model: torch.nn.Module, x: torch.Tensor) -> SanityResult:
-    """
-    Per-LiteMLA original-vs-patched equivalence check (user constraint #4):
-
-      1. forward-hook every LiteMLA, capture inp[0] and out (cloned).
-      2. one forward pass with ORIGINAL model.
-      3. remove hooks.
-      4. apply Plan-C monkey-patch.
-      5. for each LiteMLA, call patched forward on cached input directly.
-      6. compare; require torch.allclose(atol=rtol=1e-5).
-
-    On success: returns SanityResult(passed=True, per_module=[...]).
-    On failure: returns SanityResult(passed=False, ...). Caller decides exit.
-    """
-    captured: Dict[str, Dict[str, torch.Tensor]] = {}
-    litemlas = _find_litemla_modules(model)
-
-    def _mk_hook(name: str) -> Callable[..., None]:
-        def _hook(_mod, inp, out):
-            # constraint #4: only forward-hook, detach+clone.
-            captured[name] = {
-                "inp": inp[0].detach().clone(),
-                "out": out.detach().clone(),
-            }
-        return _hook
-
-    handles = [m.register_forward_hook(_mk_hook(n)) for n, m in litemlas]
-    try:
-        with torch.inference_mode():
-            _ = model(x)
-    finally:
-        remove_hooks(handles)
-
-    # Now patch and re-run each LiteMLA in isolation.
-    patched = apply_plan_c_monkey_patch(model)
-    per_module: List[Dict[str, Any]] = []
-    passed = True
-    try:
-        with torch.inference_mode():
-            for name, m in litemlas:
-                cap = captured.get(name)
-                if cap is None:
-                    per_module.append({"name": name, "ok": False,
-                                       "reason": "no captured input"})
-                    passed = False
-                    continue
-                y_patched = m(cap["inp"])  # uses patched forward
-                y_orig = cap["out"]
-                if y_patched.shape != y_orig.shape:
-                    per_module.append({"name": name, "ok": False,
-                                       "reason": f"shape mismatch "
-                                                  f"{tuple(y_patched.shape)} vs "
-                                                  f"{tuple(y_orig.shape)}"})
-                    passed = False
-                    continue
-                diff = (y_patched - y_orig).abs()
-                max_diff = float(diff.max().item())
-                mean_diff = float(diff.mean().item())
-                ok = bool(torch.allclose(y_patched, y_orig,
-                                         atol=SANITY_ATOL, rtol=SANITY_RTOL))
-                per_module.append({
-                    "name": name,
-                    "ok": ok,
-                    "max_abs_diff": max_diff,
-                    "mean_abs_diff": mean_diff,
-                    "atol": SANITY_ATOL,
-                    "rtol": SANITY_RTOL,
-                })
-                passed = passed and ok
-    finally:
-        # Keep the patch in place if passed -- caller will run measurement
-        # with it. If failed, restore to leave the model in a clean state.
-        if not passed:
-            restore_plan_c_monkey_patch(patched)
-    return SanityResult(passed=passed, per_module=per_module,
-                        notes=f"checked {len(litemlas)} LiteMLA modules")
-
-
-# --------------------------------------------------------------------------- #
-# 6. MACs profiling (optional)                                                 #
+# 5. MACs profiling (optional)                                                 #
 # --------------------------------------------------------------------------- #
 
 def maybe_profile_macs(model: torch.nn.Module, x: torch.Tensor) -> Dict[str, Any]:
@@ -969,51 +879,32 @@ def main(argv: Optional[List[str]] = None) -> int:
     model, weights_meta = build_model(args)
     x, input_meta = build_input_tensor(args)
 
-    # ----- Optional MACs profiling, BEFORE NVTX/sanity (constraint #6) ------- #
+    # ----- Optional MACs profiling, BEFORE NVTX (constraint #6) -------------- #
     macs_info: Dict[str, Any] = {"status": "skipped"}
     if args.profile_macs:
         macs_info = maybe_profile_macs(model, x)
 
-    # ----- NVTX injection + (Plan-C only) sanity check ----------------------- #
-    nvtx_meta: Dict[str, Any] = {"level": args.nvtx_level, "applied": False,
-                                  "patched_modules": [], "hook_count": 0}
+    # ----- NVTX injection ---------------------------------------------------- #
+    nvtx_meta: Dict[str, Any] = {
+        "level": args.nvtx_level,
+        "applied": False,
+        "patched_modules": [],
+        "hook_count": 0,
+        "component_ranges": [],
+    }
     sanity_payload: Dict[str, Any] = {"performed": False, "passed": None,
                                        "per_module": [], "notes": ""}
     hook_handles: List[Any] = []
-    patched_pairs: List[Tuple[str, torch.nn.Module]] = []
 
     try:
         if args.nvtx_level == "B":
             hook_handles = apply_plan_b_hooks(model)
             nvtx_meta.update({"applied": True, "hook_count": len(hook_handles)})
         elif args.nvtx_level == "C":
-            sres = run_sanity_check(model, x)
-            sanity_payload = {
-                "performed": True,
-                "passed": sres.passed,
-                "per_module": sres.per_module,
-                "notes": sres.notes,
-                "atol": SANITY_ATOL,
-                "rtol": SANITY_RTOL,
-            }
-            if not sres.passed:
-                # Build a minimal failure JSON for forensics (constraint #7 does
-                # NOT apply here -- this is not a 'missing weights' situation;
-                # it's a numerical regression we MUST persist for diagnosis).
-                fail_out = args.out and Path(args.out) or derive_default_out_path(args)
-                fail_payload = _assemble_payload(
-                    args, weights_meta, input_meta, nvtx_meta, sanity_payload,
-                    macs_info, timing=None, memory=None,
-                    status="sanity_failed",
-                )
-                save_json(fail_out, fail_payload)
-                print(f"[FATAL] Plan-C sanity check failed. Report -> {fail_out}",
-                      file=sys.stderr)
-                return 3
-            patched_pairs = [(n, m) for n, m in _find_litemla_modules(model)
-                             if getattr(m, _PATCH_FLAG, False)]
+            hook_handles, component_ranges = apply_plan_c_hooks(model)
             nvtx_meta.update({"applied": True,
-                              "patched_modules": [n for n, _ in patched_pairs]})
+                              "hook_count": len(hook_handles),
+                              "component_ranges": component_ranges})
 
         if args.dry_run:
             print("[dry-run] args validated, model/input built, NVTX prepared.")
@@ -1032,8 +923,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     finally:
         # Tidy up: always restore.
         remove_hooks(hook_handles)
-        if patched_pairs:
-            restore_plan_c_monkey_patch(patched_pairs)
 
     # ----- Assemble + save JSON --------------------------------------------- #
     out_path = Path(args.out) if args.out else derive_default_out_path(args)
