@@ -141,6 +141,7 @@ Plan D 使用实例级 `LiteMLA.forward` patch，只针对 `stage2/context` 的�
 
 - Plan B：`planB_timeline_overview.png`、`planB_single_forward_nvtx.png`
 - Plan C：`planC_timeline_overview.png`、`planC_stage0_components.png`、`planC_stage2_components.png`、`planC_head_components.png`
+- Plan D：`planD_timeline_overview.png`、`planD_litemla_aggregation_components.png`、`planD_litemla_relu_linear_att_components.png`
 
 读图口径：组件/阶段名称与边界看 `Threads -> NVTX`；GPU kernel 对应关系看 `CUDA HW -> Kernels`；`CUDA HW -> NVTX` 的宽度只作趋势参考。报告中的定量耗时仍以 `results/metrics/*_nsys_attribution_summary.md` 为准。
 

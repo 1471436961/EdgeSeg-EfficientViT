@@ -61,9 +61,10 @@ phase1/
   - ✅ Nsight 关键截图已归档到 [`results/figures/`](./results/figures/)：
     - Plan B：[`planB_timeline_overview.png`](./results/figures/planB_timeline_overview.png)、[`planB_single_forward_nvtx.png`](./results/figures/planB_single_forward_nvtx.png)
     - Plan C：[`planC_timeline_overview.png`](./results/figures/planC_timeline_overview.png)、[`planC_stage0_components.png`](./results/figures/planC_stage0_components.png)、[`planC_stage2_components.png`](./results/figures/planC_stage2_components.png)、[`planC_head_components.png`](./results/figures/planC_head_components.png)
+    - Plan D：[`planD_timeline_overview.png`](./results/figures/planD_timeline_overview.png)、[`planD_litemla_aggregation_components.png`](./results/figures/planD_litemla_aggregation_components.png)、[`planD_litemla_relu_linear_att_components.png`](./results/figures/planD_litemla_relu_linear_att_components.png)
   - 截图口径：`Threads -> NVTX` 用于确认逻辑阶段/组件边界；`CUDA HW -> Kernels` 用于观察对应 GPU kernel 执行；`CUDA HW -> NVTX` 仅作 GPU 侧投影趋势参考
   - 分析口径：端到端 latency 以 JSON 中 CUDA Events 为准；NVTX range 只提供结构边界，组件占比应从 Nsight sqlite 中用 CUDA runtime/kernel `correlationId` 归因统计，不能直接用 NVTX range 的 `end-start` 当 GPU 耗时
-  - ✅ Plan B/C Nsight attribution 表已生成：[`planB_nsys_attribution_summary.md`](./results/metrics/planB_nsys_attribution_summary.md)、[`planC_nsys_attribution_summary.md`](./results/metrics/planC_nsys_attribution_summary.md)
+  - ✅ Plan B/C/D Nsight attribution 表已生成：[`planB_nsys_attribution_summary.md`](./results/metrics/planB_nsys_attribution_summary.md)、[`planC_nsys_attribution_summary.md`](./results/metrics/planC_nsys_attribution_summary.md)、[`planD_nsys_attribution_summary.md`](./results/metrics/planD_nsys_attribution_summary.md)
   - ✅ 显存证据当前采用 JSON 中的 `max_memory_allocated_mb` / `max_memory_reserved_mb` 峰值字段；连续显存曲线不是本轮 Nsight 截图主证据
 - [ ] **Step 6**：撰写 `bottleneck_analysis_report.md`
   - 不只是"哪里慢"，更要标注 **"哪些算子序列适合融合为 Plugin"**
@@ -172,7 +173,7 @@ stage2/block2/litemla/qkv
 
 > **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：`stage0/block*/main`、`head/middle`、`stage2/local` 主要是 MBConv/Conv 系列，耗时高很大程度来自分辨率与 feature map 尺寸，TensorRT/cuDNN 可能已有较好处理；`stage2/context` 中的 LiteMLA 不是最大端到端瓶颈，但更符合自定义 Plugin 的高区分度主线。Plan D 用于进一步确认 LiteMLA 内部具体融合子路径。
 
-**[已实装 ✅]** 四档口径已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C,D}` 参数。A/B/C 已有正式结果；Plan D 需重新跑 Nsight 并生成 attribution 表。
+**[已实装 ✅]** 四档口径已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C,D}` 参数。A/B/C/D 均已有正式结果与 attribution 表。
 
 ---
 
