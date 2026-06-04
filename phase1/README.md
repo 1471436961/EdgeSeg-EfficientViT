@@ -50,13 +50,10 @@ phase1/
   - CUDA Event 精确计时（**不能用 time.time()**）✅
   - 预热 20 次 + 正式 100 次（默认值；smoke 用 3+5）✅
   - 记录 avg/p50/p95/p99 延迟、峰值显存、FPS ✅
-  - **NVTX 标注**：双跑策略，`--nvtx-level {A,B,C}` ✅（详见"决策 3"小节）
-  - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）：
-    - Plan A: mean ≈ 23.9 ms
-    - Plan B: mean ≈ 23.6 ms（mid-grain hooks 已注入，hook_count=12）
-    - Plan C: hotspot component-level hooks 已注入；当前范围为 `stage0/stage2/head`（约 12 个 range / 24 hooks），正式 nsys 需按新版定义重跑
-  - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）
-  - 使用速查：[`scripts/README.md`](./scripts/README.md)
+  - **NVTX 标注**：三档口径，`--nvtx-level {A,B,C}` ✅（详见"决策 2"小节）
+  - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）✅
+  - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）✅
+  - 使用速查：[`scripts/README.md`](./scripts/README.md)✅
   - ✅ **正式 Plan A baseline 已完成**：真实 Cityscapes 权重 + 固定输入图 + 1024×2048 + warmup 20 + measure 100，结果见 [`results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json`](./results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json)
 - [x] **Step 5**：用 Nsight Systems 剖析推理过程
   - 命令模板（Windows Nsight Systems 2026.2.1）：`nsys profile -t cuda,nvtx -o results/nsight/baseline --stats=true python scripts/baseline_inference.py`
@@ -75,20 +72,6 @@ phase1/
 
 ---
 
-## 🛠️ 环境快照（2026-05-26）
-
-| 组件 | 版本 |
-|---|---|
-| GPU | NVIDIA GeForce MX250 (Pascal, sm_61, 2GB) |
-| Driver / CUDA Toolkit | 560.81 / 12.6 |
-| Conda env | `efficientvit` @ `D:\software\anaconda3\envs\efficientvit` |
-| Python | 3.10.20 |
-| PyTorch | 2.4.1+cu124 (最后一批官方支持 sm_61 的版本) |
-| cuDNN | 9.1.0 |
-| Nsight Systems | 2026.2.1 @ `D:\software\nsight_systems\target-windows-x64` |
-
----
-
 ## 📌 关键决策记录
 
 ### 决策 1：项目核心定位（V3.0 战略对齐）
@@ -96,56 +79,45 @@ phase1/
 - **到**：**TensorRT 自定义算子（C++/CUDA Plugin）开发**
 - **影响**：阶段一从"通用剖析"细化为"为 Plugin 找融合目标"。
 
-### 决策 2：PyTorch 版本选择
-- **选择**：PyTorch 2.4.1+cu124
-- **原因**：PyTorch 2.7+ 已放弃 Pascal 架构（sm_61）预编译 wheel，2.4.x 是最后一批官方支持 MX250 的版本。
-
-### 决策 3：NVTX 标注粒度 ✅ **已确定（commit `ec4cda2` 实装）**
-> **采纳双跑策略**：正式 baseline 用 Plan B（mid-grain，stem/stage0..3/head 共 6 个 range），Plugin 设计用 Plan C（hotspot component-level，展开 `stage0/stage2/head` 的关键组件）。
-> 实装方式：`baseline_inference.py --nvtx-level {A,B,C}`；Plan A 无 NVTX 用于干净 latency 参考。
+### 决策 2：NVTX 标注粒度 ✅ **已确定（commit `ec4cda2` 实装）**
+> **采纳三档口径**：Plan A 无 NVTX，用于干净 latency baseline；Plan B 为 stage-level attribution（`stem/stage0..3/head` 共 6 个 range）；Plan C 为 hotspot component-level attribution（展开 `stage0/stage2/head` 的关键组件）。
+> 实装方式：`baseline_inference.py --nvtx-level {A,B,C}`。
 > 详细讨论见下方"NVTX 标注方案"小节。
 
-### 决策 4：模型变种 / 输入分辨率
+### 决策 3：模型变种 / 输入分辨率
 - **变种**：先选 EfficientViT-Seg-B0（MX250 仅 2GB，B1+ 极易 OOM）
 - **分辨率**：先用 Cityscapes 原生 1024×2048。如 OOM 或单次 >2s，降到 512×1024。
 - **batch size**：固定 1（边缘实时推理 + 显存约束）。
 
-### 决策 5：阶段一不测精度
+### 决策 4：阶段一不测精度
 - 阶段一聚焦"剖析与融合机会发现"。
-- 精度对齐推迟到阶段二（PyTorch ↔ TRT 对齐）和阶段三（融合 Plugin ↔ 原始算子对齐）。
+- 固定输入图只用于 latency/profiling，不用于 mIoU 或视觉质量结论。
+- 精度对齐推迟到阶段二（PyTorch ↔ TRT 对齐）和阶段三（融合 Plugin ↔ 原始算子对齐）；若未来需要 Cityscapes mIoU，应另起 `evaluate.py` 并单独确认设计。
 
 ---
 
-## 🔍 NVTX 标注方案（决策 3 候选）
+## 🔍 NVTX 标注方案（决策 2 候选）
 
 > **共同原则**：NVTX range 只做 `torch.cuda.nvtx.range_push/range_pop`（或等价的 `nvtx.annotate` 上下文管理器），用于 Nsight 归因；**range 内禁止插入 `torch.cuda.synchronize()`**。同步只允许出现在 warmup/measure 边界，以及 latency 模式下 CUDA Event 读取处。NVTX 不是计时工具，latency 以 CUDA Events 为准。
 
-### 方案 A · 最粗（3 个 range）
-仅区分 `total / backbone / head`。
-- ✅ 实现 5 行代码，最快出图；
-- ❌ 看不出注意力 vs 卷积谁主导，**无法支撑 Plugin 选型**。
-- 适用：阶段一第一次跑通的 sanity check。
+### 方案 A · 干净 latency（无 NVTX）
+不注册任何 NVTX range，只用 CUDA Events 测端到端 latency。
+- ✅ 最少 profiler/annotation 扰动，作为正式 latency 主表口径；
+- ✅ 适合和后续 TensorRT / Plugin 端到端 latency 做公平对比；
+- ❌ 不提供模块归因，不能回答"哪里慢"。
 
-### 方案 B · 中等粒度（≈10 个 range）✅ **默认推荐**
+### 方案 B · Stage 级归因（6 个 range）✅ **全模型归因主口径**
 ```
-total
-├── backbone
-│   ├── input_stem
-│   ├── stage1
-│   ├── stage2
-│   ├── stage3                       ← 含 2 个 EfficientViTBlock
-│   │   └── attn_block_0/1           （仅在含注意力的 stage）
-│   │        ├── lite_mla
-│   │        └── mbconv_ffn
-│   └── stage4                       ← 含 2 个 EfficientViTBlock（结构同上）
-└── head
-    ├── inputs_merge                 （1×1 Conv + 2× upsample + add）
-    ├── middle                       （1× MBConv）
-    └── output_proj                  （final_expand + cls head）
+stem
+stage0
+stage1
+stage2
+stage3
+head
 ```
-- ✅ 能直接回答"注意力 vs 卷积谁主导""head 的 upsample 是不是瓶颈"；
-- ✅ 输出报告里每个候选融合点都有对应数据；
-- ⚠️ 需要给 backbone / EfficientViTBlock / SegHead 注册 forward hooks。
+- ✅ 覆盖全模型主要结构，用于回答 stage/head 级热点排序；
+- ✅ 当前 Plan B sqlite attribution 表明 `stage0` 最大、`stage2` 第二，`head/stage3/stem` 接近；
+- ⚠️ 只提供大区域归因，不展开 `stage0/stage2/head` 内部组件。
 
 ### 方案 C · 热点组件级（stage0/stage2/head）
 在方案 B 基础上，**只展开最值得解释的热点区域**：
@@ -177,13 +149,13 @@ head
 - ⚠️ NVTX range 本身有 ~1μs/次开销，B0 stage4 注意力本来就只有几百 μs，**range 太密可能反而扰动测量**。
 
 ### 🎯 我的明确建议
-> **跑两遍**：第一遍用 **方案 B** 得到稳定的端到端 baseline 数字（提交报告主表）；第二遍用 **方案 C** 展开 `stage0/stage2/head` 的热点组件，专门给阶段三 Plugin 设计提供组件级耗时。
+> **分三档使用**：用 **方案 A** 得到干净端到端 latency baseline（提交报告主表）；用 **方案 B** 得到全模型 stage/head 级归因；用 **方案 C** 展开 `stage0/stage2/head` 的热点组件，专门给阶段三 Plugin 设计提供组件级耗时。
 >
-> 这样既不让 NVTX 开销污染主基线，又能拿到 Plugin 设计需要的细粒度数据，**是性价比最高的策略**。
+> 这样既不让 NVTX 开销污染主 latency 基线，又能拿到 Plugin 设计需要的全模型与热点组件两级数据，**是性价比最高的策略**。
 
 > **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：LiteMLA 是 TensorRT 难自动融合的高区分度 Plugin 主线；`stage0` 与 `head` 是端到端收益更明确的工程优化候选。
 
-**[已实装 ✅]** 双跑策略已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C}` 参数（commit `ec4cda2`）。三档 smoke test 全部通过，详见上方 Step 4。
+**[已实装 ✅]** 三档口径已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C}` 参数（commit `ec4cda2`）。三档 smoke test 全部通过，详见上方 Step 4。
 
 ---
 

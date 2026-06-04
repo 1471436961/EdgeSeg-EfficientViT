@@ -11,8 +11,9 @@
 | 脚本 | 状态 | 一句话定位 | 设计文档 |
 |------|------|----------|---------|
 | `baseline_inference.py` | ✅ v1.0 | 单卡 batch=1 latency 基准 + Nsight NVTX 注入 | [baseline_inference_design.md](../design_notes/baseline_inference_design.md) |
-| `compare_baselines.py` | ⏳ TODO | 对多份 JSON 做表格化对比 | — |
-| `evaluate.py` | ⏳ TODO（可选） | Cityscapes mIoU 评估 | — |
+| `analyze_nsys_attribution.py` | ✅ v1.0 | 从 Nsight SQLite 中按 NVTX range 归因 CUDA kernel 耗时，输出 Markdown/JSON 汇总表 | 脚本 docstring |
+| `compare_baselines.py` | ⏸ Deferred（未实现） | 可选：对多份 baseline JSON 做表格化对比 | — |
+| `evaluate.py` | ⏸ Out of Phase 1 mainline（未实现） | 可选：Cityscapes mIoU / 精度评估；不属于 Phase 1 baseline 主线 | — |
 
 ---
 
@@ -169,8 +170,6 @@ A：确认 `--trace` 包含 `nvtx`；确认 `--nvtx-level` 不是 `A`；确认 n
 **Q：latency 抖动很大（std > mean × 20%）？**
 A：①确认 `--cudnn-benchmark on`；②增大 `--warmup`（如 50）；③关闭桌面录屏 / Chrome 硬件加速；④检查 `nvidia-smi` 是否有其他进程占用 MX250。
 
-**Q：Plan C 为什么不再做 sanity check？**
-A：当前 Plan C 只注册 forward hooks，不 monkey-patch 模块，也不改写任何计算路径；hooks 只做 NVTX push/pop，所以没有 patched-vs-original 数值对照需求。
 
 **Q：MX250 OOM？**
 A：①关闭 `--profile-macs`；②降到 `--resolution 512 1024`；③确保没在用 batch>1；④`nvidia-smi` 关掉其他 CUDA 进程。

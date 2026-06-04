@@ -27,11 +27,11 @@
 
 ### 1.2 非目标（明确不做）
 
-- ❌ **不**测 mIoU / 不做 Cityscapes 全集评估 → 留给 Phase 1 后续 `evaluate.py`（如果决定写）。
+- ❌ **不**测 mIoU / 不做 Cityscapes 全集评估 → 不属于 Phase 1 baseline 主线；若未来需要精度评估，应另起 `evaluate.py` 并单独确认设计。
 - ❌ **不**做多 batch / 动态分辨率 sweep → 输入分辨率与 batch=1 固定。
 - ❌ **不**做训练 / 微调 → 纯 inference。
 - ❌ **不**承担 Plugin 实现 → Plan-C 只产 NVTX 归因数据，**不**等价于 fused kernel。
-- ❌ **不**自动比较多次 run → 多 run 对比留给 Phase 1 后续的 `compare_baselines.py`。
+- ❌ **不**自动比较多次 run → 多 run 对比属于可选后续工具；当前已用 `analyze_nsys_attribution.py` 固化 Nsight sqlite 归因主流程。
 
 ---
 
@@ -54,7 +54,7 @@
                                 │   warmup (no record)    │
                                 │   measure (CUDA Events) │  <-- only this is "timing"
                                 ├─────────────────────────┤
-                                │   remove hooks / patch  │  finally:
+                                │       remove hooks      │  finally:
                                 ├─────────────────────────┤
                                 │   assemble + save JSON  │
                                 └─────────────────────────┘
@@ -109,14 +109,7 @@
 - **截图口径**：`results/figures/` 中的 Nsight 图只作为可视化证据：`Threads -> NVTX` 用于确认逻辑阶段/组件边界，`CUDA HW -> Kernels` 用于观察对应 GPU kernel 执行，`CUDA HW -> NVTX` 只作为 GPU 侧投影趋势参考。定量结论仍以 JSON latency 与 sqlite attribution 表为准。
 - **显存口径**：当前 Phase 1 已记录 PyTorch peak memory（`max_memory_allocated_mb` / `max_memory_reserved_mb`）；连续显存曲线不是本轮 Nsight 截图的主证据，若报告需要曲线，应另加 PyTorch memory sampling。
 
-**取舍 3：为何 Plan C 改为 hook-only，而不继续 monkey-patch LiteMLA？**
-
-- Plan B 结果显示热点不只在 LiteMLA，还包括早期高分辨率 stage、stage2 与 SegHead。
-- 若 Plan C 继续只包 `LiteMLA.forward`，它只能回答"LiteMLA 是否有耗时"，不能回答"热点 stage 内到底是 LiteMLA、MBConv 还是 head 更值得优化"。
-- 当前 Plan C 使用 `register_forward_pre_hook` / `register_forward_hook` 展开热点组件，不改写任何 forward 数值路径，因此不需要 sanity check。
-- 旧 LiteMLA monkey-patch helper 已从主脚本移除；如未来需要 LiteMLA 内部实验，应另起专门脚本。
-
-**取舍 4：Plan C 为什么只展开 `stage0/stage2/head`，而不全模型细分？**
+**取舍 3：Plan C 为什么只展开 `stage0/stage2/head`，而不全模型细分？**
 
 - 正确的 Plan B sqlite 归因排序显示：`stage0` 最大，`stage2` 第二，`head` 与 `stage3/stem` 接近但包含 SegHead 候选优化点。
 - `stage0 + stage2 + head` 覆盖全模型约 60% 的 GPU kernel 耗时，同时避免把 Plan C 膨胀成全模型递归 profiler。
@@ -379,7 +372,7 @@ python phase1/scripts/baseline_inference.py `
 - [ ] 跑一次真实 Cityscapes b0 权重的 Plan A，确认 latency 落入合理区间（机器人场景 < 1s）
 - [ ] 跑 Plan B，确认 6 个 stage range 在 Nsight UI 中可见
 - [ ] 跑 Plan C，确认 `stage0/stage2/head` 组件级 range 可见
-- [ ] 写 `compare_baselines.py` 对多份 JSON 做表格化对比
+- [ ] 可选：若后续需要横向比较多份 JSON，再单独设计 `compare_baselines.py`
 - [ ] Phase 2 启动时，本设计文档要 cross-link 到 `phase2/design_notes/onnx_export_design.md`
 - [ ] 若引入 FP16/AMP，记录 autocast / dtype 设置并与 JSON schema 对齐
 
