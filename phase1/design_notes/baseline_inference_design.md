@@ -132,7 +132,8 @@
 - Plan C 证明 `stage2/context` 比 `stage2/local` 更重，而 `context` 是 LiteMLA 所在路径；但 Plan C 只能回答"LiteMLA/context 是否重要"，不能回答"LiteMLA 内部哪个子路径值得融合"。
 - `stage0/block*/main`、`head/middle`、`stage2/local` 主要是 MBConv/Conv-BN-Act 系列，耗时高很大程度来自高分辨率 feature map 与 memory traffic；这些模块更可能被 TensorRT/cuDNN 既有优化较好处理，Plugin 展示价值弱于 LiteMLA。
 - Plan D 第一版只拆 `stage2/context` LiteMLA 的第一层子路径：`qkv / aggregation / cat / relu_linear_att / proj`。其中 `relu_linear_att` 暂不内部展开，避免破坏原函数的 autocast-disabled 数值语义。
-- 若 Plan D 显示 `relu_linear_att` 是主要耗时，再设计 Plan D2 细拆 `reshape/split -> ReLU(Q/K) -> V_pad -> V·K^T -> VK·Q -> normalize -> reshape`。
+- Plan D 实测显示 `aggregation` 与 `relu_linear_att` 是 stage2 LiteMLA 内部两大主耗时，且中间存在 `cat` 带来的拼接与 memory traffic。因此 Phase 3 不应只考虑 `relu_linear_att-only`，而应比较三类 Plugin 边界：局部单段（`aggregation-only` / `relu_linear_att-only`）、中段组合（`aggregation + cat + relu_linear_att`）、整体 LiteMLA fallback。
+- 若后续选择 `relu_linear_att-only` 或中段组合方案，再设计 Plan D2 / Phase 3 microbenchmark 细拆 `relu_linear_att` 内部的 `reshape/split -> ReLU(Q/K) -> V_pad -> V·K^T -> VK·Q -> normalize -> reshape`。
 
 ### 3.3 Plan-C / Plan-D sanity check
 

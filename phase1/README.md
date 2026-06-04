@@ -81,7 +81,7 @@ phase1/
 - **影响**：阶段一从"通用剖析"细化为"为 Plugin 找融合目标"。
 
 ### 决策 2：NVTX 标注粒度 ✅ **已确定并扩展到 Plan D**
-> **采纳四档口径**：Plan A 无 NVTX，用于干净 latency baseline；Plan B 为 stage-level attribution（`stem/stage0..3/head` 共 6 个 range）；Plan C 为 hotspot component-level attribution（展开 `stage0/stage2/head` 的关键组件）；Plan D 为 stage2 LiteMLA internal attribution（`qkv/aggregation/cat/relu_linear_att/proj`），用于把 Phase 3 Plugin 候选从"整体 LiteMLA"细化到 stage2/context 中的具体可融合子路径。
+> **采纳四档口径**：Plan A 无 NVTX，用于干净 latency baseline；Plan B 为 stage-level attribution（`stem/stage0..3/head` 共 6 个 range）；Plan C 为 hotspot component-level attribution（展开 `stage0/stage2/head` 的关键组件）；Plan D 为 stage2 LiteMLA internal attribution（`qkv/aggregation/cat/relu_linear_att/proj`），用于把 Phase 3 Plugin 候选从"整体 LiteMLA"细化为"局部单段 / 中段组合 / 整体 fallback"三类 Plugin 边界。
 > 实装方式：`baseline_inference.py --nvtx-level {A,B,C,D}`。
 > 详细讨论见下方"NVTX 标注方案"小节。
 
@@ -164,14 +164,14 @@ stage2/block2/litemla/qkv
 - ✅ `relu_linear_att()` 保持黑盒调用，因此其原始 `@torch.autocast(device_type="cuda", enabled=False)` 与 dtype 逻辑不被破坏；
 - ✅ 使用实例级 `LiteMLA.forward` patch，并在 profiling 前做 patched-vs-original `torch.allclose(atol=1e-5, rtol=1e-5)` sanity check；
 - ⚠️ Plan D 是 Phase 3 Plugin 候选细化实验，不替代 Plan B 的全模型归因，也不替代 Plan C 的热点组件归因；
-- ℹ️ 若 Plan D 显示 `relu_linear_att` 是最大项，再设计 Plan D2 细拆 `reshape/split -> ReLU(Q/K) -> V_pad -> V·K^T -> VK·Q -> normalize -> reshape`。
+- ℹ️ Plan D 结果显示 `aggregation` 与 `relu_linear_att` 是 stage2 LiteMLA 内部两大主耗时，且二者之间存在 `cat` 中间拼接；Phase 3 应比较三类 Plugin 边界：局部单段（`aggregation-only` / `relu_linear_att-only`）、中段组合（`aggregation + cat + relu_linear_att`）、整体 LiteMLA fallback。
 
 ### 🎯 我的明确建议
 > **分四档使用**：用 **方案 A** 得到干净端到端 latency baseline（提交报告主表）；用 **方案 B** 得到全模型 stage/head 级归因；用 **方案 C** 展开 `stage0/stage2/head` 的热点组件；用 **方案 D** 细拆 stage2/context 中的 LiteMLA 内部子路径，专门为阶段三 Plugin 选定具体可融合目标。
 >
 > 这样既不让 NVTX 开销污染主 latency 基线，又能拿到 Plugin 设计需要的全模型、热点组件、stage2 LiteMLA 内部三层证据，**是性价比最高的策略**。
 
-> **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：`stage0/block*/main`、`head/middle`、`stage2/local` 主要是 MBConv/Conv 系列，耗时高很大程度来自分辨率与 feature map 尺寸，TensorRT/cuDNN 可能已有较好处理；`stage2/context` 中的 LiteMLA 不是最大端到端瓶颈，但更符合自定义 Plugin 的高区分度主线。Plan D 用于进一步确认 LiteMLA 内部具体融合子路径。
+> **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：`stage0/block*/main`、`head/middle`、`stage2/local` 主要是 MBConv/Conv 系列，耗时高很大程度来自分辨率与 feature map 尺寸，TensorRT/cuDNN 可能已有较好处理；`stage2/context` 中的 LiteMLA 不是最大端到端瓶颈，但更符合自定义 Plugin 的高区分度主线。Plan D 进一步说明：`relu_linear_att-only` 适合作为 MVP，`aggregation + cat + relu_linear_att` 是更有潜在收益的主评估方向，整体 LiteMLA 是复杂度更高的 fallback / 上限方案。
 
 **[已实装 ✅]** 四档口径已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C,D}` 参数。A/B/C/D 均已有正式结果与 attribution 表。
 
