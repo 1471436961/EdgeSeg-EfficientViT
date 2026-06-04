@@ -1,0 +1,121 @@
+{
+  "metrics_file": "phase1\\results\\metrics\\baseline_b0_cityscapes_1024x2048_levelD_latency_nsys.json",
+  "script_version": "baseline_inference.py@06f7cc9",
+  "nvtx_level": "D",
+  "warmup": 20,
+  "measure": 100,
+  "forward_mean_ms": 88.04331199645996,
+  "attributed_kernel_avg_ms": 9.47132309,
+  "attributed_share_of_forward_mean_pct": 10.7575724665842,
+  "ranges": [
+    {
+      "name": "stage2/block1/litemla/aggregation",
+      "count": 100,
+      "launches": 4000,
+      "matched_launches": 1300,
+      "total_kernel_ms": 184.047282,
+      "avg_kernel_ms": 1.84047282,
+      "share_of_attributed_pct": 19.432056139476494,
+      "share_of_forward_mean_pct": 2.090417520951508
+    },
+    {
+      "name": "stage2/block2/litemla/aggregation",
+      "count": 100,
+      "launches": 4000,
+      "matched_launches": 1300,
+      "total_kernel_ms": 183.96449,
+      "avg_kernel_ms": 1.8396449000000001,
+      "share_of_attributed_pct": 19.42331480532357,
+      "share_of_forward_mean_pct": 2.089477165595461
+    },
+    {
+      "name": "stage2/block2/litemla/relu_linear_att",
+      "count": 100,
+      "launches": 800,
+      "matched_launches": 800,
+      "total_kernel_ms": 180.509535,
+      "avg_kernel_ms": 1.80509535,
+      "share_of_attributed_pct": 19.05853419683099,
+      "share_of_forward_mean_pct": 2.050235627292825
+    },
+    {
+      "name": "stage2/block1/litemla/relu_linear_att",
+      "count": 100,
+      "launches": 800,
+      "matched_launches": 800,
+      "total_kernel_ms": 180.175361,
+      "avg_kernel_ms": 1.80175361,
+      "share_of_attributed_pct": 19.023251481119097,
+      "share_of_forward_mean_pct": 2.046440063581939
+    },
+    {
+      "name": "stage2/block1/litemla/cat",
+      "count": 100,
+      "launches": 100,
+      "matched_launches": 100,
+      "total_kernel_ms": 52.773842,
+      "avg_kernel_ms": 0.52773842,
+      "share_of_attributed_pct": 5.571960907523006,
+      "share_of_forward_mean_pct": 0.59940773243653
+    },
+    {
+      "name": "stage2/block2/litemla/cat",
+      "count": 100,
+      "launches": 100,
+      "matched_launches": 100,
+      "total_kernel_ms": 52.764974,
+      "avg_kernel_ms": 0.52764974,
+      "share_of_attributed_pct": 5.571024607502857,
+      "share_of_forward_mean_pct": 0.5993070092833578
+    },
+    {
+      "name": "stage2/block1/litemla/qkv",
+      "count": 100,
+      "launches": 300,
+      "matched_launches": 100,
+      "total_kernel_ms": 29.645199,
+      "avg_kernel_ms": 0.29645199,
+      "share_of_attributed_pct": 3.12999553687488,
+      "share_of_forward_mean_pct": 0.3367115380801664
+    },
+    {
+      "name": "stage2/block2/litemla/qkv",
+      "count": 100,
+      "launches": 300,
+      "matched_launches": 100,
+      "total_kernel_ms": 28.898256,
+      "avg_kernel_ms": 0.28898256,
+      "share_of_attributed_pct": 3.0511318984051257,
+      "share_of_forward_mean_pct": 0.32822772502199754
+    },
+    {
+      "name": "stage2/block1/litemla/proj",
+      "count": 100,
+      "launches": 800,
+      "matched_launches": 300,
+      "total_kernel_ms": 27.182558,
+      "avg_kernel_ms": 0.27182558,
+      "share_of_attributed_pct": 2.8699852957925014,
+      "share_of_forward_mean_pct": 0.30874074797518924
+    },
+    {
+      "name": "stage2/block2/litemla/proj",
+      "count": 100,
+      "launches": 800,
+      "matched_launches": 300,
+      "total_kernel_ms": 27.170812,
+      "avg_kernel_ms": 0.27170812,
+      "share_of_attributed_pct": 2.8687451311514702,
+      "share_of_forward_mean_pct": 0.3086073363652253
+    }
+  ],
+  "groups": [
+    {
+      "name": "stage2",
+      "total_kernel_ms": 947.1323090000001,
+      "avg_kernel_ms": 9.47132309,
+      "share_of_attributed_pct": 100.0,
+      "share_of_forward_mean_pct": 10.7575724665842
+    }
+  ]
+}
