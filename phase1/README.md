@@ -50,7 +50,7 @@ phase1/
   - CUDA Event 精确计时（**不能用 time.time()**）✅
   - 预热 20 次 + 正式 100 次（默认值；smoke 用 3+5）✅
   - 记录 avg/p50/p95/p99 延迟、峰值显存、FPS ✅
-  - **NVTX 标注**：三档口径，`--nvtx-level {A,B,C}` ✅（详见"决策 2"小节）
+  - **NVTX 标注**：四档口径，`--nvtx-level {A,B,C,D}` ✅（详见"决策 2"小节）
   - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）✅
   - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)（575 行）✅
   - 使用速查：[`scripts/README.md`](./scripts/README.md)✅
@@ -79,9 +79,9 @@ phase1/
 - **到**：**TensorRT 自定义算子（C++/CUDA Plugin）开发**
 - **影响**：阶段一从"通用剖析"细化为"为 Plugin 找融合目标"。
 
-### 决策 2：NVTX 标注粒度 ✅ **已确定（commit `ec4cda2` 实装）**
-> **采纳三档口径**：Plan A 无 NVTX，用于干净 latency baseline；Plan B 为 stage-level attribution（`stem/stage0..3/head` 共 6 个 range）；Plan C 为 hotspot component-level attribution（展开 `stage0/stage2/head` 的关键组件）。
-> 实装方式：`baseline_inference.py --nvtx-level {A,B,C}`。
+### 决策 2：NVTX 标注粒度 ✅ **已确定并扩展到 Plan D**
+> **采纳四档口径**：Plan A 无 NVTX，用于干净 latency baseline；Plan B 为 stage-level attribution（`stem/stage0..3/head` 共 6 个 range）；Plan C 为 hotspot component-level attribution（展开 `stage0/stage2/head` 的关键组件）；Plan D 为 stage2 LiteMLA internal attribution（`qkv/aggregation/cat/relu_linear_att/proj`），用于把 Phase 3 Plugin 候选从"整体 LiteMLA"细化到 stage2/context 中的具体可融合子路径。
+> 实装方式：`baseline_inference.py --nvtx-level {A,B,C,D}`。
 > 详细讨论见下方"NVTX 标注方案"小节。
 
 ### 决策 3：模型变种 / 输入分辨率
@@ -145,17 +145,34 @@ head
 - ✅ 支撑 Phase 3 的双维度判断：`stage0` 端到端收益最高，`stage2/LiteMLA` 自定义算子展示价值最高，`head/middle` 是工程优化候选；
 - ✅ 使用 forward hooks，不改写 forward 数值路径，因此不需要 sanity check；
 - ⚠️ `head` 内部的 merge add 不是独立 module，当前 hook-only 方案不单独计入一个 range；
-- ℹ️ 若后续需要 LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 子算子级耗时，应另写专门的 `litemla_internal_profile.py`；
 - ⚠️ NVTX range 本身有 ~1μs/次开销，B0 stage4 注意力本来就只有几百 μs，**range 太密可能反而扰动测量**。
 
+### 方案 D · stage2 LiteMLA 内部子路径级（Plugin 候选细化）
+只针对 Plan C 已确认的 `stage2/context` LiteMLA，拆第一层子路径，不进入 `relu_linear_att()` 函数体：
+```
+stage2/block1/litemla/qkv
+stage2/block1/litemla/aggregation
+stage2/block1/litemla/cat
+stage2/block1/litemla/relu_linear_att
+stage2/block1/litemla/proj
+
+stage2/block2/litemla/qkv
+...
+```
+- ✅ 直接回答 LiteMLA 内部到底是 qkv、multi-scale aggregation、linear attention 还是 proj 更值得融合；
+- ✅ `relu_linear_att()` 保持黑盒调用，因此其原始 `@torch.autocast(device_type="cuda", enabled=False)` 与 dtype 逻辑不被破坏；
+- ✅ 使用实例级 `LiteMLA.forward` patch，并在 profiling 前做 patched-vs-original `torch.allclose(atol=1e-5, rtol=1e-5)` sanity check；
+- ⚠️ Plan D 是 Phase 3 Plugin 候选细化实验，不替代 Plan B 的全模型归因，也不替代 Plan C 的热点组件归因；
+- ℹ️ 若 Plan D 显示 `relu_linear_att` 是最大项，再设计 Plan D2 细拆 `reshape/split -> ReLU(Q/K) -> V_pad -> V·K^T -> VK·Q -> normalize -> reshape`。
+
 ### 🎯 我的明确建议
-> **分三档使用**：用 **方案 A** 得到干净端到端 latency baseline（提交报告主表）；用 **方案 B** 得到全模型 stage/head 级归因；用 **方案 C** 展开 `stage0/stage2/head` 的热点组件，专门给阶段三 Plugin 设计提供组件级耗时。
+> **分四档使用**：用 **方案 A** 得到干净端到端 latency baseline（提交报告主表）；用 **方案 B** 得到全模型 stage/head 级归因；用 **方案 C** 展开 `stage0/stage2/head` 的热点组件；用 **方案 D** 细拆 stage2/context 中的 LiteMLA 内部子路径，专门为阶段三 Plugin 选定具体可融合目标。
 >
-> 这样既不让 NVTX 开销污染主 latency 基线，又能拿到 Plugin 设计需要的全模型与热点组件两级数据，**是性价比最高的策略**。
+> 这样既不让 NVTX 开销污染主 latency 基线，又能拿到 Plugin 设计需要的全模型、热点组件、stage2 LiteMLA 内部三层证据，**是性价比最高的策略**。
 
-> **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：LiteMLA 是 TensorRT 难自动融合的高区分度 Plugin 主线；`stage0` 与 `head` 是端到端收益更明确的工程优化候选。
+> **Phase 3 叙事约束**：Plan B/C 结果不能支撑"LiteMLA 是全模型最大瓶颈"。更严谨的说法是：`stage0/block*/main`、`head/middle`、`stage2/local` 主要是 MBConv/Conv 系列，耗时高很大程度来自分辨率与 feature map 尺寸，TensorRT/cuDNN 可能已有较好处理；`stage2/context` 中的 LiteMLA 不是最大端到端瓶颈，但更符合自定义 Plugin 的高区分度主线。Plan D 用于进一步确认 LiteMLA 内部具体融合子路径。
 
-**[已实装 ✅]** 三档口径已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C}` 参数（commit `ec4cda2`）。三档 smoke test 全部通过，详见上方 Step 4。
+**[已实装 ✅]** 四档口径已写进 `baseline_inference.py` 的 `--nvtx-level {A,B,C,D}` 参数。A/B/C 已有正式结果；Plan D 需重新跑 Nsight 并生成 attribution 表。
 
 ---
 

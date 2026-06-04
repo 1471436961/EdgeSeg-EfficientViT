@@ -20,7 +20,7 @@
 ### 1.1 目标（必须达成）
 
 1. **可复现**：给定 `--weights` + `--input-image`（或固定 dummy seed），任意主机重跑应得到统计上等价的 latency 分布（mean ±3σ 之内）。
-2. **可归因**：通过 `--nvtx-level B/C` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；或 `stage0/stage2/head` 的热点组件）。
+2. **可归因**：通过 `--nvtx-level B/C/D` 让 Nsight Systems 能把 timeline 上的 CUDA kernel 归属到我们关心的结构（stem / stage0..3 / head；`stage0/stage2/head` 的热点组件；或 `stage2/context` LiteMLA 内部子路径）。
 3. **机器可读**：单次运行产出一份 JSON，包含**测时 + 环境 + 权重 + 输入 + NVTX 元信息 + 可选 MACs**，无需 grep 控制台。
 4. **零侵入**：不修改 `efficientvit/` 源码；NVTX 通过 forward hooks 注入，运行结束后移除。
 5. **契约对齐**：严格满足用户在三段式 §2 中提出的 7 条实现约束（见 §6）。
@@ -50,11 +50,12 @@
                                 │   NVTX inject:          │
                                 │     B = hooks           │
                                 │     C = component hooks │  *hook-only, no patch*
+                                │     D = LiteMLA patch   │  *with sanity check*
                                 ├─────────────────────────┤
                                 │   warmup (no record)    │
                                 │   measure (CUDA Events) │  <-- only this is "timing"
                                 ├─────────────────────────┤
-                                │       remove hooks      │  finally:
+                                │ remove hooks / restore  │  finally:
                                 ├─────────────────────────┤
                                 │   assemble + save JSON  │
                                 └─────────────────────────┘
@@ -85,13 +86,14 @@
 
 > ⚠️ 这条决策来自用户在 v2 评审中的第 1 条修正。原始草案错误地把 throughput 当主口径。
 
-### 3.2 NVTX 分层：Plan A / B / C 三档
+### 3.2 NVTX 分层：Plan A / B / C / D 四档
 
 | 档位 | 注入方式 | range 粒度 | 用途 | 风险 |
 |------|---------|----------|-----|------|
 | A（默认） | 无 | 0 | **干净 latency 基准**，与 Phase 2/3 对比的 anchor | 0 |
 | B | `register_forward_pre_hook` + `register_forward_hook` 在 `stem / stage0..3 / head` 上 | 6 ranges | **整体瓶颈定位**（stage 级） | hook 极轻量，几乎可忽略 |
 | C | `register_forward_pre_hook` + `register_forward_hook` 展开 `stage0/stage2/head` 热点组件 | 约 12 ranges / forward | **Plugin 设计输入**（比较 early MBConv、LiteMLA/MBConv、SegHead 组件谁更值得优化） | hook 数量增加，但仍不改 forward 数值路径 |
+| D | 实例级 patch `stage2/context` 的 `LiteMLA.forward` | `qkv / aggregation / cat / relu_linear_att / proj` | **stage2 LiteMLA Plugin 候选细化**（确定具体可融合子路径） | 改写 forward 包装层，必须做 sanity check |
 
 > 编号说明：Plan B 的 `stage0..3` 是 `backbone.stages` 的 `ModuleList` 索引；架构分析中的 `stage1..4` 是语义阶段编号，两者一一对应。
 
@@ -106,6 +108,7 @@
 - **结构边界**：NVTX range 只提供归属边界，不能把 `NVTX_EVENTS.end - start` 直接当 GPU 组件耗时；那个值主要反映 CPU 侧 enqueue 区间。
 - **组件占比**：从 Nsight sqlite 导出的 `CUPTI_ACTIVITY_KIND_RUNTIME` 与 `CUPTI_ACTIVITY_KIND_KERNEL` 表出发，用 `correlationId` 把 CUDA launch 与 kernel duration 关联，再按 launch 所在 NVTX range 归因。
 - **解释边界**：Plan C 只展开选中的热点组件，因此 Plan C 占比只代表这些组件内部的相对分布，不能替代 Plan B 的全模型占比。
+- **Plan D 边界**：Plan D 第一版只服务 `stage2/context` 两个 LiteMLA 的内部候选细化，不替代 Plan B/C。它保留 `relu_linear_att()` 黑盒调用，因此上游 `@torch.autocast(device_type="cuda", enabled=False)` 与 dtype 逻辑仍生效；若后续要拆进 `relu_linear_att()` 内部，必须另设 Plan D2 并显式保留 autocast-disabled 区域。
 - **截图口径**：`results/figures/` 中的 Nsight 图只作为可视化证据：`Threads -> NVTX` 用于确认逻辑阶段/组件边界，`CUDA HW -> Kernels` 用于观察对应 GPU kernel 执行，`CUDA HW -> NVTX` 只作为 GPU 侧投影趋势参考。定量结论仍以 JSON latency 与 sqlite attribution 表为准。
 - **显存口径**：当前 Phase 1 已记录 PyTorch peak memory（`max_memory_allocated_mb` / `max_memory_reserved_mb`）；连续显存曲线不是本轮 Nsight 截图的主证据，若报告需要曲线，应另加 PyTorch memory sampling。
 
@@ -123,9 +126,15 @@
   - `head/middle`
   - `head/output_segout`
 - `head` 的 merge add 是 `DAGBlock.forward()` 内部的函数调用，不是独立 module；当前 hook-only 方案不单独隔离它。
-- 若未来需要 LiteMLA 内部 `qkv / aggregation / attention matmul / proj` 的子算子级耗时，应另写专门脚本，不污染 baseline 主脚本。
 
-### 3.3 Plan-C sanity check：当前主路径不需要
+**取舍 4：为什么新增 Plan D，而不是继续把 LiteMLA 当整体候选？**
+
+- Plan C 证明 `stage2/context` 比 `stage2/local` 更重，而 `context` 是 LiteMLA 所在路径；但 Plan C 只能回答"LiteMLA/context 是否重要"，不能回答"LiteMLA 内部哪个子路径值得融合"。
+- `stage0/block*/main`、`head/middle`、`stage2/local` 主要是 MBConv/Conv-BN-Act 系列，耗时高很大程度来自高分辨率 feature map 与 memory traffic；这些模块更可能被 TensorRT/cuDNN 既有优化较好处理，Plugin 展示价值弱于 LiteMLA。
+- Plan D 第一版只拆 `stage2/context` LiteMLA 的第一层子路径：`qkv / aggregation / cat / relu_linear_att / proj`。其中 `relu_linear_att` 暂不内部展开，避免破坏原函数的 autocast-disabled 数值语义。
+- 若 Plan D 显示 `relu_linear_att` 是主要耗时，再设计 Plan D2 细拆 `reshape/split -> ReLU(Q/K) -> V_pad -> V·K^T -> VK·Q -> normalize -> reshape`。
+
+### 3.3 Plan-C / Plan-D sanity check
 
 当前 `--nvtx-level C` 只注册 hooks，不 monkey-patch forward，因此它不改变模型数值路径，不需要 patched-vs-original sanity check。
 
@@ -140,7 +149,17 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 }
 ```
 
-旧版逐 LiteMLA sanity check 已从主脚本移除；如未来重新启用 LiteMLA monkey-patch 实验，需要在专门脚本中重新定义数值校验流程。
+Plan D 会 patch `stage2/context` 的 `LiteMLA.forward`，因此必须做 sanity check：
+
+```text
+1. patch 前用临时 forward_hook 捕获每个 LiteMLA 的 input/output
+2. 实例级 patch LiteMLA.forward，只添加 qkv/aggregation/cat/relu_linear_att/proj NVTX range
+3. sanity 阶段关闭 Plan D NVTX emission，避免污染 Nsight warmup/measure 切片
+4. 用相同 input 单独调用 patched LiteMLA，比较 original vs patched output
+5. torch.allclose(atol=1e-5, rtol=1e-5) 任一失败则 abort
+```
+
+Plan D sanity 只验证包装层没有改变数值路径；它不证明未来 Plugin 数值正确性。真正 Plugin 的数值对齐放到 Phase 3。
 
 ### 3.4 权重：强制 + hash + smoke-test 例外
 
@@ -245,11 +264,11 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
   },
   "cudnn": { "benchmark": true, "deterministic": false },
   "nvtx": {
-    "level": "A | B | C",
+    "level": "A | B | C | D",
     "applied": true,
     "hook_count": 30,
-    "patched_modules": [],
-    "component_ranges": ["stage0/block0/main", "..."]  // Plan C only
+    "patched_modules": [],                             // Plan D records stage2 LiteMLA modules
+    "component_ranges": ["stage0/block0/main", "..."]  // Plan C/D only
   },
   "sanity_check": {
     "performed": false,
@@ -294,6 +313,8 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 | `_find_litemla_modules` | 遍历找 LiteMLA 实例 | ❌ |
 | `_find_plan_c_components` | 定位 `stage0/stage2/head` 热点组件 | ❌ |
 | `apply_plan_c_hooks` | Plan C hook-only 组件级 NVTX 注入 | ❌ |
+| `apply_plan_d_patch_with_sanity` | Plan D stage2 LiteMLA 内部 range 注入 + sanity check | ❌ |
+| `restore_plan_d_patches` | 还原 Plan D 实例级 forward patch | ❌ |
 | `maybe_profile_macs` | 可选 MACs | ❌ |
 | **`measure_latency_per_iter`** | **主测时口径** | ✅ |
 | `measure_throughput_batched` | 辅助测时 | ✅ |
@@ -316,6 +337,8 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 | 6 | hash / MACs 不混入 timing | main 函数严格顺序：build → hash(in build) → MACs → NVTX → warmup → measure | 函数级地图见 §5 |
 | 7 | `weights_status="missing"` 不进入正式 JSON | `validate_args()` 在缺权重且无 smoke flag 时 `SystemExit` | smoke test |
 
+Plan D 是后续新增实验口径，不属于原 7 条约束；第一版只覆盖 `stage2/context` 的两个 LiteMLA。它额外满足：实例级 patch 可还原、sanity check 必跑、sanity 阶段不发出正式 Plan D NVTX ranges。
+
 ---
 
 ## 7. 风险与已知坑
@@ -324,10 +347,13 @@ JSON 中仍保留 `sanity_check` 块以兼容旧 schema，但 Plan C hook-only �
 |------|--------|------|
 | **MX250 2GB OOM** | 1024×2048 + MACs 同时开 | MACs 默认关闭；OOM 时降到 512×1024 |
 | **`autocast(enabled=False)` 与 inference_mode 交互未测** | — | LiteMLA 内部 decorator 不依赖 grad，理论无冲突；运行时若报错回退 `no_grad` |
+| **Plan D patch 破坏 LiteMLA dtype/autocast 语义** | 直接拆进 `relu_linear_att()` 内部 | 第一版 Plan D 只覆盖 `stage2/context` 两个 LiteMLA，且不进入 `relu_linear_att()` 函数体，只把它作为黑盒 range 调用，保留原 decorator |
+| **Plan D sanity 污染 Nsight warmup 切片** | sanity 调用 patched forward 时发出同名 NVTX range | sanity 阶段关闭 `_edgeseg_plan_d_emit_nvtx`，只在 warmup/measure 发出正式 range |
 | **shape-adaptive 分支抖动**（`H*W > dim`） | 不同 input shape 切不同代码路径 | 固定分辨率，cudnn.benchmark=on 后稳态收敛即可 |
-| **`measurement-mode=throughput` 与 NVTX 不太兼容** | enqueue 100 次后单 sync，Plan B/C 的 range 全部挤在一起 | 设计上：throughput 模式建议配 `--nvtx-level A` |
+| **`measurement-mode=throughput` 与 NVTX 不太兼容** | enqueue 100 次后单 sync，Plan B/C/D 的 range 全部挤在一起 | 设计上：throughput 模式建议配 `--nvtx-level A` |
 | **Plan C range 过多导致 timeline 噪声增加** | 约 12 个 range / forward，100 次 measure 会产生较多 NVTX 事件 | 只展开 `stage0/stage2/head` 三个代表性热点区域，不全模型递归细分 |
 | **`torchprofile` 不支持的 op** | 自定义 op | best-effort，`status=error` 进 JSON，不阻塞 |
+| **上游训练日志库 `wandb` 在 Windows 退出时打印临时目录清理 PermissionError** | `efficientvit.seg_model_zoo` 的 import 链拉入 trainer utilities，进而 import 真实 `wandb` | `baseline_inference.py` 在 `import efficientvit.*` 前注入 import-only `wandb_stub`；推理路径不使用 wandb，JSON 记录 `wandb_stubbed=true` |
 
 ---
 
@@ -357,6 +383,13 @@ nsys profile -o phase1/results/nsight/levelC `
   --weights phase1/weights/b0.pt --nvtx-level C
 ```
 
+Nsight Plan D（stage2 LiteMLA 内部子路径）：
+```powershell
+nsys profile -o phase1/results/nsight/levelD `
+  python phase1/scripts/baseline_inference.py `
+  --weights phase1/weights/b0.pt --nvtx-level D
+```
+
 Smoke test（无权重）：
 ```powershell
 python phase1/scripts/baseline_inference.py `
@@ -372,6 +405,7 @@ python phase1/scripts/baseline_inference.py `
 - [ ] 跑一次真实 Cityscapes b0 权重的 Plan A，确认 latency 落入合理区间（机器人场景 < 1s）
 - [ ] 跑 Plan B，确认 6 个 stage range 在 Nsight UI 中可见
 - [ ] 跑 Plan C，确认 `stage0/stage2/head` 组件级 range 可见
+- [ ] 跑 Plan D，确认 `stage2/block{1,2}/litemla/qkv|aggregation|cat|relu_linear_att|proj` range 可见，并生成 stage2 LiteMLA internal attribution 表
 - [ ] 可选：若后续需要横向比较多份 JSON，再单独设计 `compare_baselines.py`
 - [ ] Phase 2 启动时，本设计文档要 cross-link 到 `phase2/design_notes/onnx_export_design.md`
 - [ ] 若引入 FP16/AMP，记录 autocast / dtype 设置并与 JSON schema 对齐
@@ -385,6 +419,8 @@ python phase1/scripts/baseline_inference.py `
 | v1.0   | 2026-05-28 | 初版落盘，覆盖 7 条用户约束 + dual-run NVTX + JSON schema v1.0 |
 | v1.0.1 | 2026-05-28 | 增加 §11 Triton stub 环境兼容层；§7 风险表新增一行；JSON `env` 块新增 `env_patches` / `triton_stubbed` 字段（仍在 schema 1.0 兼容范围内） |
 | v1.0.2 | 2026-05-28 | **§11 大改**：stub 注入时机从"模块顶部立即"改为"`build_model()` 内延迟"；引入 `_FakeSymbol` 单例替代 `object`；新增 dunder 防御层（显式预填 `__file__/__path__/__loader__/__package__/__spec__`）；修正调用入口为真实函数名 `create_efficientvit_seg_model` + zoo key 格式 `efficientvit-seg-b0-cityscapes`；端到端 dry-run + smoke test 在 MX250 上验证通过 |
+| v1.1   | 2026-06-04 | 新增 Plan D：stage2 LiteMLA internal attribution。Plan D 使用实例级 `LiteMLA.forward` patch，只拆 `stage2/context` 两个 LiteMLA 的 `qkv/aggregation/cat/relu_linear_att/proj` 第一层子路径；`relu_linear_att` 保持黑盒调用以保留 autocast-disabled 语义；profiling 前执行 patched-vs-original sanity check。 |
+| v1.2   | 2026-06-04 | Plan D 收窄为 stage2-only 实验口径，并新增 `wandb_stub` import 兼容补丁，避免 Windows 推理脚本退出时出现真实 wandb 临时目录清理 PermissionError；JSON `env` 块新增 `wandb_stubbed`。 |
 
 ---
 
@@ -522,14 +558,15 @@ you are running a NON-B0 path on a Triton-less machine.
 
 ### 11.8 可观测性
 
-JSON `env` 块新增两个字段：
+JSON `env` 块新增三个字段：
 
 ```json5
 {
   "env": {
     "...": "...",
-    "env_patches": ["triton_stub"],    // 未来可能增加其他补丁
-    "triton_stubbed": true              // 布尔快查
+    "env_patches": ["triton_stub", "wandb_stub"],  // 当前 import 兼容补丁
+    "triton_stubbed": true,                         // Triton import 补丁
+    "wandb_stubbed": true                           // wandb import 补丁
   }
 }
 ```

@@ -14,12 +14,18 @@ This script is the **dual-run NVTX baseline** described in
 * ``--nvtx-level B``  : mid-grain ranges (stem / stage0..3 / head)
 * ``--nvtx-level C``  : hotspot component ranges in stage0/stage2/head
                        (for Plugin design)
+* ``--nvtx-level D``  : stage2 LiteMLA internal ranges
+                       (qkv / aggregation / cat / relu_linear_att / proj)
 
 Hard contracts (see design note for full rationale)
 ---------------------------------------------------
 * batch_size = 1, dtype = fp32, CUDA Events timing, warmup=20, measure=100.
 * Plan-C uses hook-only hotspot component ranges and does not alter the
   numerical forward path.
+* Plan-D uses instance-level LiteMLA.forward patching, keeps
+  relu_linear_att() as a black box so its original autocast-disabled
+  decorator remains active, and runs a patched-vs-original sanity check
+  before profiling.
 * No torch.no_grad(); everything inference-bound runs under
   torch.inference_mode().
 * Hashing / optional MACs all happen **outside** the measure loop.
@@ -258,6 +264,54 @@ def _install_triton_stub() -> bool:
 _TRITON_STUBBED: bool = False
 
 
+# --------------------------------------------------------------------------- #
+# Environment compatibility patch: wandb stub (inference-only script)          #
+# --------------------------------------------------------------------------- #
+# EfficientViT's import graph pulls in trainer utilities that import `wandb`.
+# This benchmark never logs to wandb, but importing the real package on Windows
+# can register TemporaryDirectory cleanup handlers that emit PermissionError at
+# interpreter shutdown. Install an import-only stub before `import efficientvit`
+# so inference runs exit with clean stderr while leaving upstream code intact.
+
+
+class _FakeWandbRun:
+    def log(self, *args, **kwargs) -> None:
+        return None
+
+    def finish(self, *args, **kwargs) -> None:
+        return None
+
+
+def _install_wandb_stub() -> bool:
+    """Install a minimal import-only wandb module for inference benchmarks."""
+    if "wandb" in sys.modules:
+        return False
+
+    import importlib.machinery as _mach
+
+    stub = types.ModuleType("wandb")
+    stub.__file__ = None
+    stub.__loader__ = None
+    stub.__package__ = "wandb"
+    stub.__spec__ = _mach.ModuleSpec("wandb", loader=None)
+
+    def _init(*args, **kwargs) -> _FakeWandbRun:
+        return _FakeWandbRun()
+
+    def _noop(*args, **kwargs) -> None:
+        return None
+
+    stub.init = _init        # type: ignore[attr-defined]
+    stub.login = _noop       # type: ignore[attr-defined]
+    stub.log = _noop         # type: ignore[attr-defined]
+    stub.finish = _noop      # type: ignore[attr-defined]
+    sys.modules["wandb"] = stub
+    return True
+
+
+_WANDB_STUBBED: bool = False
+
+
 # NOTE: `import torch` happens here WITHOUT any triton stub in `sys.modules`.
 # See the timing comment block above for why this ordering matters.
 import numpy as np
@@ -307,8 +361,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     # --- NVTX / profiling --------------------------------------------------- #
     p.add_argument("--nvtx-level", default="A",
-                   choices=["A", "B", "C"],
-                   help="A=no NVTX, B=mid-grain, C=hotspot component-level (Plan C).")
+                   choices=["A", "B", "C", "D"],
+                   help=("A=no NVTX, B=stage-level, C=hotspot component-level, "
+                         "D=stage2 LiteMLA internal profiling."))
     p.add_argument("--profile-macs", action="store_true",
                    help="Optional FLOPs/MACs profiling via torchprofile. "
                         "Runs once, outside measure loop. May increase VRAM.")
@@ -350,8 +405,8 @@ def validate_args(args: argparse.Namespace) -> None:
         )
     if args.warmup < 0 or args.measure <= 0:
         raise SystemExit("ERROR: --warmup must be >=0 and --measure must be >0.")
-    if args.nvtx_level == "C" and args.device != "cuda":
-        raise SystemExit("ERROR: --nvtx-level=C requires CUDA device.")
+    if args.nvtx_level in {"B", "C", "D"} and args.device != "cuda":
+        raise SystemExit("ERROR: --nvtx-level B/C/D requires CUDA device.")
 
 
 # --------------------------------------------------------------------------- #
@@ -470,13 +525,14 @@ def build_model(args: argparse.Namespace) -> Tuple[torch.nn.Module, Dict[str, An
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
 
-    # === Triton stub injection ===========================================
+    # === Import-time compatibility stubs =================================
     # CRITICAL: this MUST happen here -- AFTER `import torch` (which already
     # ran at module-load time) and BEFORE the first `import efficientvit.*`.
     # See the module-level comment block on _install_triton_stub() for the
     # full rationale and design_notes/baseline_inference_design.md section 11.
-    global _TRITON_STUBBED
+    global _TRITON_STUBBED, _WANDB_STUBBED
     _TRITON_STUBBED = _install_triton_stub()
+    _WANDB_STUBBED = _install_wandb_stub()
     # =====================================================================
 
     # Import after sys.path is patched and triton stub is in place.
@@ -742,6 +798,222 @@ def apply_plan_c_hooks(model: torch.nn.Module) -> Tuple[List[Any], List[str]]:
     return handles, list(comps.keys())
 
 
+# ---- Plan D: LiteMLA internal instance patch ------------------------------- #
+
+PLAN_D_SEGMENTS = ("qkv", "aggregation", "cat", "relu_linear_att", "proj")
+PLAN_D_ATOL = 1.0e-5
+PLAN_D_RTOL = 1.0e-5
+
+
+def _find_litemla_modules(model: torch.nn.Module) -> List[Tuple[str, torch.nn.Module]]:
+    """Find stage2 LiteMLA instances for Plan D.
+
+    Plan C showed stage2/context is the relevant Plugin-design candidate:
+    context is heavier than stage2/local, while stage3 is not part of the
+    selected hotspot path. Plan D therefore scopes to backbone.stages.2 only.
+    """
+    out: List[Tuple[str, torch.nn.Module]] = []
+    for name, module in model.named_modules():
+        if name.startswith("backbone.stages.2.") and module.__class__.__name__ == "LiteMLA":
+            out.append((name, module))
+    return out
+
+
+def _plan_d_prefix(module_name: str, fallback_idx: int) -> str:
+    parts = module_name.split(".")
+    try:
+        stage_pos = parts.index("stages")
+        op_pos = parts.index("op_list")
+        stage_idx = int(parts[stage_pos + 1])
+        block_idx = int(parts[op_pos + 1])
+        return f"stage{stage_idx}/block{block_idx}/litemla"
+    except (ValueError, IndexError):
+        return f"stage2/litemla{fallback_idx}"
+
+
+def _plan_d_ranges_for_prefix(prefix: str) -> List[str]:
+    return [f"{prefix}/{segment}" for segment in PLAN_D_SEGMENTS]
+
+
+def _nvtx_call(name: str, enabled: bool, fn: Callable[[], torch.Tensor]) -> torch.Tensor:
+    if enabled:
+        _nvtx_push(name)
+    try:
+        return fn()
+    finally:
+        if enabled:
+            _nvtx_pop()
+
+
+def _make_plan_d_forward(prefix: str) -> Callable[..., torch.Tensor]:
+    """Build a LiteMLA.forward replacement that only adds coarse internal ranges."""
+
+    def _patched_forward(self, x: torch.Tensor) -> torch.Tensor:
+        emit_nvtx = bool(getattr(self, "_edgeseg_plan_d_emit_nvtx", True))
+
+        qkv = _nvtx_call(f"{prefix}/qkv", emit_nvtx, lambda: self.qkv(x))
+
+        def _aggregate() -> List[torch.Tensor]:
+            multi_scale_qkv = [qkv]
+            for op in self.aggreg:
+                multi_scale_qkv.append(op(qkv))
+            return multi_scale_qkv
+
+        multi_scale_qkv = _nvtx_call(
+            f"{prefix}/aggregation", emit_nvtx, _aggregate
+        )
+        qkv = _nvtx_call(
+            f"{prefix}/cat", emit_nvtx, lambda: torch.cat(multi_scale_qkv, dim=1)
+        )
+
+        H, W = list(qkv.size())[-2:]
+        if H * W > self.dim:
+            # Keep relu_linear_att() as a black box: its original
+            # @torch.autocast(enabled=False) decorator and dtype logic remain
+            # active because we call the original bound method unchanged.
+            out = _nvtx_call(
+                f"{prefix}/relu_linear_att",
+                emit_nvtx,
+                lambda: self.relu_linear_att(qkv).to(qkv.dtype),
+            )
+        else:
+            out = _nvtx_call(
+                f"{prefix}/relu_quadratic_att",
+                emit_nvtx,
+                lambda: self.relu_quadratic_att(qkv),
+            )
+
+        out = _nvtx_call(f"{prefix}/proj", emit_nvtx, lambda: self.proj(out))
+        return out
+
+    return _patched_forward
+
+
+def _capture_litemla_io(
+    model: torch.nn.Module,
+    x: torch.Tensor,
+    modules: List[Tuple[str, torch.nn.Module]],
+) -> Dict[str, Tuple[torch.Tensor, torch.Tensor]]:
+    """Capture one original LiteMLA input/output pair per module."""
+    cache: Dict[str, Tuple[torch.Tensor, torch.Tensor]] = {}
+    handles: List[Any] = []
+
+    def _mk_hook(name: str) -> Callable[..., None]:
+        def _hook(_mod, inp, out):
+            cache[name] = (inp[0].detach().clone(), out.detach().clone())
+        return _hook
+
+    for name, module in modules:
+        handles.append(module.register_forward_hook(_mk_hook(name)))
+    try:
+        with torch.inference_mode():
+            model(x)
+    finally:
+        remove_hooks(handles)
+    return cache
+
+
+def apply_plan_d_patch_with_sanity(
+    model: torch.nn.Module,
+    x: torch.Tensor,
+) -> Tuple[List[Tuple[torch.nn.Module, Callable[..., torch.Tensor]]],
+           List[str],
+           List[str],
+           Dict[str, Any]]:
+    """Patch LiteMLA.forward for Plan D and verify numerical equivalence.
+
+    The sanity check disables Plan-D NVTX emission while calling patched
+    modules directly, so the exported Nsight trace only contains warmup/measure
+    ranges. That keeps analyze_nsys_attribution.py's warmup slicing valid.
+    """
+    modules = _find_litemla_modules(model)
+    if not modules:
+        raise RuntimeError("Plan D requested but no stage2 LiteMLA modules were found.")
+
+    original_cache = _capture_litemla_io(model, x, modules)
+    if len(original_cache) != len(modules):
+        missing = [name for name, _ in modules if name not in original_cache]
+        raise RuntimeError(f"Plan D sanity capture missed LiteMLA modules: {missing}")
+
+    records: List[Tuple[torch.nn.Module, Callable[..., torch.Tensor]]] = []
+    component_ranges: List[str] = []
+    patched_modules: List[str] = []
+
+    for idx, (module_name, module) in enumerate(modules):
+        prefix = _plan_d_prefix(module_name, idx)
+        original_forward = module.forward
+        setattr(module, "_edgeseg_plan_d_original_name", module_name)
+        setattr(module, "_edgeseg_plan_d_prefix", prefix)
+        setattr(module, "_edgeseg_plan_d_emit_nvtx", True)
+        module.forward = types.MethodType(_make_plan_d_forward(prefix), module)
+        records.append((module, original_forward))
+        patched_modules.append(f"{prefix}:{module_name}")
+        component_ranges.extend(_plan_d_ranges_for_prefix(prefix))
+
+    per_module: List[Dict[str, Any]] = []
+    try:
+        for name, module in modules:
+            setattr(module, "_edgeseg_plan_d_emit_nvtx", False)
+        with torch.inference_mode():
+            for idx, (name, module) in enumerate(modules):
+                saved_input, original_output = original_cache[name]
+                patched_output = module(saved_input)
+                diff = (original_output - patched_output).abs()
+                max_abs = float(diff.max().item())
+                mean_abs = float(diff.mean().item())
+                passed = bool(torch.allclose(
+                    original_output, patched_output,
+                    atol=PLAN_D_ATOL, rtol=PLAN_D_RTOL,
+                ))
+                per_module.append({
+                    "name": name,
+                    "module_id": idx,
+                    "max_abs_diff": max_abs,
+                    "mean_abs_diff": mean_abs,
+                    "allclose_pass": passed,
+                })
+    finally:
+        for _, module in modules:
+            setattr(module, "_edgeseg_plan_d_emit_nvtx", True)
+
+    overall_pass = all(item["allclose_pass"] for item in per_module)
+    sanity_payload = {
+        "performed": True,
+        "passed": overall_pass,
+        "atol": PLAN_D_ATOL,
+        "rtol": PLAN_D_RTOL,
+        "dtype_context": "fp32",
+        "per_module": per_module,
+        "notes": (
+            "Plan D patches LiteMLA.forward only to add qkv/aggregation/cat/"
+            "relu_linear_att/proj NVTX ranges. relu_linear_att is kept as a "
+            "black-box call so its original autocast-disabled decorator remains active."
+        ),
+    }
+    if not overall_pass:
+        restore_plan_d_patches(records)
+        raise RuntimeError(f"Plan D sanity check failed: {per_module}")
+
+    return records, component_ranges, patched_modules, sanity_payload
+
+
+def restore_plan_d_patches(
+    records: List[Tuple[torch.nn.Module, Callable[..., torch.Tensor]]]
+) -> None:
+    for module, original_forward in records:
+        try:
+            module.forward = original_forward
+            for attr in (
+                "_edgeseg_plan_d_original_name",
+                "_edgeseg_plan_d_prefix",
+                "_edgeseg_plan_d_emit_nvtx",
+            ):
+                if hasattr(module, attr):
+                    delattr(module, attr)
+        except Exception:
+            pass
+
+
 # --------------------------------------------------------------------------- #
 # 5. MACs profiling (optional)                                                 #
 # --------------------------------------------------------------------------- #
@@ -912,6 +1184,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sanity_payload: Dict[str, Any] = {"performed": False, "passed": None,
                                        "per_module": [], "notes": ""}
     hook_handles: List[Any] = []
+    plan_d_records: List[Tuple[torch.nn.Module, Callable[..., torch.Tensor]]] = []
 
     try:
         if args.nvtx_level == "B":
@@ -921,6 +1194,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             hook_handles, component_ranges = apply_plan_c_hooks(model)
             nvtx_meta.update({"applied": True,
                               "hook_count": len(hook_handles),
+                              "component_ranges": component_ranges})
+        elif args.nvtx_level == "D":
+            (plan_d_records,
+             component_ranges,
+             patched_modules,
+             sanity_payload) = apply_plan_d_patch_with_sanity(model, x)
+            nvtx_meta.update({"applied": True,
+                              "patched_modules": patched_modules,
+                              "hook_count": 0,
                               "component_ranges": component_ranges})
 
         if args.dry_run:
@@ -940,6 +1222,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     finally:
         # Tidy up: always restore.
         remove_hooks(hook_handles)
+        restore_plan_d_patches(plan_d_records)
 
     # ----- Assemble + save JSON --------------------------------------------- #
     out_path = Path(args.out) if args.out else derive_default_out_path(args)
@@ -987,8 +1270,12 @@ def _assemble_payload(args: argparse.Namespace,
         "input": input_meta,
         "env": {
             **env,
-            "env_patches": ["triton_stub"] if _TRITON_STUBBED else [],
+            "env_patches": (
+                (["triton_stub"] if _TRITON_STUBBED else [])
+                + (["wandb_stub"] if _WANDB_STUBBED else [])
+            ),
             "triton_stubbed": bool(_TRITON_STUBBED),
+            "wandb_stubbed": bool(_WANDB_STUBBED),
         },
         "cudnn": {
             "benchmark": torch.backends.cudnn.benchmark,
