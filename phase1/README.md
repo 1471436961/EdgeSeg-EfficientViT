@@ -27,7 +27,7 @@ phase1/
 │   ├── metrics/                           ← 延迟/显存/归因 JSON/MD（入库，体积小）
 │   ├── figures/                           ← Nsight 关键截图（入库，体积小）
 │   └── nsight/                            ← .nsys-rep / .sqlite 原始报告（不入库）
-└── bottleneck_analysis_report.md          ← 最终交付物（V3.0 重命名，待编写）
+└── bottleneck_analysis_report.md          ← 最终交付物（性能瓶颈与融合机会分析）
 ```
 
 > ⚠️ `weights/`、`data/`、`results/nsight/` 已在根 `.gitignore` 中排除，每个目录用 `.gitkeep` 占位保持结构。
@@ -66,7 +66,7 @@ phase1/
   - 分析口径：端到端 latency 以 JSON 中 CUDA Events 为准；NVTX range 只提供结构边界，组件占比应从 Nsight sqlite 中用 CUDA runtime/kernel `correlationId` 归因统计，不能直接用 NVTX range 的 `end-start` 当 GPU 耗时
   - ✅ Plan B/C/D Nsight attribution 表已生成：[`planB_nsys_attribution_summary.md`](./results/metrics/planB_nsys_attribution_summary.md)、[`planC_nsys_attribution_summary.md`](./results/metrics/planC_nsys_attribution_summary.md)、[`planD_nsys_attribution_summary.md`](./results/metrics/planD_nsys_attribution_summary.md)
   - ✅ 显存证据当前采用 JSON 中的 `max_memory_allocated_mb` / `max_memory_reserved_mb` 峰值字段；连续显存曲线不是本轮 Nsight 截图主证据
-- [ ] **Step 6**：撰写 `bottleneck_analysis_report.md`
+- [x] **Step 6**：撰写 [`bottleneck_analysis_report.md`](./bottleneck_analysis_report.md)
   - 不只是"哪里慢"，更要标注 **"哪些算子序列适合融合为 Plugin"**
   - 给出每个候选融合点的实测耗时 + 预期加速理论估算
   - 报告必须区分两条排序：**端到端耗时收益**（当前 `stage0` 最大）与 **Plugin 展示价值**（LiteMLA 仍是高区分度主线）
