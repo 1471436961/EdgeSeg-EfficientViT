@@ -10,8 +10,8 @@
 
 | 脚本 | 状态 | 一句话定位 | 设计文档 |
 |------|------|----------|---------|
-| `baseline_inference.py` | ✅ v1.0 | 单卡 batch=1 latency 基准 + Nsight NVTX 注入 | [baseline_inference_design.md](../design_notes/baseline_inference_design.md) |
-| `analyze_nsys_attribution.py` | ✅ v1.0 | 从 Nsight SQLite 中按 NVTX range 归因 CUDA kernel 耗时，输出 Markdown/JSON 汇总表 | 脚本 docstring |
+| `baseline_inference.py` | ✅ implemented | 单卡 batch=1 latency 基准 + Nsight NVTX 注入 | [baseline_inference_design.md](../design_notes/baseline_inference_design.md) |
+| `analyze_nsys_attribution.py` | ✅ implemented | 从 Nsight SQLite 中按 NVTX range 归因 CUDA kernel 耗时，输出 Markdown/JSON 汇总表 | 脚本 docstring |
 | `compare_baselines.py` | ⏸ Deferred（未实现） | 可选：对多份 baseline JSON 做表格化对比 | — |
 | `evaluate.py` | ⏸ Out of Phase 1 mainline（未实现） | 可选：Cityscapes mIoU / 精度评估；不属于 Phase 1 baseline 主线 | — |
 
@@ -56,8 +56,8 @@
 ```powershell
 # 干净 latency（Plan A）
 python phase1/scripts/baseline_inference.py `
-    --weights phase1/weights/b0.pt `
-    --input-image phase1/data/cityscapes_sample.png `
+    --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+    --input-image phase1/data/city_asset_cityscapes_like.png `
     --resolution 1024 2048 `
     --nvtx-level A `
     --measurement-mode latency `
@@ -78,7 +78,8 @@ nsys profile `
     --trace=cuda,nvtx `
     --force-overwrite=true `
     python phase1/scripts/baseline_inference.py `
-        --weights phase1/weights/b0.pt `
+        --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+        --input-image phase1/data/city_asset_cityscapes_like.png `
         --resolution 1024 2048 `
         --nvtx-level B `
         --warmup 20 --measure 100
@@ -94,7 +95,8 @@ nsys profile `
     --trace=cuda,nvtx `
     --force-overwrite=true `
     python phase1/scripts/baseline_inference.py `
-        --weights phase1/weights/b0.pt `
+        --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+        --input-image phase1/data/city_asset_cityscapes_like.png `
         --resolution 1024 2048 `
         --nvtx-level C `
         --warmup 20 --measure 100
@@ -211,4 +213,5 @@ A：①关闭 `--profile-macs`；②降到 `--resolution 512 1024`；③确保�
 
 | 日期 | 变更 |
 |------|------|
-| 2026-05-28 | 初版，对应 `baseline_inference.py` v1.0 |
+| 2026-05-28 | 初版，对应 `baseline_inference.py` |
+| 2026-06-05 | 文档示例同步为 Phase 1 正式权重与固定样图路径；脚本清单不再写死实现版本号 |

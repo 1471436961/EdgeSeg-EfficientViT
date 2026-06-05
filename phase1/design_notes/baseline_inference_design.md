@@ -241,7 +241,7 @@ Plan D sanity 只验证包装层没有改变数值路径；它不证明未来 Pl
   "model":   { "name": "b0", "dataset": "cityscapes" },
   "weights": {
     "weights_status": "loaded | random",
-    "weights_path":   "/abs/path/b0.pt | null",
+    "weights_path":   "/abs/path/efficientvit_seg_b0_cityscapes.pt | null",
     "weights_sha256": "<hex> | null",
     "weights_load_msg": "..."
   },
@@ -363,7 +363,8 @@ Plan D 是后续新增实验口径，不属于原 7 条约束；第一版只覆�
 正式 baseline（Plan A，clean）：
 ```powershell
 python phase1/scripts/baseline_inference.py `
-  --weights phase1/weights/b0.pt `
+  --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+  --input-image phase1/data/city_asset_cityscapes_like.png `
   --resolution 1024 2048 `
   --nvtx-level A `
   --measurement-mode latency `
@@ -373,22 +374,34 @@ python phase1/scripts/baseline_inference.py `
 Nsight Plan B：
 ```powershell
 nsys profile -o phase1/results/nsight/levelB `
+  --trace=cuda,nvtx `
   python phase1/scripts/baseline_inference.py `
-  --weights phase1/weights/b0.pt --nvtx-level B
+  --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+  --input-image phase1/data/city_asset_cityscapes_like.png `
+  --resolution 1024 2048 `
+  --nvtx-level B
 ```
 
 Nsight Plan C（热点组件级）：
 ```powershell
 nsys profile -o phase1/results/nsight/levelC `
+  --trace=cuda,nvtx `
   python phase1/scripts/baseline_inference.py `
-  --weights phase1/weights/b0.pt --nvtx-level C
+  --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+  --input-image phase1/data/city_asset_cityscapes_like.png `
+  --resolution 1024 2048 `
+  --nvtx-level C
 ```
 
 Nsight Plan D（stage2 LiteMLA 内部子路径）：
 ```powershell
 nsys profile -o phase1/results/nsight/levelD `
+  --trace=cuda,nvtx `
   python phase1/scripts/baseline_inference.py `
-  --weights phase1/weights/b0.pt --nvtx-level D
+  --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt `
+  --input-image phase1/data/city_asset_cityscapes_like.png `
+  --resolution 1024 2048 `
+  --nvtx-level D
 ```
 
 Smoke test（无权重）：

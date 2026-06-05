@@ -35,7 +35,8 @@ Hard contracts (see design note for full rationale)
 CLI
 ---
     python phase1/scripts/baseline_inference.py \
-        --weights phase1/weights/b0.pt \
+        --weights phase1/weights/efficientvit_seg_b0_cityscapes.pt \
+        --input-image phase1/data/city_asset_cityscapes_like.png \
         --resolution 1024 2048 \
         --nvtx-level B \
         --measurement-mode latency \

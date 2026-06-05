@@ -5,6 +5,8 @@
 > **报告目标**：建立 Phase 1 端到端性能基线，使用 Nsight Systems 将 CUDA kernel 耗时归因到模型结构，并为 Phase 3 TensorRT Plugin / 工程优化候选排序。
 >
 > **关键口径**：NVTX range 只提供结构边界，不是计时工具。本文所有组件耗时均来自 Nsight SQLite 中 CUDA runtime/kernel `correlationId` 归因统计，不直接使用 NVTX range 的 `end-start` 作为 GPU 耗时。
+>
+> **方法论复盘**：Phase 1 中被人工 review 纠正过的关键测量/归因/Plugin 候选取舍，见 [`design_notes/phase1_decision_corrections.md`](./design_notes/phase1_decision_corrections.md)。
 
 ---
 
@@ -43,7 +45,7 @@ Plan D 进一步细化了 LiteMLA Plugin 边界：在 `stage2/context` LiteMLA �
 | 项目 | 数值 |
 |---|---|
 | 模型 | EfficientViT-Seg-B0，Cityscapes pretrained |
-| 权重文件 | [`weights/efficientvit_seg_b0_cityscapes.pt`](./weights/efficientvit_seg_b0_cityscapes.pt) |
+| 权重文件 | `phase1/weights/efficientvit_seg_b0_cityscapes.pt`（不入库，见 SHA256） |
 | 权重 SHA256 | `923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50` |
 | 输入图像 | [`data/city_asset_cityscapes_like.png`](./data/city_asset_cityscapes_like.png) |
 | 输入 SHA256 | `34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630` |
@@ -367,15 +369,23 @@ Phase 2 TensorRT baseline 前，不建议直接为 P2 手写 Plugin。应先看 
 
    定量归因使用 sqlite correlation 统计，不使用 NVTX range 的 raw duration。
 
-4. **Plan D 只覆盖 stage2**
+4. **CPU enqueue / OS 调度不是本报告的主证据**
+
+   当前 Nsight 运行没有启用管理员权限下的 CPU sampling、CPU context switch 与 WDDM trace，因此本报告不声称完全排除 Python CPU enqueue、多线程调度或 Windows WDDM 对 CUDA launch cadence 的轻微影响。现有 timeline 与 latency 分布未显示这些因素构成主导瓶颈，但若 Phase 2/3 出现明显 GPU 空洞或 launch 间隙，应使用管理员权限重新采集 CPU/WDDM trace。
+
+5. **dataloader / preprocessing 不属于当前 latency 口径**
+
+   Phase 1 使用固定单张输入图，图像读取、预处理、hash、MACs 等步骤均在 warmup/measure 之外完成。当前 latency 只覆盖 `model(x)` 推理本体，因此可以排除 dataloader/preprocessing 拖慢本报告中的推理 latency。若后续评估真实视频流或数据集 pipeline，需要另测 end-to-end pipeline latency。
+
+6. **Plan D 只覆盖 stage2**
 
    Plan D 只分析 Plan C 选出的两个 `stage2/context` LiteMLA，不声称该比例适用于所有模型变体。
 
-5. **FP16 策略未定**
+7. **FP16 策略未定**
 
    上游 `relu_linear_att` 禁用 autocast，说明这段对数值稳定性敏感。Phase 3 Plugin 需要明确内部保留 FP32，还是设计稳定 FP16 路径。
 
-6. **Bicubic upsample 影响 Phase 2**
+8. **Bicubic upsample 影响 Phase 2**
 
    SegHead 使用 bicubic upsample，TensorRT 可能不原生支持。该问题应在 ONNX/TensorRT 导出阶段单独处理。
 

@@ -20,7 +20,7 @@ applications/efficientvit_gazesam/models/onnx
 applications/efficientvit_gazesam/models/tensorrt
 
 # ===== EdgeSeg-EfficientViT phase1 (baseline & profiling) =====
-# 大体积权重 / 数据 / Nsight 报告不入库，仅保留脚本、文档与小型指标 csv
+# 大体积权重 / 数据 / Nsight 报告不入库，仅保留脚本、文档与小型指标 JSON/MD
 phase1/weights/*
 !phase1/weights/.gitkeep
 phase1/data/*
