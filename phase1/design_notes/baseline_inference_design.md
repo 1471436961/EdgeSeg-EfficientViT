@@ -1,8 +1,8 @@
 # `baseline_inference.py` — 设计文档
 
 > **关联代码**：[`phase1/scripts/baseline_inference.py`](../scripts/baseline_inference.py)
-> **关联契约**：[`PROJECT_CONVENTIONS.md`](../../../PROJECT_CONVENTIONS.md) §1（三段式）§2（文档分层）
-> **关联战略**：[`PROJECT_STRATEGY.md`](../../../PROJECT_STRATEGY.md) V3.1 · Phase 1
+> **关联契约**：[`PROJECT_CONVENTIONS.md`](../../PROJECT_CONVENTIONS.md) §1（三段式）§2（文档分层）
+> **关联战略**：[`PROJECT_STRATEGY.md`](../../PROJECT_STRATEGY.md) V3.1 · Phase 1
 > **关联架构分析**：[`phase1/architecture_analysis.md`](../architecture_analysis.md)
 > **创建日期**：2026-05-28
 > **状态**：v1.0（初版落盘，对应脚本第一次 commit）

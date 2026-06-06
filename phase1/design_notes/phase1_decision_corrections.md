@@ -37,7 +37,7 @@
 
 ---
 
-## 3. Plan C/D sanity check：必须保留 patch 前原始参照
+## 3. Plan D sanity check：必须保留 patch 前原始参照
 
 **原问题**：曾出现“先 monkey-patch，再对 patched 路径做前后检查”的伪检查风险。
 
@@ -50,7 +50,7 @@
 - 逐模块用 `torch.allclose(atol=1e-5, rtol=1e-5)` 校验。
 - JSON 记录每个模块的 `max_abs_diff` / `mean_abs_diff` / pass 状态。
 
-**影响**：保证 Plan C/D 的 NVTX patch 是 profiling 注释层，而不是隐式改变计算图的实现层。
+**影响**：保证 Plan D 的 NVTX patch 是 profiling 注释层，而不是隐式改变计算图的实现层。
 
 ---
 

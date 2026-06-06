@@ -2,12 +2,13 @@
 
 > **目的**：在动笔写 `baseline_inference.py` 与 Nsight 剖析脚本之前，先把模型结构、关键算子序列、张量形状 **完全摸清**。本报告直接决定：
 >
-> 1. NVTX range 应该插在**哪些层级 / 哪些算子序列**上（决策 3）；
-> 2. 阶段三 TensorRT Plugin 的**候选融合目标**是什么（V3.0 战略核心）；
-> 3. 哪些"想当然"的传统 Transformer 假设在 EfficientViT 上**根本不成立**（避免阶段二/三踩坑）。
+> 1. NVTX range 应该插在**哪些层级 / 哪些算子序列**上；
+> 2. 阶段三 TensorRT Plugin 的**候选融合目标**是什么；
+> 3. 哪些"想当然"的传统 Transformer 假设在 EfficientViT 上**根本不成立**。
 >
 > **源码版本**：`mit-han-lab/efficientvit @ master`（本地 commit `de7d773`）。
 > **撰写日期**：2026-05-26。
+> **Phase 1 实测回填**：本文最初生成于源码精读阶段；2026-06-06 根据 Plan B/C/D Nsight attribution 结果做口径修订。静态结构事实以本文为准，性能热点与 Phase 3 Plugin 候选排序以 [`bottleneck_analysis_report.md`](bottleneck_analysis_report.md) 为准。
 
 ---
 
@@ -18,7 +19,7 @@
 | 1 | **EfficientViT 不是传统 Transformer**：没有 LayerNorm、没有 Softmax、没有 Patch Embedding、没有位置编码。 | V3.0 文档中"LayerNorm+残差""MatMul+Softmax+Scale"的融合假设 **需要修正**。 |
 | 2 | **核心创新 = LiteMLA（轻量多尺度线性注意力）**：`ReLU(Q), ReLU(K), V` 后做 `(V·K^T)·Q` 的线性顺序乘法，复杂度 O(N·d²) 而非 O(N²·d)。 | 真正的融合机会是 `Conv1x1(QKV) → 多尺度 DWConv → ReLU → MatMul → MatMul → 归一化除法` 这一序列。 |
 | 3 | **归一化全部用 BN2d**（而非 LN）。 | TRT 部署时 **BN 直接折叠进 Conv**，几乎零开销；**不必单独融合 LN**。 |
-| 4 | **B0 注意力只在 stage3/stage4 出现**，且只有 2 个 `EfficientViTBlock`。 | Nsight attribution 已验证：注意力/context 不是全模型最大瓶颈；最大热点在早期高分辨率 `stage0`，其次是 `stage2`，`head` 也有明确耗时。 |
+| 4 | **B0 注意力只在语义 stage3/stage4 出现**：两阶段各 2 个 `EfficientViTBlock`，共 4 个 LiteMLA 实例。 | Nsight attribution 已验证：注意力/context 不是全模型最大瓶颈；最大热点在早期高分辨率代码/NVTX `stage0`，其次是代码/NVTX `stage2`，`head` 也有明确耗时。Plan D 第一版只细拆语义 stage3（代码/NVTX `stage2`）中的 2 个 LiteMLA。 |
 | 5 | **B0 在 stage4 仅 128 通道，dim=16**，多尺度只有一个 5×5 DW 分支。 | LiteMLA Plugin 的定位应是**高区分度非标准算子展示**，而不是最大端到端收益点；收益预期要保守估算。 |
 | 6 | LiteMLA 内部含一个 **形状自适应分支**：`H*W > dim` 走线性注意力，否则走二次注意力。 | TRT 部署时必须**冻结输入分辨率**，否则 Plugin 行为无法静态确定。 |
 
@@ -61,7 +62,9 @@ head (SegHead, DAG 结构)         ──→ "segout": (B, 19, H/8, W/8)
 | `stage3` | 64 | 1 `MBConv` (下采样) + 2 `EfficientViTBlock` | **MBConv + LiteMLA** | stride=2 |
 | `stage4` | 128 | 1 `MBConv` (下采样) + 2 `EfficientViTBlock` | **MBConv + LiteMLA** | stride=2 |
 
-注意力**只**在 stage3 / stage4 出现。前 3 个阶段是纯 CNN（MobileNetV3 风格）。
+注意力**只**在语义 stage3 / stage4 出现。前 3 个语义阶段是纯 CNN（MobileNetV3 风格）。
+
+> **阶段命名口径**：本文结构表里的 `stage1~4` 是模型语义阶段；Phase 1 NVTX / Nsight 中的 `stage0~3` 是 `backbone.stages` 的 `ModuleList` 索引。映射为：语义 `stage1` = 代码/NVTX `stage0`，语义 `stage2` = 代码/NVTX `stage1`，语义 `stage3` = 代码/NVTX `stage2`，语义 `stage4` = 代码/NVTX `stage3`。
 
 ### 1.3 `SegHead`（`seg.py:30`）— DAG 结构
 
@@ -82,7 +85,7 @@ outputs (segout):
 **关键观察**：
 - Head 里 **3 路上采样到同一分辨率再相加**（FPN 风格，但加法而非 concat）。
 - Upsample 默认 **bicubic**（`ops.py:84`），**TRT 不直接支持 bicubic，部署时大概率要降级为 bilinear**——这是一个潜在的精度对齐风险点。
-- `UpSampleLayer.forward` 显式 `@torch.autocast(enabled=False)`，**强制 FP32 跑插值**。这意味着 FP16 推理时这里会有 `cast→up→cast` 的额外开销，是 Nsight 上能看到的一个"小尖刺"。
+- `UpSampleLayer.forward` 显式 `@torch.autocast(enabled=False)`，**强制 FP32 跑插值**。这意味着 FP16/AMP 或 TRT FP16 部署时可能出现 FP32 fallback / dtype cast 开销；Phase 1 当前 FP32 profile 不把这里的 cast 当作已验证瓶颈。
 
 ---
 
@@ -186,7 +189,7 @@ x (B, C, H, W)
 - 在 FP16/AMP 推理时，整个 LiteMLA 注意力计算**实际上是 FP32 的**；
 - 这是出于"线性注意力数值稳定性差，eps trick 容易出 NaN"的考虑；
 - **对 TRT FP16 部署**：要么把这部分手动用稳定的算法重写成 FP16，要么 Plugin 内部继续走 FP32 内核——这是阶段三 Plugin 设计的一个核心折中点；
-- 对 Nsight 时间线：你会在注意力区段看到明显的 `dtype cast`，可以作为优化标记点。
+- 对 Nsight 时间线：在 FP16/AMP 或 TRT FP16 profile 中，应重点检查注意力区段是否出现 `dtype cast` / FP32 fallback；Phase 1 FP32 profile 不把 cast 作为已验证开销。
 
 ### 2.4 `EfficientViTBlock`（`ops.py:671`）
 
@@ -235,50 +238,45 @@ SegHead (DAG, head_width=32, head_stride=8):
 ```
 
 **算力直觉（粗估）**：
-- 早期高分辨率 MBConv / Conv（语义 stage1/2；代码中对应 `backbone.stages.0/1`）是 backbone 里 **绝对算力大头**；Phase 1 Nsight 已验证 `backbone.stages.0` 是最大 GPU kernel 热点。
-- stage3/4 的 LiteMLA 特征图小（64×128 / 32×64），单次算力不大，但 **算子种类多、kernel launch 多、cast 多**，更容易出现 launch overhead 而非计算 bound。
+- 早期高分辨率 MBConv / Conv（语义 stage1/2；代码/NVTX `stage0/1`）是 backbone 里 **绝对算力大头**；Phase 1 Nsight 已验证代码/NVTX `stage0` 是最大 GPU kernel 热点。
+- 语义 stage3/4（代码/NVTX `stage2/3`）的 LiteMLA 特征图较小（64×128 / 32×64），单次理论算力不是全模型最大项。但 LiteMLA 由 qkv、aggregation、cat、linear attention、proj 等多个子路径组成，kernel 更碎，且在 FP16/TensorRT 部署时还涉及 autocast-disabled 的数值策略。Phase 1 Plan D 已确认代码/NVTX `stage2` 的 LiteMLA 内部主要耗时集中在 aggregation 与 relu_linear_att；至于这些耗时更偏 launch-bound、memory-bound 还是 compute-bound，需要 Phase 3 前用 Nsight Compute 或 microbenchmark 进一步确认。
 - Seg Head 的两次 bicubic upsample + add + final_expand 是一个常被忽视的耗时点（H/8 上的 1×1 Conv 输入是 128×256 = 32768 像素）。
 
 ---
 
 ## 4. 候选融合目标（喂给阶段三 Plugin / 工程优化）
 
-> **Phase 1 Nsight attribution 后修正**：候选目标不能只按论文模块排序。当前 B0/MX250 profile 下，`stage0` 是最大 GPU kernel 热点，`stage2` 第二，`head/middle` 是明显组件热点；LiteMLA/context 值得做，但不是最大瓶颈。因此本节按"求职展示价值"与"端到端收益潜力"双维度排序。
+> **Phase 1 Nsight attribution 后修正**：候选目标不能只按论文模块排序，也不能只按 PyTorch profile 中的最大耗时排序。当前 B0/MX250 profile 下，代码/NVTX `stage0` 是最大 GPU kernel 热点，代码/NVTX `stage2` 第二，`head/middle` 也很明显；但 `stage0/block*/main`、`head/middle`、`stage2/block*/local` 主要是 MBConv/Conv 系列，属于 TensorRT/cuDNN 可能已经较好处理的标准算子区域。LiteMLA 不是最大端到端瓶颈，但更符合自定义 Plugin 的高区分度主线。
 
-### 🥇 优先级 1：**LiteMLA 注意力核** —— 高区分度 Plugin 主交付物
-**融合范围**：从 `qkv 与多尺度聚合的 concat 之后`，到 `proj 之前`。
-即把 ③ reshape → ④ ReLU → ⑤ pad+transpose → ⑥ 两次 MatMul → 归一化除法 → ⑦ reshape 这一整段写成一个 CUDA kernel（或几个紧凑 kernel）。
+### P1：语义 stage3 / 代码-NVTX stage2 的 LiteMLA Plugin 主线
 
-**理论收益**：
-- 消除 reshape / transpose / pad 这些 view/layout 算子（PyTorch 里它们看似免费，TRT 里却常常 materialize 为真实 kernel）；
-- 让 `V·K^T` 和 `VK·Q` 共享 shared memory，省一次 HBM 来回；
-- 把"末尾 1 行的归一化除法"做成 fused epilogue，消除一次完整 traversal。
-- 预期注意力/context 段加速 **1.5×~2.5×**（待实测验证），但端到端收益需按该段真实占比保守估算。
+Plan D 第一版只细拆代码/NVTX `stage2` 中的两个 LiteMLA，因为 Plan B/C 显示这里的 context 模块在后半 backbone 中更值得优先解释。候选边界分三层：
 
-**简历卖点**：直接对标论文中的 LiteMLA 模块，明确"为线性注意力写了一个 TRT Plugin"，比"我做了 MatMul+Softmax 融合"具体得多。
+| 优先级 | 候选边界 | 角色 | 主要理由 |
+|---|---|---|---|
+| P1a | `aggregation-only` / `relu_linear_att-only` | MVP / 单段验证 | 边界最小，便于先验证 Plugin 接入、数值对齐和 Nsight 归因；其中 `relu_linear_att-only` 最能体现非标准线性注意力。 |
+| P1b | `aggregation + cat + relu_linear_att` | 主性能评估方向 | Plan D 显示 `aggregation` 与 `relu_linear_att` 是 LiteMLA 内部两大主耗时，中间 `cat` 连接两者；组合边界有机会减少中间 tensor 写回、读取和 kernel launch。 |
+| P1c | 整体 LiteMLA | fallback / 上限方案 | 融合空间最大，但需要覆盖 qkv、aggregation、cat、linear attention、proj 和残差前后语义，数值验证与维护风险最高，不建议作为第一版目标。 |
 
-### 🥈 优先级 2：**Seg Head / head middle 多输入融合**
-**融合范围**：head 的 3 路 1×1 Conv 输出 + 2 路 bicubic upsample + add。
-- 真正的痛点：**bicubic upsample 在 TRT 不原生支持**，要么走 plugin，要么降级 bilinear。
-- 如果走 plugin，可以顺手把 add 也融进去：`Conv1x1 + bicubic_up + add` 三件套一锅炒。
-- 风险：bicubic→bilinear 降级会带来 mIoU 损失，需要阶段二实测。
-- Phase 1 Plan C 显示 `head/middle` 是明显组件热点，端到端收益和工程必要性都比预想更强。
+### P2：标准算子链工程优化候选
 
-### 🥉 优先级 3：**stage0 early MBConv / Conv 堆叠优化**
-**融合范围**：`stage0/block0/main`、`stage0/block1/main` 中的早期高分辨率 Conv/BN/activation/Residual 序列。
-- Phase 1 Plan B/C 显示它是当前最大 GPU kernel 热点，端到端收益潜力最高。
-- 风险：这些是相对标准的卷积类结构，TensorRT/cuDNN 可能已经能较好优化；手写 Plugin 的差异化不如 LiteMLA，且维护成本更高。
-- 更适合作为 Phase 2 TRT baseline 后的工程优化候选，而不是一开始就替代 LiteMLA 主线。
+这些区域可能贡献更大的 PyTorch 端到端耗时，但不应直接等同于“最适合写 Plugin”：
 
-### 备选研究项：**多尺度 QKV 聚合段**
-**融合范围**：`Conv1x1(qkv) → DWConv 5×5 → Conv1x1 grouped → concat`。
-- 这里有一个 **concat 操作**，TRT 里 concat 经常拖累——可以重写为"直接写入连续缓冲区，省掉 concat"。
-- B0 scales 只 1 个，融合收益相对有限；但对 B1/B2 如果未来用到（scales 可能更多），价值更高。
+- `stage0/block*/main`：早期高分辨率 MBConv / Conv，是当前最大热点；但它主要是标准卷积链，需等 Phase 2 TensorRT baseline 判断是否仍有明显残余瓶颈。
+- `head/middle`：MBConv，在 Plan C 中耗时明显；同样属于标准卷积链，适合作为 Phase 2 后的工程优化候选。
+- `stage2/block*/local`：MBConv local module，与 context 相邻但性质不同；不能把 local 的耗时归因到 LiteMLA。
+- `head` 的 resize/add 路径：bicubic 在 TensorRT 中有部署风险，可能需要降级 bilinear 或补一个工程型 plugin；这更多是精度/部署兼容问题，而不是 LiteMLA 主线。
 
-### ⚠️ 不推荐融合
-- **MBConv / DSConv**：TRT 自己有非常成熟的 `Conv-BN-Act` 融合，自己写 plugin 反而更慢。
-- **LayerNorm+残差**：**不存在**这个序列，原 V3.0 文档需修订。
-- **Softmax**：**不存在**，整个模型 0 个 softmax。
+### P3：低优先级探索项
+
+- `Conv1x1(qkv) → DWConv 5×5 → grouped Conv1x1 → cat` 的多尺度聚合前段：B0 scales 只有一个分支，收益不宜高估；但未来扩到更大模型时价值会上升。
+- INT8 / mixed precision：需要等待 Phase 2/3 的 TensorRT baseline 与数值验证，不能由 Phase 1 FP32 profile 直接决定。
+
+### 不推荐作为 Phase 3 Plugin 主线
+
+- **LayerNorm+残差**：EfficientViT-Seg-B0 中不存在这个序列。
+- **MatMul+Softmax+Scale**：LiteMLA 没有 softmax，传统 ViT attention 融合假设不适用。
+- **泛化 MBConv / DSConv Plugin**：标准卷积链大概率已有 TensorRT/cuDNN 优化路径，除非 Phase 2 证明它们在 TensorRT 下仍是未被优化的残余热点。
 
 ---
 
@@ -288,12 +286,12 @@ SegHead (DAG, head_width=32, head_stride=8):
 |-----------|------------|
 | "重点关注 MatMul+Softmax+Scale" | "重点关注 **LiteMLA 线性注意力核**：`ReLU(Q/K) → V·K^T → VK·Q → 末尾归一化除法` 整段融合" |
 | "LayerNorm+残差 等算子序列" | "**EfficientViT 全程使用 BN2d，无 LN**。BN 可由 TRT 自动折叠，无需 Plugin。改为关注 **`Conv1x1 + bicubic_up + add`**（Seg Head 多输入融合）" |
-| "找出 N 个值得融合的算子序列" | 在 architecture_analysis.md 中已锁定 **3 个候选**，阶段一 Nsight 主要验证它们各自的耗时占比和加速空间 |
+| "找出 N 个值得融合的算子序列" | 源码精读阶段先识别 LiteMLA、SegHead、早期 MBConv/Conv 等候选；Phase 1 Nsight attribution 后修订为 P1 LiteMLA 分层 Plugin 主线 + P2 标准算子链工程优化候选 + P3 低优先级探索项 |
 
-> 本修订方向已同步到仓库外的 `PROJECT_STRATEGY.md`，作为 Phase 2/3 的后续战略依据。
+> 本修订方向已同步到项目根目录的 [`PROJECT_STRATEGY.md`](../PROJECT_STRATEGY.md)，作为 Phase 2/3 的后续战略依据。
 
 ---
 
-## 6. 阶段一 NVTX 标注建议（直接对应决策 3）
+## 6. 阶段一 NVTX 标注建议（直接对应决策 2）
 
-详见 `phase1/README.md` 的"决策 3"小节。本报告负责回答"模型有哪些天然的层级断点"，README 负责落地为代码里的 NVTX range。
+详见 `phase1/README.md` 的"决策 2"小节。本报告负责回答"模型有哪些天然的层级断点"，README 负责落地为代码里的 NVTX range。

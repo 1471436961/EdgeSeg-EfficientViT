@@ -7,8 +7,8 @@
 > ⚠️ **2026-05-26 架构精读后修正**：原 V3.0 文档预设的"`MatMul+Softmax+Scale`""`LayerNorm+残差`"两类融合目标 **在 EfficientViT 上不成立**——本模型采用 **LiteMLA 线性注意力**（无 softmax）+ **BN2d**（无 LayerNorm）。真实的融合候选请见 [`architecture_analysis.md`](./architecture_analysis.md) §4。
 >
 > 📚 **文档分层导航**：
-> - 项目级战略：[`../../PROJECT_STRATEGY.md`](../../PROJECT_STRATEGY.md)（仓库外，需在文件系统打开）
-> - 横切协作契约：[`../../PROJECT_CONVENTIONS.md`](../../PROJECT_CONVENTIONS.md)（仓库外，AI 协作流程见 §1）
+> - 项目级战略：[`../PROJECT_STRATEGY.md`](../PROJECT_STRATEGY.md)
+> - 横切协作契约：[`../PROJECT_CONVENTIONS.md`](../PROJECT_CONVENTIONS.md)（AI 协作流程见 §1）
 > - 阶段执行（本文件）：`phase1/README.md`
 > - 代码级设计：脚本 docstring 或 `phase1/design_notes/xxx_design.md`（按需创建）
 > - 阶段一设计纠偏：[`design_notes/phase1_decision_corrections.md`](./design_notes/phase1_decision_corrections.md)
@@ -20,7 +20,7 @@
 ```
 phase1/
 ├── README.md                              ← 本文件，阶段一导航
-├── architecture_analysis.md               ← 【NEW】EfficientViT-Seg-B0 架构精读（决策依据）
+├── architecture_analysis.md               ← EfficientViT-Seg-B0 架构精读（决策依据）
 ├── scripts/                               ← 可执行脚本（baseline_inference.py 等）
 ├── design_notes/
 │   ├── baseline_inference_design.md        ← baseline 脚本设计记录
@@ -55,7 +55,7 @@ phase1/
   - 预热 20 次 + 正式 100 次（默认值；smoke 用 3+5）✅
   - 记录 avg/p50/p95/p99 延迟、峰值显存、FPS ✅
   - **NVTX 标注**：四档口径，`--nvtx-level {A,B,C,D}` ✅（详见"决策 2"小节）
-  - **三档 smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）✅
+  - **smoke 全部通过**（MX250, 512×1024, random weights, warmup 3 + measure 5）✅
   - 配套设计文档：[`design_notes/baseline_inference_design.md`](./design_notes/baseline_inference_design.md)✅
   - 使用速查：[`scripts/README.md`](./scripts/README.md)✅
   - ✅ **正式 Plan A baseline 已完成**：真实 Cityscapes 权重 + 固定输入图 + 1024×2048 + warmup 20 + measure 100，结果见 [`results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json`](./results/metrics/baseline_b0_cityscapes_1024x2048_levelA_latency_formal_v1.json)

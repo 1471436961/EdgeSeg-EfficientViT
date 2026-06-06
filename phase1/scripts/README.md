@@ -1,7 +1,7 @@
 # `phase1/scripts/` — 脚本使用速查
 
 > **配套设计文档**：[`../design_notes/baseline_inference_design.md`](../design_notes/baseline_inference_design.md)
-> **契约**：所有脚本必须先在 [`PROJECT_CONVENTIONS.md`](../../../PROJECT_CONVENTIONS.md) §1 三段式下与用户确认设计，才能落盘。
+> **契约**：所有脚本必须先在 [`PROJECT_CONVENTIONS.md`](../../PROJECT_CONVENTIONS.md) §1 三段式下与用户确认设计，才能落盘。
 > **运行环境**：`conda activate efficientvit` (Windows / PowerShell)
 
 ---
