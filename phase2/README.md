@@ -16,12 +16,13 @@ Phase 2 做：
 - 运行 TensorRT inference benchmark，与 Phase 1 PyTorch baseline 对比。
 - 重新观察 Phase 1 中的 P1/P2 候选在 TensorRT 后是否仍然成立。
 - 使用 Nsight Systems 分析 TensorRT engine runtime，复核 TensorRT 后的残余热点与 Plugin 候选排序。
+- 实现轻量 TensorRT C++ 推理 Demo，验证 FP32 engine 能被 C++ Runtime API 加载和执行，为 Phase 3 Plugin 集成铺路。
 
 Phase 2 不做：
 
 - 不实现自定义 TensorRT Plugin。
 - 不把 LiteMLA 内部算子改写为 CUDA kernel。
-- 不以 Cityscapes 全量 mIoU 作为第一验收条件。
+- 不以 Cityscapes 全量 mIoU 作为阶段验收条件；Phase 2 只做 PyTorch / ONNXRuntime / TensorRT 转换一致性验证。
 - 不追求动态输入分辨率；第一版固定 `1x3x1024x2048`。
 
 ---
@@ -70,7 +71,12 @@ Phase 2 不做：
   - 使用 `cuda,nvtx` 为主口径；Windows 下 CPU sampling / WDDM tracing 需管理员权限，若不采集则作为限制项记录。
   - 对比 Phase 1 Plan B/C/D：kernel 类型分布、launch 密度、TensorRT 后残余热点，以及 LiteMLA / stage0 / head 候选是否仍成立。
   - EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不替代 Nsight runtime 归因。
-- [ ] Step 7：撰写 `phase2/tensorrt_baseline_report.md`。
+- [ ] Step 7：TensorRT C++ 推理 Demo。
+  - 使用 TensorRT C++ Runtime API 加载 FP32 engine。
+  - 分配固定 shape input / output buffer，执行一次或多次 inference。
+  - 输出 binding 信息、输出 checksum / 简单统计，不追求独立性能优化。
+  - 记录 CMake / MSVC / TensorRT include/lib 路径，为 Phase 3 Plugin 集成做工程预热。
+- [ ] Step 8：撰写 `phase2/tensorrt_baseline_report.md`。
   - PyTorch vs ONNXRuntime vs TensorRT 对比。
   - TensorRT 后热点是否变化。
   - Phase 3 Plugin 候选是否需要调整。
@@ -90,7 +96,8 @@ phase2/
 ├── design_notes/
 │   ├── benchmark_trt_engine_design.md
 │   ├── build_trt_engine_design.md
-│   └── onnx_export_design.md
+│   ├── onnx_export_design.md
+│   └── trt_nsys_attribution_design.md
 ├── results/
 │   ├── onnx/
 │   │   ├── .gitkeep
@@ -99,13 +106,18 @@ phase2/
 │   │   ├── .gitkeep
 │   │   ├── efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine  # 运行产物，不入 git
 │   │   └── efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # 运行产物，不入 git
-│   └── metrics/
-│       ├── .gitkeep
-│       ├── onnx_export_b0_cityscapes_1024x2048.json
-│       ├── trt_benchmark_b0_cityscapes_1024x2048_fp16.json
-│       ├── trt_benchmark_b0_cityscapes_1024x2048_fp32.json
-│       ├── trt_build_b0_cityscapes_1024x2048_fp16.json
-│       └── trt_build_b0_cityscapes_1024x2048_fp32.json
+│   ├── metrics/
+│   │   ├── .gitkeep
+│   │   ├── onnx_export_b0_cityscapes_1024x2048.json
+│   │   ├── trt_nsys_attribution_summary.md
+│   │   ├── trt_benchmark_b0_cityscapes_1024x2048_fp16.json
+│   │   ├── trt_benchmark_b0_cityscapes_1024x2048_fp32.json
+│   │   ├── trt_build_b0_cityscapes_1024x2048_fp16.json
+│   │   └── trt_build_b0_cityscapes_1024x2048_fp32.json
+│   └── nsight/
+│       └── TensorRT Nsight trace / sqlite 导出（运行产物，通常不入 git）
+├── cpp_demo/
+│   └── TensorRT C++ runtime demo（Step 7 落盘）
 └── logs/
     └── .gitkeep
 ```
@@ -150,7 +162,14 @@ TensorRT baseline 验收：
 - FP32 engine 可构建并可推理。
 - TensorRT 输出与 PyTorch / ONNXRuntime 输出误差可解释。
 - TensorRT latency 使用与 Phase 1 可比的 CUDA Events 口径。
+- TensorRT 后候选复核必须补充 Nsight Systems runtime attribution，不能只用端到端 speedup 代替瓶颈分析。
 - 若 FP16 engine 构建或数值对齐失败，报告中明确记录原因，不强行包装成成功。
+
+精度 / 语义一致性口径：
+
+- Phase 2 不做完整 Cityscapes mIoU，不把数据集精度评测作为阶段完成条件。
+- Phase 2 验证的是部署转换一致性：logits diff、relaxed allclose、cosine similarity、argmax pixel agreement。
+- 完整 mIoU 或更大样本集评估放到 Phase 3 Plugin 集成验证或最终验收阶段。
 
 当前 TensorRT 构建环境口径：
 

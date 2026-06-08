@@ -18,7 +18,7 @@ EdgeSeg-EfficientViT 是一个基于 MIT Han Lab EfficientViT-Seg-B0 的边缘�
 | 阶段 | 状态 | 主要产出 |
 |---|---|---|
 | Phase 1：PyTorch baseline + Nsight 剖析 | 已完成 | [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md) |
-| Phase 2：ONNX / TensorRT baseline | 计划中 | ONNX 导出与 TensorRT baseline 脚本 |
+| Phase 2：ONNX / TensorRT baseline | 进行中 | ONNX 导出、TensorRT FP32/FP16 build/benchmark 已完成；待 TensorRT Nsight 复核与 C++ Demo |
 | Phase 3：TensorRT Plugin | 计划中 | LiteMLA Plugin MVP 与消融实验 |
 
 ## Phase 1 摘要
@@ -46,6 +46,27 @@ Phase 1 在 NVIDIA GeForce MX250 上，以 Cityscapes 分辨率 `1024x2048` 剖�
 
 完整报告见 [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)。
 
+## Phase 2 摘要
+
+Phase 2 已完成固定 `1024x2048` 输入下的 ONNX 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32 / FP16 engine 构建与 benchmark。
+
+当前 TensorRT 结果：
+
+| 项目 | 结果 |
+|---|---:|
+| PyTorch Plan A formal p50 | 85.70 ms |
+| TensorRT FP32 p50 | 54.44 ms |
+| TensorRT FP32 speedup | 1.57x |
+| TensorRT FP16 p50 | 59.39 ms |
+| FP16 结论 | 可构建且语义一致，但慢于 FP32 |
+
+Phase 2 仍需补齐两项关键工作：
+
+- TensorRT Nsight Systems profiling / attribution：复核 Phase 1 的 `stage0`、`stage2 LiteMLA`、`head` 候选在 TensorRT 自动优化后是否仍成立。
+- TensorRT C++ 推理 Demo：验证 FP32 engine 能被 C++ Runtime API 加载和执行，为 Phase 3 Plugin 集成铺路。
+
+Phase 2 不以完整 Cityscapes mIoU 为验收条件；当前精度口径是 PyTorch / ONNXRuntime / TensorRT 的转换一致性验证，包括 logits diff、relaxed allclose 和 argmax pixel agreement。
+
 ## 我的新增工作
 
 项目级文档：
@@ -62,6 +83,14 @@ Phase 1 实现与分析：
 - [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)：Phase 1 最终瓶颈分析与融合机会报告。
 - [`phase1/design_notes/phase1_decision_corrections.md`](./phase1/design_notes/phase1_decision_corrections.md)：关键设计纠偏与人工 review 记录。
 
+Phase 2 实现与部署：
+
+- [`phase2/README.md`](./phase2/README.md)：Phase 2 任务清单、环境口径与当前 TensorRT 结果。
+- [`phase2/scripts/export_onnx.py`](./phase2/scripts/export_onnx.py)：固定 shape ONNX 导出与 ONNXRuntime 对齐。
+- [`phase2/scripts/build_trt_engine.py`](./phase2/scripts/build_trt_engine.py)：TensorRT FP32 / FP16 engine 构建。
+- [`phase2/scripts/benchmark_trt_engine.py`](./phase2/scripts/benchmark_trt_engine.py)：TensorRT engine execute-only latency benchmark 与 PyTorch logits 对齐。
+- [`phase2/design_notes/trt_nsys_attribution_design.md`](./phase2/design_notes/trt_nsys_attribution_design.md)：TensorRT 后候选复核的 Nsight attribution 设计。
+
 ## 仓库结构
 
 ```text
@@ -72,6 +101,7 @@ Phase 1 实现与分析：
 ├── PROJECT_CONVENTIONS.md            # AI 协作与文档契约
 ├── LEARNING_LOG.md                   # 学习笔记与纠偏沉淀
 ├── phase1/                           # Phase 1 profiling、报告、截图、脚本
+├── phase2/                           # Phase 2 ONNX / TensorRT 部署、benchmark 与 Nsight 复核
 ├── efficientvit/                     # 上游 EfficientViT 源码
 ├── applications/                     # 上游应用示例与文档
 ├── assets/                           # 上游资源与文档资产
@@ -94,6 +124,7 @@ Phase 1 实现与分析：
 
 - Phase 1 计划与进度：[`phase1/README.md`](./phase1/README.md)
 - Phase 1 瓶颈分析报告：[`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)
+- Phase 2 计划与进度：[`phase2/README.md`](./phase2/README.md)
 - baseline 脚本设计：[`phase1/design_notes/baseline_inference_design.md`](./phase1/design_notes/baseline_inference_design.md)
 - Nsight attribution 汇总：[`phase1/results/metrics/`](./phase1/results/metrics/)
 - 上游 EfficientViT README：[`UPSTREAM_README.md`](./UPSTREAM_README.md)

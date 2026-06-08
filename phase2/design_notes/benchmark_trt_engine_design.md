@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入 engine**：`phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`
-> **状态**：v1.4，FP32 / FP16 TensorRT engine benchmark 均已完成；下一步补做 TensorRT Nsight Systems profiling / attribution，再撰写 baseline report。
+> **状态**：v1.5，FP32 / FP16 TensorRT engine benchmark 均已完成；下一步补做 TensorRT Nsight Systems profiling / attribution 和 C++ runtime demo，再撰写 baseline report。
 
 ---
 
@@ -172,5 +172,6 @@ FP16 实测结果：
 1. 对 FP32 TensorRT engine execute 路径补做 Nsight Systems profiling / attribution。
 2. 以 Nsight runtime 归因为主证据，回答 TensorRT 后 Phase 1 的 `stage0` / `stage2 LiteMLA` / `head` 候选是否仍成立。
 3. EngineInspector / verbose layer dump 可作为解释 engine 结构的辅助证据，但不能替代 Nsight runtime 归因。
-4. 完成上述复核后，再撰写 `phase2/tensorrt_baseline_report.md`。
-5. 报告中使用“数值接近且语义输出一致”的保守表述，并记录 FP16 风险实验结论：可构建、语义一致、但在 MX250 上慢于 FP32。
+4. 完成轻量 TensorRT C++ runtime demo，验证 FP32 engine 能被 C++ API 加载和执行。
+5. 完成上述复核后，再撰写 `phase2/tensorrt_baseline_report.md`。
+6. 报告中使用“数值接近且语义输出一致”的保守表述，并记录 FP16 风险实验结论：可构建、语义一致、但在 MX250 上慢于 FP32。
