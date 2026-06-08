@@ -95,7 +95,7 @@
 
 ### 阶段二：TensorRT 基础部署（6月中旬–7月上旬）
 
-**目标**: 完成 ONNX 导出与 TensorRT 推理，产出基础优化数据，为阶段三的自定义算子开发建立工作流基础。
+**目标**: 完成 ONNX 导出与 TensorRT 推理，产出基础优化数据，并用 Nsight Systems 复核 TensorRT 优化后的残余热点，判断阶段一确定的 Plugin 候选在 TensorRT 后是否仍然成立。
 
 **任务**:
 1. **模型导出**: 将 PyTorch 模型导出为 ONNX，确保动态轴和输出节点正确。
@@ -104,11 +104,13 @@
 2. **TensorRT 引擎构建**: 使用 TensorRT Python API 构建 FP16 引擎（若 MX250 FP16 性能不佳则保留 FP32 对比版本）。记录构建时间、引擎大小。
    - ⚠️ **架构精读后新增风险点**：LiteMLA `relu_linear_att` 标了 `@torch.autocast(enabled=False)` 强制 FP32，FP16 部署时这部分要么数值改写、要么 Plugin 内部继续 FP32——此抉择放到阶段三决定。
 3. **推理验证**: 加载 TensorRT 引擎进行推理，验证输出精度（对齐 PyTorch baseline），测量延迟和吞吐量。
-4. **TensorRT C++ 推理 Demo**（轻量）: 编写一个简单的 C++ 推理 Demo，加载 TensorRT 引擎并执行推理。此 Demo 不必追求极致优化，主要目的是熟悉 TensorRT C++ API，为阶段三的 Plugin 集成验证铺路。
+4. **TensorRT Nsight 复核**: 对 TensorRT engine runtime 采集 Nsight Systems trace，复核 `stage0` / `stage2 LiteMLA` / `head` 等候选在 TensorRT 自动优化后的残余热点排序。EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不能替代 Nsight runtime 归因。
+5. **TensorRT C++ 推理 Demo**（轻量）: 编写一个简单的 C++ 推理 Demo，加载 TensorRT 引擎并执行推理。此 Demo 不必追求极致优化，主要目的是熟悉 TensorRT C++ API，为阶段三的 Plugin 集成验证铺路。
 
 **产出物**:
 - `phase2/export_onnx.py`、`phase2/build_trt_engine.py`
 - 优化效果对比表（PyTorch vs TensorRT FP32/FP16）
+- TensorRT Nsight attribution 汇总，回答 Phase 1 候选在 TensorRT 后是否仍成立
 - C++ 推理 Demo 源码及 CMake 编译脚本
 - 过程中遇到的问题记录（特别是 bicubic 降级 / LiteMLA 数值精度处理的取舍）
 

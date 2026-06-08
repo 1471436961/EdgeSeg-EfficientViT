@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入产物**：`phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx`
-> **状态**：v1.3，FP32 / FP16 engine 均已成功构建；FP16 仅作为风险实验记录。
+> **状态**：v1.4，FP32 / FP16 engine 均已成功构建；FP16 仅作为风险实验记录，Phase 2 仍需 TensorRT Nsight attribution 复核 Plugin 候选。
 
 ---
 
@@ -162,5 +162,5 @@ D:\software\anaconda3\envs\efficientvit\Lib\site-packages\nvidia\cuda_nvrtc\bin
 下一步：
 
 1. 使用 `benchmark_trt_engine.py` 对 FP32 / FP16 runtime latency 与输出对齐结果做报告汇总。
-2. 在 `phase2/tensorrt_baseline_report.md` 中解释 INT64 -> INT32 cast / clamp、TF32 disabled 与固定 shape bicubic Resize 的影响。
-3. 在报告中明确：FP16 可构建但在 MX250 上不比 FP32 快，因此不作为本机主 baseline。
+2. 补做 TensorRT Nsight Systems profiling / attribution，确认 TensorRT 优化后 Phase 1 的 P1/P2 候选是否仍成立。
+3. 在 `phase2/tensorrt_baseline_report.md` 中解释 INT64 -> INT32 cast / clamp、TF32 disabled、固定 shape bicubic Resize、FP16 风险实验，以及 TensorRT 后残余热点对 Phase 3 Plugin 排序的影响。

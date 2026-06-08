@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark 均已完成；下一步撰写 TensorRT baseline report。
+> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark 均已完成；下一步补做 TensorRT Nsight Systems profiling / attribution，用同一套 Nsight 证据复核 Phase 1 的瓶颈与 Phase 3 Plugin 候选。
 
 ---
 
@@ -15,6 +15,7 @@ Phase 2 做：
 - 构建 TensorRT FP32 / FP16 baseline engine。
 - 运行 TensorRT inference benchmark，与 Phase 1 PyTorch baseline 对比。
 - 重新观察 Phase 1 中的 P1/P2 候选在 TensorRT 后是否仍然成立。
+- 使用 Nsight Systems 分析 TensorRT engine runtime，复核 TensorRT 后的残余热点与 Plugin 候选排序。
 
 Phase 2 不做：
 
@@ -64,7 +65,12 @@ Phase 2 不做：
   - 构建 FP16 engine。
   - 复用 benchmark 脚本记录 latency 与输出误差。
   - 结论：FP16 可构建且语义一致，但在 MX250 上慢于 FP32，不作为本机主 baseline。
-- [ ] Step 6：撰写 `phase2/tensorrt_baseline_report.md`。
+- [ ] Step 6：TensorRT Nsight Systems profiling / attribution。
+  - 对 `benchmark_trt_engine.py` 的 FP32 engine execute 路径采集 Nsight Systems trace。
+  - 使用 `cuda,nvtx` 为主口径；Windows 下 CPU sampling / WDDM tracing 需管理员权限，若不采集则作为限制项记录。
+  - 对比 Phase 1 Plan B/C/D：kernel 类型分布、launch 密度、TensorRT 后残余热点，以及 LiteMLA / stage0 / head 候选是否仍成立。
+  - EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不替代 Nsight runtime 归因。
+- [ ] Step 7：撰写 `phase2/tensorrt_baseline_report.md`。
   - PyTorch vs ONNXRuntime vs TensorRT 对比。
   - TensorRT 后热点是否变化。
   - Phase 3 Plugin 候选是否需要调整。
@@ -262,5 +268,7 @@ Phase 2 要验证：
 - TensorRT 是否已经自动优化 P2 标准算子链热点。
 - LiteMLA 在 TensorRT 后是否仍然是值得手写 Plugin 的残余热点。
 - FP16 数值策略是否成为新的工程约束；`bicubic upsample` 已在当前固定 shape / TensorRT 8.6.1 下通过。
+
+这些问题不能只靠端到端 latency 或 engine build 成功来回答。Phase 2 的候选复核必须以 TensorRT Nsight Systems runtime 归因为主证据，EngineInspector / verbose build log 只能说明 engine 结构和 layer 名称，不能替代真实 GPU 时间线。
 
 Phase 3 才开始真正实现 Plugin。
