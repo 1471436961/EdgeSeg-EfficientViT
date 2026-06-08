@@ -58,6 +58,8 @@ phase2/results/metrics/
   trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
   trt_nsys_attribution_summary.md   # 入 git
   trt_nsys_attribution_summary.json # 入 git
+  trt_engine_inspection_summary.md   # 入 git，结构辅助证据
+  trt_engine_inspection_summary.json # 入 git，结构辅助证据
 ```
 
 若导出 SQLite 失败，报告中必须记录原因，并保留 `.nsys-rep` 截图/观察作为降级证据；但不得把截图当作定量归因表的替代品。
@@ -154,3 +156,46 @@ TensorRT 后的 residual hotspot 排序：
 - TensorRT 后 `stage0` 仍是最大 residual hotspot，但主要仍是标准卷积 / pointwise / activation 路径，不自动等价于 Phase 3 Plugin MVP。
 - `stage2` 仍是第二大 residual hotspot，且 launches / iter 明显高，说明 Phase 1 的 LiteMLA / stage2 候选仍值得保留。
 - TensorRT layer ranges 与 Phase 1 PyTorch Plan B/C/D 模块范围不是一一对应关系；因此 Step 6 支撑的是 residual hotspot 趋势复核，不是 PyTorch 模块耗时的逐项复刻。
+
+---
+
+## 9. EngineInspector / ONNX node name 映射
+
+为补充“TensorRT 结构上优化了什么”的证据，本轮新增 `phase2/scripts/inspect_trt_engine.py`，读取 FP32 engine 的 TensorRT EngineInspector layer names，并与 ONNX node names 做 group-level 映射。
+
+产物：
+
+- `phase2/results/metrics/trt_engine_inspection_summary.md`
+- `phase2/results/metrics/trt_engine_inspection_summary.json`
+
+关键结果：
+
+| 项目 | 结果 |
+|---|---:|
+| ONNX node count | `393` |
+| TensorRT engine layer count | `155` |
+| Overall layer-count reduction | `60.56%` |
+
+Group-level 结构变化：
+
+| Group | ONNX nodes | TensorRT layers | Layer reduction | TRT fused layers |
+|---|---:|---:|---:|---:|
+| `stage3` | `175` | `50` | `71.43%` | `17` |
+| `stage2` | `157` | `47` | `70.06%` | `16` |
+| `head` | `18` | `21` | `-16.67%` | `6` |
+| `stage1` | `11` | `16` | `-45.45%` | `6` |
+| `stage0` | `11` | `12` | `-9.09%` | `5` |
+| `stem` | `6` | `5` | `16.67%` | `3` |
+
+可直接支持的结构判断：
+
+- TensorRT 将 ONNX `393` 个 nodes 降为 `155` 个 engine layers，说明存在显著图层压缩。
+- `PWN(...)` layer 表示 pointwise / activation fusion。
+- layer name 中的 ` + ` 表示多个 ONNX-named operations 被融合到一个 TensorRT engine layer，例如 `Conv + Add`。
+- `stage2/context` 中仍能看到 `qkv/conv`、`aggreg.* Conv`、`MatMul`、`MatMul_1`、`Pad`、`Cast_1`、`Reformatting CopyNode` 和 `proj/conv + Add` 等结构，说明 TensorRT 并未把 LiteMLA 整体折叠成单个高度融合 layer。
+
+证据边界：
+
+- 当前 FP32 engine 的 EngineInspector detail 为 `layer_names_only`，足以做 layer name / fusion pattern 映射，但不能给出 tactic-level 选择。
+- 若后续要回答具体 tactic、format、implementation 选择，需要重新构建带 detailed profiling verbosity 的 engine，或捕获 verbose builder log。
+- EngineInspector 是结构辅助证据；真实 GPU kernel time 仍以 Nsight SQLite attribution 为准。

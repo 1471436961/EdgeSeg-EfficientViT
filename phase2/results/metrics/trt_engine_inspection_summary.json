@@ -1,0 +1,5543 @@
+{
+  "status": "ok",
+  "engine": {
+    "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase2\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine",
+    "engine_sha256": "be1200ef379b3d4a1d05c9d643dbf1cb2421cb44c2b05743af23ab2b8615cb32",
+    "engine_size_bytes": 3674476
+  },
+  "onnx": {
+    "onnx_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase2\\results\\onnx\\efficientvit_seg_b0_cityscapes_1024x2048.onnx",
+    "onnx_sha256": "64906019bab42dc3b88858af5d6f10db0fda1c9396043c4dbccea835ef0fe3f5",
+    "onnx_size_bytes": 2920648
+  },
+  "tensorrt": {
+    "version": "8.6.1",
+    "num_layers": 155,
+    "num_bindings": 2,
+    "inspector_detail": "layer_names_only"
+  },
+  "bindings": [
+    {
+      "index": 0,
+      "name": "input",
+      "is_input": true,
+      "mode": "TensorIOMode.INPUT",
+      "shape": [
+        1,
+        3,
+        1024,
+        2048
+      ],
+      "dtype": "DataType.FLOAT"
+    },
+    {
+      "index": 1,
+      "name": "segout",
+      "is_input": false,
+      "mode": "TensorIOMode.OUTPUT",
+      "shape": [
+        1,
+        19,
+        128,
+        256
+      ],
+      "dtype": "DataType.FLOAT"
+    }
+  ],
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ]
+  },
+  "summary": {
+    "onnx_node_count": 393,
+    "trt_layer_count": 155,
+    "overall_layer_reduction_pct": 60.55979643765903,
+    "groups": [
+      {
+        "group": "stage3",
+        "onnx_nodes": 175,
+        "trt_layers": 50,
+        "layer_count_delta": -125,
+        "layer_reduction_pct": 71.42857142857143,
+        "trt_fused_layers": 17,
+        "trt_pointwise_fusion_layers": 12,
+        "trt_explicit_fusion_layers": 5,
+        "onnx_op_types": [
+          [
+            "Constant",
+            72
+          ],
+          [
+            "Conv",
+            17
+          ],
+          [
+            "Slice",
+            12
+          ],
+          [
+            "Unsqueeze",
+            10
+          ],
+          [
+            "Concat",
+            8
+          ],
+          [
+            "Reshape",
+            8
+          ],
+          [
+            "HardSwish",
+            6
+          ],
+          [
+            "Shape",
+            6
+          ],
+          [
+            "Gather",
+            6
+          ],
+          [
+            "Add",
+            6
+          ],
+          [
+            "Relu",
+            4
+          ],
+          [
+            "Transpose",
+            4
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "conv",
+            19
+          ],
+          [
+            "pointwise_fusion",
+            12
+          ],
+          [
+            "single_or_other",
+            10
+          ],
+          [
+            "explicit_fusion",
+            5
+          ],
+          [
+            "matmul",
+            4
+          ]
+        ]
+      },
+      {
+        "group": "stage2",
+        "onnx_nodes": 157,
+        "trt_layers": 47,
+        "layer_count_delta": -110,
+        "layer_reduction_pct": 70.06369426751593,
+        "trt_fused_layers": 16,
+        "trt_pointwise_fusion_layers": 12,
+        "trt_explicit_fusion_layers": 4,
+        "onnx_op_types": [
+          [
+            "Constant",
+            68
+          ],
+          [
+            "Conv",
+            17
+          ],
+          [
+            "Slice",
+            12
+          ],
+          [
+            "Reshape",
+            8
+          ],
+          [
+            "HardSwish",
+            6
+          ],
+          [
+            "Concat",
+            6
+          ],
+          [
+            "Add",
+            6
+          ],
+          [
+            "Unsqueeze",
+            5
+          ],
+          [
+            "Relu",
+            4
+          ],
+          [
+            "Transpose",
+            4
+          ],
+          [
+            "Cast",
+            4
+          ],
+          [
+            "MatMul",
+            4
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "conv",
+            14
+          ],
+          [
+            "pointwise_fusion",
+            12
+          ],
+          [
+            "single_or_other",
+            11
+          ],
+          [
+            "matmul",
+            6
+          ],
+          [
+            "explicit_fusion",
+            4
+          ]
+        ]
+      },
+      {
+        "group": "head",
+        "onnx_nodes": 18,
+        "trt_layers": 21,
+        "layer_count_delta": 3,
+        "layer_reduction_pct": -16.666666666666668,
+        "trt_fused_layers": 6,
+        "trt_pointwise_fusion_layers": 3,
+        "trt_explicit_fusion_layers": 3,
+        "onnx_op_types": [
+          [
+            "Conv",
+            8
+          ],
+          [
+            "Add",
+            3
+          ],
+          [
+            "HardSwish",
+            3
+          ],
+          [
+            "Constant",
+            2
+          ],
+          [
+            "Resize",
+            2
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "conv",
+            8
+          ],
+          [
+            "single_or_other",
+            4
+          ],
+          [
+            "resize",
+            3
+          ],
+          [
+            "explicit_fusion",
+            3
+          ],
+          [
+            "pointwise_fusion",
+            3
+          ]
+        ]
+      },
+      {
+        "group": "stage1",
+        "onnx_nodes": 11,
+        "trt_layers": 16,
+        "layer_count_delta": 5,
+        "layer_reduction_pct": -45.45454545454545,
+        "trt_fused_layers": 6,
+        "trt_pointwise_fusion_layers": 4,
+        "trt_explicit_fusion_layers": 2,
+        "onnx_op_types": [
+          [
+            "Conv",
+            6
+          ],
+          [
+            "HardSwish",
+            4
+          ],
+          [
+            "Add",
+            1
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "conv",
+            7
+          ],
+          [
+            "pointwise_fusion",
+            4
+          ],
+          [
+            "single_or_other",
+            3
+          ],
+          [
+            "explicit_fusion",
+            2
+          ]
+        ]
+      },
+      {
+        "group": "stage0",
+        "onnx_nodes": 11,
+        "trt_layers": 12,
+        "layer_count_delta": 1,
+        "layer_reduction_pct": -9.090909090909092,
+        "trt_fused_layers": 5,
+        "trt_pointwise_fusion_layers": 4,
+        "trt_explicit_fusion_layers": 1,
+        "onnx_op_types": [
+          [
+            "Conv",
+            6
+          ],
+          [
+            "HardSwish",
+            4
+          ],
+          [
+            "Add",
+            1
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "conv",
+            6
+          ],
+          [
+            "pointwise_fusion",
+            4
+          ],
+          [
+            "single_or_other",
+            1
+          ],
+          [
+            "explicit_fusion",
+            1
+          ]
+        ]
+      },
+      {
+        "group": "stem",
+        "onnx_nodes": 6,
+        "trt_layers": 5,
+        "layer_count_delta": -1,
+        "layer_reduction_pct": 16.666666666666668,
+        "trt_fused_layers": 3,
+        "trt_pointwise_fusion_layers": 2,
+        "trt_explicit_fusion_layers": 1,
+        "onnx_op_types": [
+          [
+            "Conv",
+            3
+          ],
+          [
+            "HardSwish",
+            2
+          ],
+          [
+            "Add",
+            1
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "conv",
+            2
+          ],
+          [
+            "pointwise_fusion",
+            2
+          ],
+          [
+            "explicit_fusion",
+            1
+          ]
+        ]
+      },
+      {
+        "group": "constant/unnamed",
+        "onnx_nodes": 15,
+        "trt_layers": 4,
+        "layer_count_delta": -11,
+        "layer_reduction_pct": 73.33333333333333,
+        "trt_fused_layers": 0,
+        "trt_pointwise_fusion_layers": 0,
+        "trt_explicit_fusion_layers": 0,
+        "onnx_op_types": [
+          [
+            "Constant",
+            15
+          ]
+        ],
+        "trt_layer_kinds": [
+          [
+            "constant",
+            4
+          ]
+        ]
+      }
+    ],
+    "onnx_op_types": [
+      [
+        "Constant",
+        157
+      ],
+      [
+        "Conv",
+        57
+      ],
+      [
+        "HardSwish",
+        25
+      ],
+      [
+        "Slice",
+        24
+      ],
+      [
+        "Add",
+        18
+      ],
+      [
+        "Reshape",
+        16
+      ],
+      [
+        "Unsqueeze",
+        15
+      ],
+      [
+        "Concat",
+        14
+      ],
+      [
+        "Shape",
+        9
+      ],
+      [
+        "Gather",
+        9
+      ],
+      [
+        "Relu",
+        8
+      ],
+      [
+        "Transpose",
+        8
+      ],
+      [
+        "Cast",
+        8
+      ],
+      [
+        "MatMul",
+        8
+      ],
+      [
+        "ConstantOfShape",
+        4
+      ],
+      [
+        "Pad",
+        4
+      ],
+      [
+        "Div",
+        4
+      ],
+      [
+        "Mul",
+        3
+      ],
+      [
+        "Resize",
+        2
+      ]
+    ],
+    "trt_layer_kinds": [
+      [
+        "conv",
+        56
+      ],
+      [
+        "pointwise_fusion",
+        37
+      ],
+      [
+        "single_or_other",
+        29
+      ],
+      [
+        "explicit_fusion",
+        16
+      ],
+      [
+        "matmul",
+        10
+      ],
+      [
+        "constant",
+        4
+      ],
+      [
+        "resize",
+        3
+      ]
+    ]
+  },
+  "engine_layers": [
+    {
+      "index": 0,
+      "name": "(Unnamed Layer* 74) [Constant]",
+      "group": "constant/unnamed",
+      "kind": "constant",
+      "onnx_paths": [],
+      "raw_detail": "(Unnamed Layer* 74) [Constant]"
+    },
+    {
+      "index": 1,
+      "name": "(Unnamed Layer* 139) [Constant]",
+      "group": "constant/unnamed",
+      "kind": "constant",
+      "onnx_paths": [],
+      "raw_detail": "(Unnamed Layer* 139) [Constant]"
+    },
+    {
+      "index": 2,
+      "name": "(Unnamed Layer* 216) [Constant]",
+      "group": "constant/unnamed",
+      "kind": "constant",
+      "onnx_paths": [],
+      "raw_detail": "(Unnamed Layer* 216) [Constant]"
+    },
+    {
+      "index": 3,
+      "name": "(Unnamed Layer* 286) [Constant]",
+      "group": "constant/unnamed",
+      "kind": "constant",
+      "onnx_paths": [],
+      "raw_detail": "(Unnamed Layer* 286) [Constant]"
+    },
+    {
+      "index": 4,
+      "name": "/backbone/input_stem/op_list.0/conv/Conv",
+      "group": "stem",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/input_stem/op_list.0/conv/Conv"
+      ],
+      "raw_detail": "/backbone/input_stem/op_list.0/conv/Conv"
+    },
+    {
+      "index": 5,
+      "name": "PWN(PWN(/backbone/input_stem/op_list.0/act/HardSwish), /backbone/input_stem/op_list.0/act/HardSwish_0)",
+      "group": "stem",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/input_stem/op_list.0/act/HardSwish",
+        "/backbone/input_stem/op_list.0/act/HardSwish_0"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/input_stem/op_list.0/act/HardSwish), /backbone/input_stem/op_list.0/act/HardSwish_0)"
+    },
+    {
+      "index": 6,
+      "name": "/backbone/input_stem/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stem",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/input_stem/op_list.1/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/input_stem/op_list.1/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 7,
+      "name": "PWN(PWN(/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish), /backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish_1)",
+      "group": "stem",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish",
+        "/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish_1"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish), /backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish_1)"
+    },
+    {
+      "index": 8,
+      "name": "/backbone/input_stem/op_list.1/main/point_conv/conv/Conv + /backbone/input_stem/op_list.1/Add",
+      "group": "stem",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/input_stem/op_list.1/main/point_conv/conv/Conv",
+        "/backbone/input_stem/op_list.1/Add"
+      ],
+      "raw_detail": "/backbone/input_stem/op_list.1/main/point_conv/conv/Conv + /backbone/input_stem/op_list.1/Add"
+    },
+    {
+      "index": 9,
+      "name": "/backbone/stages.0/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage0",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.0/op_list.0/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 10,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2)",
+      "group": "stage0",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2)"
+    },
+    {
+      "index": 11,
+      "name": "PWN(PWN(/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2)",
+      "group": "stage0",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2)"
+    },
+    {
+      "index": 12,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.0/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage0",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.0/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 13,
+      "name": "/backbone/stages.0/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage0",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.0/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 14,
+      "name": "PWN(PWN(/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish_3)",
+      "group": "stage0",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish",
+        "/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish_3"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish_3)"
+    },
+    {
+      "index": 15,
+      "name": "/backbone/stages.0/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage0",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.0/main/point_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.0/op_list.0/main/point_conv/conv/Conv"
+    },
+    {
+      "index": 16,
+      "name": "/backbone/stages.0/op_list.1/main/inverted_conv/conv/Conv",
+      "group": "stage0",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.1/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.0/op_list.1/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 17,
+      "name": "PWN(PWN(/backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish_4)",
+      "group": "stage0",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish_4"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish_4)"
+    },
+    {
+      "index": 18,
+      "name": "/backbone/stages.0/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stage0",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.1/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.0/op_list.1/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 19,
+      "name": "PWN(PWN(/backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish_5)",
+      "group": "stage0",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish",
+        "/backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish_5"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish_5)"
+    },
+    {
+      "index": 20,
+      "name": "/backbone/stages.0/op_list.1/main/point_conv/conv/Conv + /backbone/stages.0/op_list.1/Add",
+      "group": "stage0",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.0/op_list.1/main/point_conv/conv/Conv",
+        "/backbone/stages.0/op_list.1/Add"
+      ],
+      "raw_detail": "/backbone/stages.0/op_list.1/main/point_conv/conv/Conv + /backbone/stages.0/op_list.1/Add"
+    },
+    {
+      "index": 21,
+      "name": "/backbone/stages.1/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.1/op_list.0/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 22,
+      "name": "PWN(PWN(/backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish_6)",
+      "group": "stage1",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish_6"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish_6)"
+    },
+    {
+      "index": 23,
+      "name": "/backbone/stages.1/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.1/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 24,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7)",
+      "group": "stage1",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7)"
+    },
+    {
+      "index": 25,
+      "name": "PWN(PWN(/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7)",
+      "group": "stage1",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7)"
+    },
+    {
+      "index": 26,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/point_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.0/main/point_conv/conv/Conv"
+    },
+    {
+      "index": 27,
+      "name": "/backbone/stages.1/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.0/main/point_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.1/op_list.0/main/point_conv/conv/Conv"
+    },
+    {
+      "index": 28,
+      "name": "/backbone/stages.1/op_list.1/main/inverted_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.1/op_list.1/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 29,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8)",
+      "group": "stage1",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8)"
+    },
+    {
+      "index": 30,
+      "name": "PWN(PWN(/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8)",
+      "group": "stage1",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8)"
+    },
+    {
+      "index": 31,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.1/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 32,
+      "name": "/backbone/stages.1/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stage1",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.1/op_list.1/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 33,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)",
+      "group": "stage1",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)"
+    },
+    {
+      "index": 34,
+      "name": "PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)",
+      "group": "stage1",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish",
+        "/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)"
+    },
+    {
+      "index": 35,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.1/main/point_conv/conv/Conv + /backbone/stages.1/op_list.1/Add",
+      "group": "stage1",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/point_conv/conv/Conv",
+        "/backbone/stages.1/op_list.1/Add"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.1/main/point_conv/conv/Conv + /backbone/stages.1/op_list.1/Add"
+    },
+    {
+      "index": 36,
+      "name": "/backbone/stages.1/op_list.1/main/point_conv/conv/Conv + /backbone/stages.1/op_list.1/Add",
+      "group": "stage1",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.1/op_list.1/main/point_conv/conv/Conv",
+        "/backbone/stages.1/op_list.1/Add"
+      ],
+      "raw_detail": "/backbone/stages.1/op_list.1/main/point_conv/conv/Conv + /backbone/stages.1/op_list.1/Add"
+    },
+    {
+      "index": 37,
+      "name": "/backbone/stages.2/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.0/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 38,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10)",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10)"
+    },
+    {
+      "index": 39,
+      "name": "PWN(PWN(/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10)"
+    },
+    {
+      "index": 40,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 41,
+      "name": "/backbone/stages.2/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 42,
+      "name": "PWN(PWN(/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish_11)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish_11"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish_11)"
+    },
+    {
+      "index": 43,
+      "name": "/backbone/stages.2/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.0/main/point_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.0/main/point_conv/conv/Conv"
+    },
+    {
+      "index": 44,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv"
+    },
+    {
+      "index": 45,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv"
+    },
+    {
+      "index": 46,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv"
+    },
+    {
+      "index": 47,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Reshape"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/Reshape"
+    },
+    {
+      "index": 48,
+      "name": "PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu)"
+    },
+    {
+      "index": 49,
+      "name": "PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu)"
+    },
+    {
+      "index": 50,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Pad",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Pad"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/Pad"
+    },
+    {
+      "index": 51,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul",
+      "group": "stage2",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/MatMul"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/MatMul"
+    },
+    {
+      "index": 52,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul_1",
+      "group": "stage2",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/MatMul_1"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/MatMul_1"
+    },
+    {
+      "index": 53,
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/MatMul_1",
+      "group": "stage2",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/MatMul_1"
+      ],
+      "raw_detail": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/MatMul_1"
+    },
+    {
+      "index": 54,
+      "name": "PWN(/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0 + (Unnamed Layer* 80) [Shuffle] + /backbone/stages.2/op_list.1/context_module/main/Add, /backbone/stages.2/op_list.1/context_module/main/Div)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0",
+        "/backbone/stages.2/op_list.1/context_module/main/Add",
+        "/backbone/stages.2/op_list.1/context_module/main/Div"
+      ],
+      "raw_detail": "PWN(/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0 + (Unnamed Layer* 80) [Shuffle] + /backbone/stages.2/op_list.1/context_module/main/Add, /backbone/stages.2/op_list.1/context_module/main/Div)"
+    },
+    {
+      "index": 55,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/Reshape_3",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Reshape_3"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/Reshape_3"
+    },
+    {
+      "index": 56,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_3",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Reshape_3"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/Reshape_3"
+    },
+    {
+      "index": 57,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Cast_1",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Cast_1"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/Cast_1"
+    },
+    {
+      "index": 58,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.1/context_module/Add",
+      "group": "stage2",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv",
+        "/backbone/stages.2/op_list.1/context_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.1/context_module/Add"
+    },
+    {
+      "index": 59,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 60,
+      "name": "PWN(PWN(/backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish_46)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish_46"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish_46)"
+    },
+    {
+      "index": 61,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/local_module/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/local_module/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 62,
+      "name": "PWN(PWN(/backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish_47)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish_47"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish_47)"
+    },
+    {
+      "index": 63,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.2/op_list.1/local_module/Add",
+      "group": "stage2",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/local_module/main/point_conv/conv/Conv",
+        "/backbone/stages.2/op_list.1/local_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.2/op_list.1/local_module/Add"
+    },
+    {
+      "index": 64,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv"
+    },
+    {
+      "index": 65,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv"
+    },
+    {
+      "index": 66,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv"
+    },
+    {
+      "index": 67,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Reshape"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/Reshape"
+    },
+    {
+      "index": 68,
+      "name": "PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu)"
+    },
+    {
+      "index": 69,
+      "name": "PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu)"
+    },
+    {
+      "index": 70,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Pad",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Pad"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/Pad"
+    },
+    {
+      "index": 71,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul",
+      "group": "stage2",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/MatMul"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/MatMul"
+    },
+    {
+      "index": 72,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul_1",
+      "group": "stage2",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/MatMul_1"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/MatMul_1"
+    },
+    {
+      "index": 73,
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/MatMul_1",
+      "group": "stage2",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/MatMul_1"
+      ],
+      "raw_detail": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/MatMul_1"
+    },
+    {
+      "index": 74,
+      "name": "PWN(/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 145) [Shuffle] + /backbone/stages.2/op_list.2/context_module/main/Add, /backbone/stages.2/op_list.2/context_module/main/Div)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0",
+        "/backbone/stages.2/op_list.2/context_module/main/Add",
+        "/backbone/stages.2/op_list.2/context_module/main/Div"
+      ],
+      "raw_detail": "PWN(/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 145) [Shuffle] + /backbone/stages.2/op_list.2/context_module/main/Add, /backbone/stages.2/op_list.2/context_module/main/Div)"
+    },
+    {
+      "index": 75,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/Reshape_3",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Reshape_3"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/Reshape_3"
+    },
+    {
+      "index": 76,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_3",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Reshape_3"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/Reshape_3"
+    },
+    {
+      "index": 77,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Cast_1",
+      "group": "stage2",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Cast_1"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/Cast_1"
+    },
+    {
+      "index": 78,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.2/context_module/Add",
+      "group": "stage2",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv",
+        "/backbone/stages.2/op_list.2/context_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.2/context_module/Add"
+    },
+    {
+      "index": 79,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 80,
+      "name": "PWN(PWN(/backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish_92)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish_92"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish_92)"
+    },
+    {
+      "index": 81,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/local_module/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/local_module/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 82,
+      "name": "PWN(PWN(/backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish_93)",
+      "group": "stage2",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish",
+        "/backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish_93"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish_93)"
+    },
+    {
+      "index": 83,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.2/op_list.2/local_module/Add",
+      "group": "stage2",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/local_module/main/point_conv/conv/Conv",
+        "/backbone/stages.2/op_list.2/local_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.2/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.2/op_list.2/local_module/Add"
+    },
+    {
+      "index": 84,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 85,
+      "name": "/backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 86,
+      "name": "/head/input_ops.1/op_list.0/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/input_ops.1/op_list.0/conv/Conv"
+      ],
+      "raw_detail": "/head/input_ops.1/op_list.0/conv/Conv"
+    },
+    {
+      "index": 87,
+      "name": "/head/input_ops.1/op_list.1/Resize",
+      "group": "head",
+      "kind": "resize",
+      "onnx_paths": [
+        "/head/input_ops.1/op_list.1/Resize"
+      ],
+      "raw_detail": "/head/input_ops.1/op_list.1/Resize"
+    },
+    {
+      "index": 88,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_94)",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_94"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_94)"
+    },
+    {
+      "index": 89,
+      "name": "PWN(PWN(/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_94)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_94"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_94)"
+    },
+    {
+      "index": 90,
+      "name": "/head/input_ops.2/conv/Conv + /head/Add",
+      "group": "head",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/head/input_ops.2/conv/Conv",
+        "/head/Add"
+      ],
+      "raw_detail": "/head/input_ops.2/conv/Conv + /head/Add"
+    },
+    {
+      "index": 91,
+      "name": "/backbone/stages.3/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 92,
+      "name": "PWN(PWN(/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish_95)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish_95"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish_95)"
+    },
+    {
+      "index": 93,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/point_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.0/main/point_conv/conv/Conv"
+    },
+    {
+      "index": 94,
+      "name": "/backbone/stages.3/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.0/main/point_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.0/main/point_conv/conv/Conv"
+    },
+    {
+      "index": 95,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv"
+    },
+    {
+      "index": 96,
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv"
+    },
+    {
+      "index": 97,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv"
+    },
+    {
+      "index": 98,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv"
+    },
+    {
+      "index": 99,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/Reshape"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/Reshape"
+    },
+    {
+      "index": 100,
+      "name": "PWN(/backbone/stages.3/op_list.1/context_module/main/kernel_func/Relu)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/kernel_func/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.3/op_list.1/context_module/main/kernel_func/Relu)"
+    },
+    {
+      "index": 101,
+      "name": "PWN(/backbone/stages.3/op_list.1/context_module/main/kernel_func_1/Relu)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/kernel_func_1/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.3/op_list.1/context_module/main/kernel_func_1/Relu)"
+    },
+    {
+      "index": 102,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Pad",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/Pad"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/Pad"
+    },
+    {
+      "index": 103,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/MatMul",
+      "group": "stage3",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/MatMul"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/MatMul"
+    },
+    {
+      "index": 104,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/MatMul_1",
+      "group": "stage3",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/MatMul_1"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/MatMul_1"
+    },
+    {
+      "index": 105,
+      "name": "PWN(/backbone/stages.3/op_list.1/context_module/main/Constant_34_output_0 + (Unnamed Layer* 222) [Shuffle] + /backbone/stages.3/op_list.1/context_module/main/Add, /backbone/stages.3/op_list.1/context_module/main/Div)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/Constant_34_output_0",
+        "/backbone/stages.3/op_list.1/context_module/main/Add",
+        "/backbone/stages.3/op_list.1/context_module/main/Div"
+      ],
+      "raw_detail": "PWN(/backbone/stages.3/op_list.1/context_module/main/Constant_34_output_0 + (Unnamed Layer* 222) [Shuffle] + /backbone/stages.3/op_list.1/context_module/main/Add, /backbone/stages.3/op_list.1/context_module/main/Div)"
+    },
+    {
+      "index": 106,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape_3",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/Reshape_3"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/Reshape_3"
+    },
+    {
+      "index": 107,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Cast_1",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/Cast_1"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/Cast_1"
+    },
+    {
+      "index": 108,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.1/context_module/Add",
+      "group": "stage3",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv",
+        "/backbone/stages.3/op_list.1/context_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.1/context_module/Add"
+    },
+    {
+      "index": 109,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 110,
+      "name": "PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish_140)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish_140"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish_140)"
+    },
+    {
+      "index": 111,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 112,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 113,
+      "name": "PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish_141)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish_141"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish_141)"
+    },
+    {
+      "index": 114,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add",
+      "group": "stage3",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv",
+        "/backbone/stages.3/op_list.1/local_module/Add"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add"
+    },
+    {
+      "index": 115,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add",
+      "group": "stage3",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv",
+        "/backbone/stages.3/op_list.1/local_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add"
+    },
+    {
+      "index": 116,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv"
+    },
+    {
+      "index": 117,
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv"
+    },
+    {
+      "index": 118,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv"
+    },
+    {
+      "index": 119,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv"
+    },
+    {
+      "index": 120,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/Reshape"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/Reshape"
+    },
+    {
+      "index": 121,
+      "name": "PWN(/backbone/stages.3/op_list.2/context_module/main/kernel_func/Relu)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/kernel_func/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.3/op_list.2/context_module/main/kernel_func/Relu)"
+    },
+    {
+      "index": 122,
+      "name": "PWN(/backbone/stages.3/op_list.2/context_module/main/kernel_func_1/Relu)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/kernel_func_1/Relu"
+      ],
+      "raw_detail": "PWN(/backbone/stages.3/op_list.2/context_module/main/kernel_func_1/Relu)"
+    },
+    {
+      "index": 123,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Pad",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/Pad"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/Pad"
+    },
+    {
+      "index": 124,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/MatMul",
+      "group": "stage3",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/MatMul"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/MatMul"
+    },
+    {
+      "index": 125,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/MatMul_1",
+      "group": "stage3",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/MatMul_1"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/MatMul_1"
+    },
+    {
+      "index": 126,
+      "name": "PWN(/backbone/stages.3/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 292) [Shuffle] + /backbone/stages.3/op_list.2/context_module/main/Add, /backbone/stages.3/op_list.2/context_module/main/Div)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/Constant_34_output_0",
+        "/backbone/stages.3/op_list.2/context_module/main/Add",
+        "/backbone/stages.3/op_list.2/context_module/main/Div"
+      ],
+      "raw_detail": "PWN(/backbone/stages.3/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 292) [Shuffle] + /backbone/stages.3/op_list.2/context_module/main/Add, /backbone/stages.3/op_list.2/context_module/main/Div)"
+    },
+    {
+      "index": 127,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape_3",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/Reshape_3"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/Reshape_3"
+    },
+    {
+      "index": 128,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Cast_1",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/Cast_1"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/Cast_1"
+    },
+    {
+      "index": 129,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.2/context_module/Add",
+      "group": "stage3",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv",
+        "/backbone/stages.3/op_list.2/context_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.2/context_module/Add"
+    },
+    {
+      "index": 130,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 131,
+      "name": "PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish_186)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish_186"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish_186)"
+    },
+    {
+      "index": 132,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 133,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 134,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_187)",
+      "group": "stage3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_187"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_187)"
+    },
+    {
+      "index": 135,
+      "name": "PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_187)",
+      "group": "stage3",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish",
+        "/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_187"
+      ],
+      "raw_detail": "PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_187)"
+    },
+    {
+      "index": 136,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.2/local_module/Add",
+      "group": "stage3",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv",
+        "/backbone/stages.3/op_list.2/local_module/Add"
+      ],
+      "raw_detail": "/backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.2/local_module/Add"
+    },
+    {
+      "index": 137,
+      "name": "/head/input_ops.0/op_list.0/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/input_ops.0/op_list.0/conv/Conv"
+      ],
+      "raw_detail": "/head/input_ops.0/op_list.0/conv/Conv"
+    },
+    {
+      "index": 138,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/input_ops.0/op_list.1/Resize",
+      "group": "head",
+      "kind": "resize",
+      "onnx_paths": [
+        "/head/input_ops.0/op_list.1/Resize"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /head/input_ops.0/op_list.1/Resize"
+    },
+    {
+      "index": 139,
+      "name": "/head/input_ops.0/op_list.1/Resize",
+      "group": "head",
+      "kind": "resize",
+      "onnx_paths": [
+        "/head/input_ops.0/op_list.1/Resize"
+      ],
+      "raw_detail": "/head/input_ops.0/op_list.1/Resize"
+    },
+    {
+      "index": 140,
+      "name": "/head/Add_1",
+      "group": "head",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/head/Add_1"
+      ],
+      "raw_detail": "/head/Add_1"
+    },
+    {
+      "index": 141,
+      "name": "/head/middle/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/inverted_conv/conv/Conv"
+      ],
+      "raw_detail": "/head/middle/op_list.0/main/inverted_conv/conv/Conv"
+    },
+    {
+      "index": 142,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/middle/op_list.0/main/inverted_conv/act/HardSwish), /head/middle/op_list.0/main/inverted_conv/act/HardSwish_188)",
+      "group": "head",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/inverted_conv/act/HardSwish",
+        "/head/middle/op_list.0/main/inverted_conv/act/HardSwish_188"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/middle/op_list.0/main/inverted_conv/act/HardSwish), /head/middle/op_list.0/main/inverted_conv/act/HardSwish_188)"
+    },
+    {
+      "index": 143,
+      "name": "PWN(PWN(/head/middle/op_list.0/main/inverted_conv/act/HardSwish), /head/middle/op_list.0/main/inverted_conv/act/HardSwish_188)",
+      "group": "head",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/inverted_conv/act/HardSwish",
+        "/head/middle/op_list.0/main/inverted_conv/act/HardSwish_188"
+      ],
+      "raw_detail": "PWN(PWN(/head/middle/op_list.0/main/inverted_conv/act/HardSwish), /head/middle/op_list.0/main/inverted_conv/act/HardSwish_188)"
+    },
+    {
+      "index": 144,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/middle/op_list.0/main/depth_conv/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /head/middle/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 145,
+      "name": "/head/middle/op_list.0/main/depth_conv/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/depth_conv/conv/Conv"
+      ],
+      "raw_detail": "/head/middle/op_list.0/main/depth_conv/conv/Conv"
+    },
+    {
+      "index": 146,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/middle/op_list.0/main/depth_conv/act/HardSwish), /head/middle/op_list.0/main/depth_conv/act/HardSwish_189)",
+      "group": "head",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/depth_conv/act/HardSwish",
+        "/head/middle/op_list.0/main/depth_conv/act/HardSwish_189"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/middle/op_list.0/main/depth_conv/act/HardSwish), /head/middle/op_list.0/main/depth_conv/act/HardSwish_189)"
+    },
+    {
+      "index": 147,
+      "name": "PWN(PWN(/head/middle/op_list.0/main/depth_conv/act/HardSwish), /head/middle/op_list.0/main/depth_conv/act/HardSwish_189)",
+      "group": "head",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/depth_conv/act/HardSwish",
+        "/head/middle/op_list.0/main/depth_conv/act/HardSwish_189"
+      ],
+      "raw_detail": "PWN(PWN(/head/middle/op_list.0/main/depth_conv/act/HardSwish), /head/middle/op_list.0/main/depth_conv/act/HardSwish_189)"
+    },
+    {
+      "index": 148,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/middle/op_list.0/main/point_conv/conv/Conv + /head/middle/op_list.0/Add",
+      "group": "head",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/point_conv/conv/Conv",
+        "/head/middle/op_list.0/Add"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /head/middle/op_list.0/main/point_conv/conv/Conv + /head/middle/op_list.0/Add"
+    },
+    {
+      "index": 149,
+      "name": "/head/middle/op_list.0/main/point_conv/conv/Conv + /head/middle/op_list.0/Add",
+      "group": "head",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/head/middle/op_list.0/main/point_conv/conv/Conv",
+        "/head/middle/op_list.0/Add"
+      ],
+      "raw_detail": "/head/middle/op_list.0/main/point_conv/conv/Conv + /head/middle/op_list.0/Add"
+    },
+    {
+      "index": 150,
+      "name": "/head/output_ops.0/op_list.0/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/output_ops.0/op_list.0/conv/Conv"
+      ],
+      "raw_detail": "/head/output_ops.0/op_list.0/conv/Conv"
+    },
+    {
+      "index": 151,
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/output_ops.0/op_list.0/act/HardSwish), /head/output_ops.0/op_list.0/act/HardSwish_190)",
+      "group": "head",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/head/output_ops.0/op_list.0/act/HardSwish",
+        "/head/output_ops.0/op_list.0/act/HardSwish_190"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/output_ops.0/op_list.0/act/HardSwish), /head/output_ops.0/op_list.0/act/HardSwish_190)"
+    },
+    {
+      "index": 152,
+      "name": "PWN(PWN(/head/output_ops.0/op_list.0/act/HardSwish), /head/output_ops.0/op_list.0/act/HardSwish_190)",
+      "group": "head",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/head/output_ops.0/op_list.0/act/HardSwish",
+        "/head/output_ops.0/op_list.0/act/HardSwish_190"
+      ],
+      "raw_detail": "PWN(PWN(/head/output_ops.0/op_list.0/act/HardSwish), /head/output_ops.0/op_list.0/act/HardSwish_190)"
+    },
+    {
+      "index": 153,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/output_ops.0/op_list.1/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/output_ops.0/op_list.1/conv/Conv"
+      ],
+      "raw_detail": "Reformatting CopyNode for Input Tensor 0 to /head/output_ops.0/op_list.1/conv/Conv"
+    },
+    {
+      "index": 154,
+      "name": "/head/output_ops.0/op_list.1/conv/Conv",
+      "group": "head",
+      "kind": "conv",
+      "onnx_paths": [
+        "/head/output_ops.0/op_list.1/conv/Conv"
+      ],
+      "raw_detail": "/head/output_ops.0/op_list.1/conv/Conv"
+    }
+  ],
+  "onnx_nodes": [
+    {
+      "index": 0,
+      "name": "/backbone/input_stem/op_list.0/conv/Conv",
+      "op_type": "Conv",
+      "group": "stem",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 1,
+      "name": "/backbone/input_stem/op_list.0/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stem",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 2,
+      "name": "/backbone/input_stem/op_list.1/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stem",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 3,
+      "name": "/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stem",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 4,
+      "name": "/backbone/input_stem/op_list.1/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stem",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 5,
+      "name": "/backbone/input_stem/op_list.1/Add",
+      "op_type": "Add",
+      "group": "stem",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 6,
+      "name": "/backbone/stages.0/op_list.0/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage0",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 7,
+      "name": "/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage0",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 8,
+      "name": "/backbone/stages.0/op_list.0/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage0",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 9,
+      "name": "/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage0",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 10,
+      "name": "/backbone/stages.0/op_list.0/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage0",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 11,
+      "name": "/backbone/stages.0/op_list.1/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage0",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 12,
+      "name": "/backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage0",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 13,
+      "name": "/backbone/stages.0/op_list.1/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage0",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 14,
+      "name": "/backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage0",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 15,
+      "name": "/backbone/stages.0/op_list.1/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage0",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 16,
+      "name": "/backbone/stages.0/op_list.1/Add",
+      "op_type": "Add",
+      "group": "stage0",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 17,
+      "name": "/backbone/stages.1/op_list.0/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage1",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 18,
+      "name": "/backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage1",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 19,
+      "name": "/backbone/stages.1/op_list.0/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage1",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 20,
+      "name": "/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage1",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 21,
+      "name": "/backbone/stages.1/op_list.0/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage1",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 22,
+      "name": "/backbone/stages.1/op_list.1/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage1",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 23,
+      "name": "/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage1",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 24,
+      "name": "/backbone/stages.1/op_list.1/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage1",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 25,
+      "name": "/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage1",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 26,
+      "name": "/backbone/stages.1/op_list.1/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage1",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 27,
+      "name": "/backbone/stages.1/op_list.1/Add",
+      "op_type": "Add",
+      "group": "stage1",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 28,
+      "name": "/backbone/stages.2/op_list.0/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 29,
+      "name": "/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 30,
+      "name": "/backbone/stages.2/op_list.0/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 31,
+      "name": "/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 32,
+      "name": "/backbone/stages.2/op_list.0/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 33,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 34,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 35,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 36,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Concat",
+      "op_type": "Concat",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 37,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 38,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 39,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_1",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 40,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_2",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 41,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_3",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 42,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_4",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 43,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Slice",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 44,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_5",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 45,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_6",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 46,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_7",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 47,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_8",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 48,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_1",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 49,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_9",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 50,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_10",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 51,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_11",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 52,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_12",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 53,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_2",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 54,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu",
+      "op_type": "Relu",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 55,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu",
+      "op_type": "Relu",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 56,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Transpose",
+      "op_type": "Transpose",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 57,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_13",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 58,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_14",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 59,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/ConstantOfShape",
+      "op_type": "ConstantOfShape",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 60,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Concat_1",
+      "op_type": "Concat",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 61,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_15",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 62,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_1",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 63,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_16",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 64,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_17",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 65,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_18",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 66,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_19",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 67,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_3",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 68,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Transpose_1",
+      "op_type": "Transpose",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 69,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_20",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 70,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_2",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 71,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Cast",
+      "op_type": "Cast",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 72,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_21",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 73,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Pad",
+      "op_type": "Pad",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 74,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul",
+      "op_type": "MatMul",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 75,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul_1",
+      "op_type": "MatMul",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 76,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_22",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 77,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_23",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 78,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_24",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 79,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_25",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 80,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_4",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 81,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_26",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 82,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_27",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 83,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_28",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 84,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_29",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 85,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_5",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 86,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_30",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 87,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Add",
+      "op_type": "Add",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 88,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Div",
+      "op_type": "Div",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 89,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_31",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 90,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_3",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 91,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Cast_1",
+      "op_type": "Cast",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 92,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 93,
+      "name": "/backbone/stages.2/op_list.1/context_module/Add",
+      "op_type": "Add",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 94,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 95,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 96,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 97,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 98,
+      "name": "/backbone/stages.2/op_list.1/local_module/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 99,
+      "name": "/backbone/stages.2/op_list.1/local_module/Add",
+      "op_type": "Add",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 100,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 101,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 102,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 103,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Concat",
+      "op_type": "Concat",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 104,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Shape",
+      "op_type": "Shape",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 105,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 106,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Gather",
+      "op_type": "Gather",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 107,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Shape_1",
+      "op_type": "Shape",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 108,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_1",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 109,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Gather_1",
+      "op_type": "Gather",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 110,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Shape_2",
+      "op_type": "Shape",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 111,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_2",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 112,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Gather_2",
+      "op_type": "Gather",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 113,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Mul",
+      "op_type": "Mul",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 114,
+      "name": "Constant_271",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 115,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze",
+      "op_type": "Unsqueeze",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 116,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_3",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 117,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_4",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 118,
+      "name": "Constant_275",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 119,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_1",
+      "op_type": "Unsqueeze",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 120,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Concat_1",
+      "op_type": "Concat",
+      "group": "stage2",
+      "input_count": 4,
+      "output_count": 1
+    },
+    {
+      "index": 121,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 122,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_5",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 123,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_6",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 124,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_7",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 125,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_8",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 126,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Slice",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 127,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_9",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 128,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_10",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 129,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_11",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 130,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_12",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 131,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_1",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 132,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_13",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 133,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_14",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 134,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_15",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 135,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_16",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 136,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_2",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 137,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu",
+      "op_type": "Relu",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 138,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu",
+      "op_type": "Relu",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 139,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Transpose",
+      "op_type": "Transpose",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 140,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_17",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 141,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_18",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 142,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/ConstantOfShape",
+      "op_type": "ConstantOfShape",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 143,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Concat_2",
+      "op_type": "Concat",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 144,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_19",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 145,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_1",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 146,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_20",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 147,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_21",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 148,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_22",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 149,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_23",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 150,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_3",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 151,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Transpose_1",
+      "op_type": "Transpose",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 152,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_24",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 153,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_2",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 154,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Cast",
+      "op_type": "Cast",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 155,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_25",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 156,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Pad",
+      "op_type": "Pad",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 157,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul",
+      "op_type": "MatMul",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 158,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul_1",
+      "op_type": "MatMul",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 159,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_26",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 160,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_27",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 161,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_28",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 162,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_29",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 163,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_4",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 164,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_30",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 165,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_31",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 166,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_32",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 167,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_33",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 168,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_5",
+      "op_type": "Slice",
+      "group": "stage2",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 169,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_34",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 170,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Add",
+      "op_type": "Add",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 171,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Div",
+      "op_type": "Div",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 172,
+      "name": "Constant_329",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 173,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_2",
+      "op_type": "Unsqueeze",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 174,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_35",
+      "op_type": "Constant",
+      "group": "stage2",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 175,
+      "name": "Constant_332",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 176,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_3",
+      "op_type": "Unsqueeze",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 177,
+      "name": "Constant_334",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 178,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_4",
+      "op_type": "Unsqueeze",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 179,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Concat_3",
+      "op_type": "Concat",
+      "group": "stage2",
+      "input_count": 4,
+      "output_count": 1
+    },
+    {
+      "index": 180,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_3",
+      "op_type": "Reshape",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 181,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Cast_1",
+      "op_type": "Cast",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 182,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 183,
+      "name": "/backbone/stages.2/op_list.2/context_module/Add",
+      "op_type": "Add",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 184,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 185,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 186,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 187,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage2",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 188,
+      "name": "/backbone/stages.2/op_list.2/local_module/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage2",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 189,
+      "name": "/backbone/stages.2/op_list.2/local_module/Add",
+      "op_type": "Add",
+      "group": "stage2",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 190,
+      "name": "/backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 191,
+      "name": "/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 192,
+      "name": "/backbone/stages.3/op_list.0/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 193,
+      "name": "/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 194,
+      "name": "/backbone/stages.3/op_list.0/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 195,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 196,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 197,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 198,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Concat",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 199,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Shape",
+      "op_type": "Shape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 200,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 201,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Gather",
+      "op_type": "Gather",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 202,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Shape_1",
+      "op_type": "Shape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 203,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_1",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 204,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Gather_1",
+      "op_type": "Gather",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 205,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Shape_2",
+      "op_type": "Shape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 206,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_2",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 207,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Gather_2",
+      "op_type": "Gather",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 208,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Mul",
+      "op_type": "Mul",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 209,
+      "name": "Constant_366",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 210,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Unsqueeze",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 211,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_3",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 212,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_4",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 213,
+      "name": "Constant_370",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 214,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Unsqueeze_1",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 215,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Concat_1",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 4,
+      "output_count": 1
+    },
+    {
+      "index": 216,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 217,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_5",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 218,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_6",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 219,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_7",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 220,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_8",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 221,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Slice",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 222,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_9",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 223,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_10",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 224,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_11",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 225,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_12",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 226,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Slice_1",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 227,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_13",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 228,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_14",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 229,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_15",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 230,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_16",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 231,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Slice_2",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 232,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/kernel_func/Relu",
+      "op_type": "Relu",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 233,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/kernel_func_1/Relu",
+      "op_type": "Relu",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 234,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Transpose",
+      "op_type": "Transpose",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 235,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_17",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 236,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_18",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 237,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/ConstantOfShape",
+      "op_type": "ConstantOfShape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 238,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Concat_2",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 239,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_19",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 240,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape_1",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 241,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_20",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 242,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_21",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 243,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_22",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 244,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_23",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 245,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Slice_3",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 246,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Transpose_1",
+      "op_type": "Transpose",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 247,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_24",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 248,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape_2",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 249,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Cast",
+      "op_type": "Cast",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 250,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_25",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 251,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Pad",
+      "op_type": "Pad",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 252,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/MatMul",
+      "op_type": "MatMul",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 253,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/MatMul_1",
+      "op_type": "MatMul",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 254,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_26",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 255,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_27",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 256,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_28",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 257,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_29",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 258,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Slice_4",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 259,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_30",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 260,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_31",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 261,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_32",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 262,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_33",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 263,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Slice_5",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 264,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_34",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 265,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Add",
+      "op_type": "Add",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 266,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Div",
+      "op_type": "Div",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 267,
+      "name": "Constant_424",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 268,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Unsqueeze_2",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 269,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Constant_35",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 270,
+      "name": "Constant_427",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 271,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Unsqueeze_3",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 272,
+      "name": "Constant_429",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 273,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Unsqueeze_4",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 274,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Concat_3",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 4,
+      "output_count": 1
+    },
+    {
+      "index": 275,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape_3",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 276,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Cast_1",
+      "op_type": "Cast",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 277,
+      "name": "/backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 278,
+      "name": "/backbone/stages.3/op_list.1/context_module/Add",
+      "op_type": "Add",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 279,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 280,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 281,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 282,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 283,
+      "name": "/backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 284,
+      "name": "/backbone/stages.3/op_list.1/local_module/Add",
+      "op_type": "Add",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 285,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 286,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 287,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 288,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Concat",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 289,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Shape",
+      "op_type": "Shape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 290,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 291,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Gather",
+      "op_type": "Gather",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 292,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Shape_1",
+      "op_type": "Shape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 293,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_1",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 294,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Gather_1",
+      "op_type": "Gather",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 295,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Shape_2",
+      "op_type": "Shape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 296,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_2",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 297,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Gather_2",
+      "op_type": "Gather",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 298,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Mul",
+      "op_type": "Mul",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 299,
+      "name": "Constant_456",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 300,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Unsqueeze",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 301,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_3",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 302,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_4",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 303,
+      "name": "Constant_460",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 304,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Unsqueeze_1",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 305,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Concat_1",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 4,
+      "output_count": 1
+    },
+    {
+      "index": 306,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 307,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_5",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 308,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_6",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 309,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_7",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 310,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_8",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 311,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Slice",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 312,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_9",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 313,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_10",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 314,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_11",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 315,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_12",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 316,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Slice_1",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 317,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_13",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 318,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_14",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 319,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_15",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 320,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_16",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 321,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Slice_2",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 322,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/kernel_func/Relu",
+      "op_type": "Relu",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 323,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/kernel_func_1/Relu",
+      "op_type": "Relu",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 324,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Transpose",
+      "op_type": "Transpose",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 325,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_17",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 326,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_18",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 327,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/ConstantOfShape",
+      "op_type": "ConstantOfShape",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 328,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Concat_2",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 329,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_19",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 330,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape_1",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 331,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_20",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 332,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_21",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 333,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_22",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 334,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_23",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 335,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Slice_3",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 336,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Transpose_1",
+      "op_type": "Transpose",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 337,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_24",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 338,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape_2",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 339,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Cast",
+      "op_type": "Cast",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 340,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_25",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 341,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Pad",
+      "op_type": "Pad",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 342,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/MatMul",
+      "op_type": "MatMul",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 343,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/MatMul_1",
+      "op_type": "MatMul",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 344,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_26",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 345,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_27",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 346,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_28",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 347,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_29",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 348,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Slice_4",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 349,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_30",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 350,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_31",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 351,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_32",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 352,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_33",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 353,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Slice_5",
+      "op_type": "Slice",
+      "group": "stage3",
+      "input_count": 5,
+      "output_count": 1
+    },
+    {
+      "index": 354,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_34",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 355,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Add",
+      "op_type": "Add",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 356,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Div",
+      "op_type": "Div",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 357,
+      "name": "Constant_514",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 358,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Unsqueeze_2",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 359,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Constant_35",
+      "op_type": "Constant",
+      "group": "stage3",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 360,
+      "name": "Constant_517",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 361,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Unsqueeze_3",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 362,
+      "name": "Constant_519",
+      "op_type": "Constant",
+      "group": "constant/unnamed",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 363,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Unsqueeze_4",
+      "op_type": "Unsqueeze",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 364,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Concat_3",
+      "op_type": "Concat",
+      "group": "stage3",
+      "input_count": 4,
+      "output_count": 1
+    },
+    {
+      "index": 365,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape_3",
+      "op_type": "Reshape",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 366,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Cast_1",
+      "op_type": "Cast",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 367,
+      "name": "/backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 368,
+      "name": "/backbone/stages.3/op_list.2/context_module/Add",
+      "op_type": "Add",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 369,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 370,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 371,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 372,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "stage3",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 373,
+      "name": "/backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "stage3",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 374,
+      "name": "/backbone/stages.3/op_list.2/local_module/Add",
+      "op_type": "Add",
+      "group": "stage3",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 375,
+      "name": "/head/input_ops.0/op_list.0/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 376,
+      "name": "/head/input_ops.0/op_list.1/Constant",
+      "op_type": "Constant",
+      "group": "head",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 377,
+      "name": "/head/input_ops.0/op_list.1/Resize",
+      "op_type": "Resize",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 378,
+      "name": "/head/input_ops.1/op_list.0/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 379,
+      "name": "/head/input_ops.1/op_list.1/Constant",
+      "op_type": "Constant",
+      "group": "head",
+      "input_count": 0,
+      "output_count": 1
+    },
+    {
+      "index": 380,
+      "name": "/head/input_ops.1/op_list.1/Resize",
+      "op_type": "Resize",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 381,
+      "name": "/head/input_ops.2/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 382,
+      "name": "/head/Add",
+      "op_type": "Add",
+      "group": "head",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 383,
+      "name": "/head/Add_1",
+      "op_type": "Add",
+      "group": "head",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 384,
+      "name": "/head/middle/op_list.0/main/inverted_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 385,
+      "name": "/head/middle/op_list.0/main/inverted_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "head",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 386,
+      "name": "/head/middle/op_list.0/main/depth_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 387,
+      "name": "/head/middle/op_list.0/main/depth_conv/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "head",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 388,
+      "name": "/head/middle/op_list.0/main/point_conv/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 389,
+      "name": "/head/middle/op_list.0/Add",
+      "op_type": "Add",
+      "group": "head",
+      "input_count": 2,
+      "output_count": 1
+    },
+    {
+      "index": 390,
+      "name": "/head/output_ops.0/op_list.0/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    },
+    {
+      "index": 391,
+      "name": "/head/output_ops.0/op_list.0/act/HardSwish",
+      "op_type": "HardSwish",
+      "group": "head",
+      "input_count": 1,
+      "output_count": 1
+    },
+    {
+      "index": 392,
+      "name": "/head/output_ops.0/op_list.1/conv/Conv",
+      "op_type": "Conv",
+      "group": "head",
+      "input_count": 3,
+      "output_count": 1
+    }
+  ],
+  "stage2_context_layers": [
+    {
+      "index": 44,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv"
+      ]
+    },
+    {
+      "index": 45,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv"
+      ]
+    },
+    {
+      "index": 46,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv"
+      ]
+    },
+    {
+      "index": 47,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Reshape"
+      ]
+    },
+    {
+      "index": 48,
+      "name": "PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu)",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu"
+      ]
+    },
+    {
+      "index": 49,
+      "name": "PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu)",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu"
+      ]
+    },
+    {
+      "index": 50,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Pad",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Pad"
+      ]
+    },
+    {
+      "index": 51,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/MatMul"
+      ]
+    },
+    {
+      "index": 52,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul_1",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/MatMul_1"
+      ]
+    },
+    {
+      "index": 53,
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/MatMul_1",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/MatMul_1"
+      ]
+    },
+    {
+      "index": 54,
+      "name": "PWN(/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0 + (Unnamed Layer* 80) [Shuffle] + /backbone/stages.2/op_list.1/context_module/main/Add, /backbone/stages.2/op_list.1/context_module/main/Div)",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0",
+        "/backbone/stages.2/op_list.1/context_module/main/Add",
+        "/backbone/stages.2/op_list.1/context_module/main/Div"
+      ]
+    },
+    {
+      "index": 55,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/Reshape_3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Reshape_3"
+      ]
+    },
+    {
+      "index": 56,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Reshape_3"
+      ]
+    },
+    {
+      "index": 57,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/Cast_1",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/Cast_1"
+      ]
+    },
+    {
+      "index": 58,
+      "name": "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.1/context_module/Add",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv",
+        "/backbone/stages.2/op_list.1/context_module/Add"
+      ]
+    },
+    {
+      "index": 64,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv"
+      ]
+    },
+    {
+      "index": 65,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv"
+      ]
+    },
+    {
+      "index": 66,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "kind": "conv",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv"
+      ]
+    },
+    {
+      "index": 67,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Reshape"
+      ]
+    },
+    {
+      "index": 68,
+      "name": "PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu)",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu"
+      ]
+    },
+    {
+      "index": 69,
+      "name": "PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu)",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu"
+      ]
+    },
+    {
+      "index": 70,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Pad",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Pad"
+      ]
+    },
+    {
+      "index": 71,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/MatMul"
+      ]
+    },
+    {
+      "index": 72,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul_1",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/MatMul_1"
+      ]
+    },
+    {
+      "index": 73,
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/MatMul_1",
+      "kind": "matmul",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/MatMul_1"
+      ]
+    },
+    {
+      "index": 74,
+      "name": "PWN(/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 145) [Shuffle] + /backbone/stages.2/op_list.2/context_module/main/Add, /backbone/stages.2/op_list.2/context_module/main/Div)",
+      "kind": "pointwise_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0",
+        "/backbone/stages.2/op_list.2/context_module/main/Add",
+        "/backbone/stages.2/op_list.2/context_module/main/Div"
+      ]
+    },
+    {
+      "index": 75,
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/Reshape_3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Reshape_3"
+      ]
+    },
+    {
+      "index": 76,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_3",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Reshape_3"
+      ]
+    },
+    {
+      "index": 77,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/Cast_1",
+      "kind": "single_or_other",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/Cast_1"
+      ]
+    },
+    {
+      "index": 78,
+      "name": "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.2/context_module/Add",
+      "kind": "explicit_fusion",
+      "onnx_paths": [
+        "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv",
+        "/backbone/stages.2/op_list.2/context_module/Add"
+      ]
+    }
+  ],
+  "versions": {
+    "python": "3.10.20",
+    "onnx": "1.21.0",
+    "tensorrt": "8.6.1"
+  },
+  "timestamp_utc": "2026-06-08T16:07:34.594296+00:00",
+  "script_version": "inspect_trt_engine.py@9abf4bb"
+}

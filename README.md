@@ -89,6 +89,7 @@ Phase 2 实现与部署：
 - [`phase2/scripts/export_onnx.py`](./phase2/scripts/export_onnx.py)：固定 shape ONNX 导出与 ONNXRuntime 对齐。
 - [`phase2/scripts/build_trt_engine.py`](./phase2/scripts/build_trt_engine.py)：TensorRT FP32 / FP16 engine 构建。
 - [`phase2/scripts/benchmark_trt_engine.py`](./phase2/scripts/benchmark_trt_engine.py)：TensorRT engine execute-only latency benchmark 与 PyTorch logits 对齐。
+- [`phase2/scripts/inspect_trt_engine.py`](./phase2/scripts/inspect_trt_engine.py)：EngineInspector / ONNX node name 映射，补充 TensorRT 结构层面的 fusion 证据。
 - [`phase2/design_notes/trt_nsys_attribution_design.md`](./phase2/design_notes/trt_nsys_attribution_design.md)：TensorRT 后候选复核的 Nsight attribution 设计。
 
 ## 仓库结构

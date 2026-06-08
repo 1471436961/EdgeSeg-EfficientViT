@@ -104,13 +104,14 @@
 2. **TensorRT 引擎构建**: 使用 TensorRT Python API 构建 FP32 baseline engine，并将 FP16 作为风险实验单独记录。当前 MX250 / TensorRT 8.6.1 实测表明：FP16 可构建且语义一致，但慢于 FP32，因此本机主 baseline 采用 FP32。
    - ⚠️ **数值策略边界**：LiteMLA `relu_linear_att` 标了 `@torch.autocast(enabled=False)` 强制 FP32。Phase 2 已证明 TensorRT FP16 风险实验语义可接受但无速度收益；Phase 3 Plugin 仍需单独设计 FP32 / FP16 / FP32 accumulate 的内部数值策略。
 3. **推理验证**: 加载 TensorRT 引擎进行推理，验证输出精度（对齐 PyTorch baseline），测量延迟和吞吐量。
-4. **TensorRT Nsight 复核**: 已对 TensorRT engine runtime 采集 Nsight Systems trace，第一版 residual hotspot 排序为 `stage0 > stage2 > stage3 > stage1 > head > stem`。EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不能替代 Nsight runtime 归因。
+4. **TensorRT Nsight 复核**: 已对 TensorRT engine runtime 采集 Nsight Systems trace，第一版 residual hotspot 排序为 `stage0 > stage2 > stage3 > stage1 > head > stem`。已补 EngineInspector / ONNX node name 映射作为结构辅助证据：ONNX `393` nodes -> TensorRT `155` engine layers；但它不能替代 Nsight runtime 归因。
 5. **TensorRT C++ 推理 Demo**（轻量）: 编写一个简单的 C++ 推理 Demo，加载 TensorRT 引擎并执行推理。此 Demo 不必追求极致优化，主要目的是熟悉 TensorRT C++ API，为阶段三的 Plugin 集成验证铺路。
 
 **产出物**:
 - `phase2/export_onnx.py`、`phase2/build_trt_engine.py`
 - 优化效果对比表（PyTorch vs TensorRT FP32/FP16；本机主 TensorRT baseline 为 FP32）
 - TensorRT Nsight attribution 汇总，回答 Phase 1 候选在 TensorRT 后是否仍成立
+- EngineInspector / ONNX node name 映射汇总，回答 TensorRT 在结构层面做了哪些 layer 压缩和 fusion pattern
 - C++ 推理 Demo 源码及 CMake 编译脚本
 - 过程中遇到的问题记录（特别是固定 shape bicubic Resize 验证边界 / LiteMLA 数值精度处理的取舍）
 

@@ -72,6 +72,7 @@ Phase 2 不做：
   - 对比 Phase 1 Plan B/C/D：kernel 类型分布、launch 密度、TensorRT 后残余热点，以及 LiteMLA / stage0 / head 候选是否仍成立。
   - EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不替代 Nsight runtime 归因。
   - 当前正式结果：沿用 `warmup=20 / measure=100`，`trt/execute` kernel avg `54.454 ms/iter`，layer attribution 覆盖 `100.00%` execute kernel time；残余热点排序为 `stage0 > stage2 > stage3 > stage1 > head > stem`。
+  - 已补 EngineInspector / ONNX node name 映射：ONNX `393` nodes -> TensorRT `155` engine layers，总体 layer-count reduction `60.56%`。
 - [ ] Step 7：TensorRT C++ 推理 Demo。
   - 使用 TensorRT C++ Runtime API 加载 FP32 engine。
   - 分配固定 shape input / output buffer，执行一次或多次 inference。
@@ -95,6 +96,7 @@ phase2/
 ?   ??? benchmark_trt_engine.py
 ?   ??? build_trt_engine.py
 ?   ??? export_onnx.py
+?   ??? inspect_trt_engine.py
 ??? design_notes/
 ?   ??? benchmark_trt_engine_design.md
 ?   ??? build_trt_engine_design.md
@@ -111,6 +113,8 @@ phase2/
 ?   ??? metrics/
 ?   ?   ??? .gitkeep
 ?   ?   ??? onnx_export_b0_cityscapes_1024x2048.json
+?   ?   ??? trt_engine_inspection_summary.md
+?   ?   ??? trt_engine_inspection_summary.json
 ?   ?   ??? trt_nsys_attribution_summary.md
 ?   ?   ??? trt_nsys_attribution_summary.json
 ?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
@@ -274,6 +278,20 @@ FP16 风险实验口径：
 | Residual hotspot order | `stage0 > stage2 > stage3 > stage1 > head > stem` |
 
 说明：Step 6 使用 TensorRT/NVTX layer range -> CUDA runtime launch -> CUDA kernel `correlationId` 的归因口径，不把 NVTX range end-start 当作 GPU component time。该结果说明 TensorRT 后 `stage0` 仍是最大 residual hotspot，`stage2` 仍是第二大 residual hotspot 且 launch 密度高；但 TensorRT layer range 与 Phase 1 PyTorch Plan B/C/D 的模块范围不是一一对应关系，Phase 2 report 中需要按“趋势复核”而非“逐模块复刻”来表述。
+
+当前 TensorRT EngineInspector / ONNX node name 映射结果：
+
+| 项目 | 结果 |
+|---|---|
+| 脚本 | `phase2/scripts/inspect_trt_engine.py` |
+| Summary | `phase2/results/metrics/trt_engine_inspection_summary.md` / `.json` |
+| ONNX nodes | `393` |
+| TensorRT engine layers | `155` |
+| Overall layer-count reduction | `60.56%` |
+| EngineInspector detail | `layer_names_only` |
+| 结构证据 | `PWN(...)` 表明 pointwise/activation fusion；layer name 中的 ` + ` 表明 TensorRT 将多个 ONNX-named ops 合并成一个 engine layer |
+
+说明：EngineInspector / ONNX 映射只能说明结构变化，例如 layer 数减少、PWN pointwise fusion、Conv+Add 融合、stage2 context 中仍存在 MatMul / Reformat / Cast 等结构；它不提供真实 GPU 耗时。真实耗时仍以 `trt_nsys_attribution_summary.md` 的 Nsight SQLite `correlationId` 归因为准。
 
 SegHead bicubic upsample 验证：
 
