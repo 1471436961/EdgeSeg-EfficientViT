@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入 engine**：`phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`
-> **状态**：v1.5，FP32 / FP16 TensorRT engine benchmark 均已完成；下一步补做 TensorRT Nsight Systems profiling / attribution 和 C++ runtime demo，再撰写 baseline report。
+> **状态**：v1.6，FP32 / FP16 TensorRT engine benchmark 与 FP32 TensorRT Nsight Systems attribution 均已完成；下一步补 TensorRT C++ runtime demo，再撰写 baseline report。
 
 ---
 
@@ -114,6 +114,18 @@ context.execute_async_v2(bindings, stream_handle)
 
 实测第一版 FP32 benchmark 的严格 `atol=1e-4, rtol=1e-4` allclose 未通过，但 `max_abs_diff≈2.69e-4`、`mean_abs_diff≈2.54e-5`、`cosine≈0.99999999998`，并且当前样图的 segmentation argmax pixel agreement 为 100%。因此 Phase 2 报告应使用“数值接近且语义输出一致”的保守表述，而不是“逐元素严格一致”。
 
+### D5：Nsight NVTX 标记
+
+**选择：通过 `--nvtx` 增加最小 runtime 标记。**
+
+`benchmark_trt_engine.py` 在 Nsight 采集时可显式传入 `--nvtx`，只标记：
+
+- `trt/warmup`
+- `trt/measure`
+- `trt/execute`
+
+这些 range 只做 `range_push/range_pop`，不在 range 内插入 synchronize。定量 GPU 归因仍由 `analyze_trt_nsys_attribution.py` 使用 TensorRT-emitted layer NVTX range、CUDA runtime launch 与 CUDA kernel `correlationId` 完成；`trt/execute` 只作为 measured iteration 边界。
+
 ---
 
 ## 4. JSON 口径
@@ -167,11 +179,18 @@ FP16 实测结果：
 - FP16 输出误差与 FP32 TensorRT 基本一致：`max_abs_diff≈2.69e-4`、`mean_abs_diff≈2.54e-5`、`1e-3 allclose=true`、argmax pixel agreement 100%。
 - 因此 FP16 语义可接受，但没有速度收益，不建议作为本机主 baseline。
 
+TensorRT Nsight attribution 已完成第一版：
+
+- 脚本：`phase2/scripts/analyze_trt_nsys_attribution.py`
+- 运行 metadata：`phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json`
+- 汇总表：`phase2/results/metrics/trt_nsys_attribution_summary.md`
+- `trt/execute` kernel avg：`54.454 ms / iter`
+- `trt/execute` launches：`185.0 / iter`
+- TensorRT layer attribution 覆盖：`100.00%` execute kernel time
+- residual hotspot 排序：`stage0 > stage2 > stage3 > stage1 > head > stem`
+
 下一步：
 
-1. 对 FP32 TensorRT engine execute 路径补做 Nsight Systems profiling / attribution。
-2. 以 Nsight runtime 归因为主证据，回答 TensorRT 后 Phase 1 的 `stage0` / `stage2 LiteMLA` / `head` 候选是否仍成立。
-3. EngineInspector / verbose layer dump 可作为解释 engine 结构的辅助证据，但不能替代 Nsight runtime 归因。
-4. 完成轻量 TensorRT C++ runtime demo，验证 FP32 engine 能被 C++ API 加载和执行。
-5. 完成上述复核后，再撰写 `phase2/tensorrt_baseline_report.md`。
-6. 报告中使用“数值接近且语义输出一致”的保守表述，并记录 FP16 风险实验结论：可构建、语义一致、但在 MX250 上慢于 FP32。
+1. 完成轻量 TensorRT C++ runtime demo，验证 FP32 engine 能被 C++ API 加载和执行。
+2. 撰写 `phase2/tensorrt_baseline_report.md`，同时引用 FP32/FP16 benchmark 与 TensorRT Nsight attribution。
+3. 报告中使用“数值接近且语义输出一致”的保守表述，并记录 FP16 风险实验结论：可构建、语义一致、但在 MX250 上慢于 FP32。

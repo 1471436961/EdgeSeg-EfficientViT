@@ -18,7 +18,7 @@ EdgeSeg-EfficientViT 是一个基于 MIT Han Lab EfficientViT-Seg-B0 的边缘�
 | 阶段 | 状态 | 主要产出 |
 |---|---|---|
 | Phase 1：PyTorch baseline + Nsight 剖析 | 已完成 | [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md) |
-| Phase 2：ONNX / TensorRT baseline | 进行中 | ONNX 导出、TensorRT FP32/FP16 build/benchmark 已完成；待 TensorRT Nsight 复核与 C++ Demo |
+| Phase 2：ONNX / TensorRT baseline | 进行中 | ONNX 导出、TensorRT FP32/FP16 build/benchmark、TensorRT Nsight 复核已完成；待 C++ Demo 与 Phase 2 report |
 | Phase 3：TensorRT Plugin | 计划中 | LiteMLA Plugin MVP 与消融实验 |
 
 ## Phase 1 摘要
@@ -62,7 +62,7 @@ Phase 2 已完成固定 `1024x2048` 输入下的 ONNX 导出、ONNXRuntime 对�
 
 Phase 2 仍需补齐两项关键工作：
 
-- TensorRT Nsight Systems profiling / attribution：复核 Phase 1 的 `stage0`、`stage2 LiteMLA`、`head` 候选在 TensorRT 自动优化后是否仍成立。
+- TensorRT Nsight Systems profiling / attribution：已完成第一版，复核 Phase 1 的 `stage0`、`stage2 LiteMLA`、`head` 候选在 TensorRT 自动优化后的 residual hotspot 排序。
 - TensorRT C++ 推理 Demo：验证 FP32 engine 能被 C++ Runtime API 加载和执行，为 Phase 3 Plugin 集成铺路。
 
 Phase 2 不以完整 Cityscapes mIoU 为验收条件；当前精度口径是 PyTorch / ONNXRuntime / TensorRT 的转换一致性验证，包括 logits diff、relaxed allclose 和 argmax pixel agreement。

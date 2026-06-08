@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark 均已完成；下一步补做 TensorRT Nsight Systems profiling / attribution，用同一套 Nsight 证据复核 Phase 1 的瓶颈与 Phase 3 Plugin 候选。
+> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark、TensorRT Nsight Systems runtime attribution 均已完成；下一步进入 TensorRT C++ runtime demo，然后撰写 Phase 2 baseline report。
 
 ---
 
@@ -66,11 +66,12 @@ Phase 2 不做：
   - 构建 FP16 engine。
   - 复用 benchmark 脚本记录 latency 与输出误差。
   - 结论：FP16 可构建且语义一致，但在 MX250 上慢于 FP32，不作为本机主 baseline。
-- [ ] Step 6：TensorRT Nsight Systems profiling / attribution。
+- [x] Step 6：TensorRT Nsight Systems profiling / attribution。
   - 对 `benchmark_trt_engine.py` 的 FP32 engine execute 路径采集 Nsight Systems trace。
   - 使用 `cuda,nvtx` 为主口径；Windows 下 CPU sampling / WDDM tracing 需管理员权限，若不采集则作为限制项记录。
   - 对比 Phase 1 Plan B/C/D：kernel 类型分布、launch 密度、TensorRT 后残余热点，以及 LiteMLA / stage0 / head 候选是否仍成立。
   - EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不替代 Nsight runtime 归因。
+  - 当前正式结果：沿用 `warmup=20 / measure=100`，`trt/execute` kernel avg `54.454 ms/iter`，layer attribution 覆盖 `100.00%` execute kernel time；残余热点排序为 `stage0 > stage2 > stage3 > stage1 > head > stem`。
 - [ ] Step 7：TensorRT C++ 推理 Demo。
   - 使用 TensorRT C++ Runtime API 加载 FP32 engine。
   - 分配固定 shape input / output buffer，执行一次或多次 inference。
@@ -87,39 +88,42 @@ Phase 2 不做：
 
 ```text
 phase2/
-├── README.md
-├── scripts/
-│   ├── _compat.py
-│   ├── benchmark_trt_engine.py
-│   ├── build_trt_engine.py
-│   └── export_onnx.py
-├── design_notes/
-│   ├── benchmark_trt_engine_design.md
-│   ├── build_trt_engine_design.md
-│   ├── onnx_export_design.md
-│   └── trt_nsys_attribution_design.md
-├── results/
-│   ├── onnx/
-│   │   ├── .gitkeep
-│   │   └── efficientvit_seg_b0_cityscapes_1024x2048.onnx  # 运行产物，不入 git
-│   ├── engines/
-│   │   ├── .gitkeep
-│   │   ├── efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine  # 运行产物，不入 git
-│   │   └── efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # 运行产物，不入 git
-│   ├── metrics/
-│   │   ├── .gitkeep
-│   │   ├── onnx_export_b0_cityscapes_1024x2048.json
-│   │   ├── trt_nsys_attribution_summary.md
-│   │   ├── trt_benchmark_b0_cityscapes_1024x2048_fp16.json
-│   │   ├── trt_benchmark_b0_cityscapes_1024x2048_fp32.json
-│   │   ├── trt_build_b0_cityscapes_1024x2048_fp16.json
-│   │   └── trt_build_b0_cityscapes_1024x2048_fp32.json
-│   └── nsight/
-│       └── TensorRT Nsight trace / sqlite 导出（运行产物，通常不入 git）
-├── cpp_demo/
-│   └── TensorRT C++ runtime demo（Step 7 落盘）
-└── logs/
-    └── .gitkeep
+??? README.md
+??? scripts/
+?   ??? _compat.py
+?   ??? analyze_trt_nsys_attribution.py
+?   ??? benchmark_trt_engine.py
+?   ??? build_trt_engine.py
+?   ??? export_onnx.py
+??? design_notes/
+?   ??? benchmark_trt_engine_design.md
+?   ??? build_trt_engine_design.md
+?   ??? onnx_export_design.md
+?   ??? trt_nsys_attribution_design.md
+??? results/
+?   ??? onnx/
+?   ?   ??? .gitkeep
+?   ?   ??? efficientvit_seg_b0_cityscapes_1024x2048.onnx  # ??????? git
+?   ??? engines/
+?   ?   ??? .gitkeep
+?   ?   ??? efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine  # ??????? git
+?   ?   ??? efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # ??????? git
+?   ??? metrics/
+?   ?   ??? .gitkeep
+?   ?   ??? onnx_export_b0_cityscapes_1024x2048.json
+?   ?   ??? trt_nsys_attribution_summary.md
+?   ?   ??? trt_nsys_attribution_summary.json
+?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
+?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp16.json
+?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp32.json
+?   ?   ??? trt_build_b0_cityscapes_1024x2048_fp16.json
+?   ?   ??? trt_build_b0_cityscapes_1024x2048_fp32.json
+?   ??? nsight/
+?       ??? TensorRT Nsight trace / sqlite ???????????? git?
+??? cpp_demo/
+?   ??? TensorRT C++ runtime demo?Step 7 ???
+??? logs/
+    ??? .gitkeep
 ```
 
 ---
@@ -253,6 +257,23 @@ FP16 风险实验口径：
 | FP16 argmax pixel agreement | `100%` (`0 / 32768` mismatch) |
 
 结论：当前 MX250 / TensorRT 8.6.1 路线下，FP16 engine 可构建且语义输出一致，但没有速度收益，反而比 FP32 慢。因此 Phase 2 主 baseline 应采用 FP32 TensorRT；FP16 作为风险实验记录，不建议作为本机主线优化结论。
+
+当前 TensorRT Nsight attribution 结果：
+
+| 项目 | 结果 |
+|---|---|
+| Nsight trace | `phase2/results/nsight/trt_fp32_fullres.nsys-rep`（运行产物，不入 git） |
+| SQLite export | `phase2/results/nsight/trt_fp32_fullres.sqlite`（运行产物，不入 git） |
+| Nsys benchmark metadata | `phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json` |
+| Attribution summary | `phase2/results/metrics/trt_nsys_attribution_summary.md` / `.json` |
+| warmup / measure | `20 / 100` |
+| CUDA Events latency mean / p50 | `55.242 ms` / `55.237 ms` |
+| `trt/execute` kernel avg | `54.454 ms / iter` |
+| `trt/execute` launches | `185.0 / iter` |
+| Layer attribution / execute kernel time | `100.00%` |
+| Residual hotspot order | `stage0 > stage2 > stage3 > stage1 > head > stem` |
+
+说明：Step 6 使用 TensorRT/NVTX layer range -> CUDA runtime launch -> CUDA kernel `correlationId` 的归因口径，不把 NVTX range end-start 当作 GPU component time。该结果说明 TensorRT 后 `stage0` 仍是最大 residual hotspot，`stage2` 仍是第二大 residual hotspot 且 launch 密度高；但 TensorRT layer range 与 Phase 1 PyTorch Plan B/C/D 的模块范围不是一一对应关系，Phase 2 report 中需要按“趋势复核”而非“逐模块复刻”来表述。
 
 SegHead bicubic upsample 验证：
 

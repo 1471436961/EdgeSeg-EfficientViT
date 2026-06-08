@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md) Step 6  
 > **前置产物**：`phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`  
-> **状态**：v0.1，落盘前设计；用于补齐 Phase 2 的 TensorRT 后候选复核闭环。
+> **状态**：v1.0，Step 6 第一版已执行完成；已产出 TensorRT Nsight SQLite attribution summary，用于复核 Phase 1 候选在 TensorRT 后的残余热点。
 
 ---
 
@@ -51,12 +51,13 @@ EngineInspector、verbose build log 或 layer dump 只能回答 engine 结构问
 
 ```text
 phase2/results/nsight/
-  trt_fp32_fullres.nsys-rep        # 运行产物，不入 git
-  trt_fp32_fullres.sqlite          # 运行产物，必要时不入 git
+  trt_fp32_fullres.nsys-rep         # 运行产物，不入 git
+  trt_fp32_fullres.sqlite           # 运行产物，不入 git
 
 phase2/results/metrics/
-  trt_nsys_attribution_summary.md  # 入 git
-  trt_nsys_attribution_summary.json # 可选，入 git
+  trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
+  trt_nsys_attribution_summary.md   # 入 git
+  trt_nsys_attribution_summary.json # 入 git
 ```
 
 若导出 SQLite 失败，报告中必须记录原因，并保留 `.nsys-rep` 截图/观察作为降级证据；但不得把截图当作定量归因表的替代品。
@@ -112,3 +113,44 @@ Phase 1 的 PyTorch 模型可以通过 Python hooks / monkey patch 插入模块�
 - 汇总表明确说明哪些结论是 Nsight 运行时证据，哪些只是 EngineInspector 辅助解释。
 - 明确回答 Phase 3 候选是否仍沿用 Phase 1 的 P1a/P1b/P1c 排序，或需要调整。
 
+---
+
+## 8. 当前 Step 6 实测结果
+
+本轮使用 Nsight Systems `cuda,nvtx` trace 采集 FP32 TensorRT engine execute 路径，并导出 SQLite 后由 `phase2/scripts/analyze_trt_nsys_attribution.py` 汇总。
+
+运行口径：
+
+- benchmark metadata：`phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json`
+- Nsight SQLite：`phase2/results/nsight/trt_fp32_fullres.sqlite`
+- 汇总表：`phase2/results/metrics/trt_nsys_attribution_summary.md`
+- warmup / measure：`20 / 100`
+- attribution 方法：TensorRT/NVTX layer range -> CUDA runtime launch inside range -> CUDA kernel with same `correlationId`
+- 重要纪律：不使用 NVTX range duration 作为 GPU component time。
+
+关键结果：
+
+| 项目 | 结果 |
+|---|---:|
+| CUDA Events latency mean / p50 | `55.242 ms` / `55.237 ms` |
+| `trt/execute` kernel avg | `54.454 ms / iter` |
+| `trt/execute` launches | `185.0 / iter` |
+| Layer-attributed kernel avg | `54.454 ms / iter` |
+| Layer attribution / execute kernel time | `100.00%` |
+
+TensorRT 后的 residual hotspot 排序：
+
+| Group | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---:|---:|---:|
+| `stage0` | `14.669` | `26.94%` | `10.0` |
+| `stage2` | `12.179` | `22.37%` | `57.0` |
+| `stage3` | `7.511` | `13.79%` | `88.0` |
+| `stage1` | `7.431` | `13.65%` | `10.0` |
+| `head` | `6.608` | `12.14%` | `15.0` |
+| `stem` | `6.056` | `11.12%` | `5.0` |
+
+结论边界：
+
+- TensorRT 后 `stage0` 仍是最大 residual hotspot，但主要仍是标准卷积 / pointwise / activation 路径，不自动等价于 Phase 3 Plugin MVP。
+- `stage2` 仍是第二大 residual hotspot，且 launches / iter 明显高，说明 Phase 1 的 LiteMLA / stage2 候选仍值得保留。
+- TensorRT layer ranges 与 Phase 1 PyTorch Plan B/C/D 模块范围不是一一对应关系；因此 Step 6 支撑的是 residual hotspot 趋势复核，不是 PyTorch 模块耗时的逐项复刻。

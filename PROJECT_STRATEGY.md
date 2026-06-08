@@ -104,7 +104,7 @@
 2. **TensorRT 引擎构建**: 使用 TensorRT Python API 构建 FP32 baseline engine，并将 FP16 作为风险实验单独记录。当前 MX250 / TensorRT 8.6.1 实测表明：FP16 可构建且语义一致，但慢于 FP32，因此本机主 baseline 采用 FP32。
    - ⚠️ **数值策略边界**：LiteMLA `relu_linear_att` 标了 `@torch.autocast(enabled=False)` 强制 FP32。Phase 2 已证明 TensorRT FP16 风险实验语义可接受但无速度收益；Phase 3 Plugin 仍需单独设计 FP32 / FP16 / FP32 accumulate 的内部数值策略。
 3. **推理验证**: 加载 TensorRT 引擎进行推理，验证输出精度（对齐 PyTorch baseline），测量延迟和吞吐量。
-4. **TensorRT Nsight 复核**: 对 TensorRT engine runtime 采集 Nsight Systems trace，复核 `stage0` / `stage2 LiteMLA` / `head` 等候选在 TensorRT 自动优化后的残余热点排序。EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不能替代 Nsight runtime 归因。
+4. **TensorRT Nsight 复核**: 已对 TensorRT engine runtime 采集 Nsight Systems trace，第一版 residual hotspot 排序为 `stage0 > stage2 > stage3 > stage1 > head > stem`。EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不能替代 Nsight runtime 归因。
 5. **TensorRT C++ 推理 Demo**（轻量）: 编写一个简单的 C++ 推理 Demo，加载 TensorRT 引擎并执行推理。此 Demo 不必追求极致优化，主要目的是熟悉 TensorRT C++ API，为阶段三的 Plugin 集成验证铺路。
 
 **产出物**:
@@ -126,15 +126,15 @@
 
 - **目标算子选择（按"求职展示价值"与"端到端收益"双维度排序）**：
   - 🥇 **P1：stage2 LiteMLA Plugin 主线**（默认主交付物） —— LiteMLA 是论文核心创新，也是 TensorRT 难以自动融合的非标准线性注意力结构；它不一定是当前 PyTorch profile 的最大端到端瓶颈，但最能展示非标准算子分析、CUDA kernel 设计和 TensorRT Plugin 集成能力。
-    - **P1a：局部单段 Plugin（MVP 优先）** —— 包括 `aggregation-only` 与 `relu_linear_att-only`。其中 `relu_linear_att-only` 最能展示非标准线性注意力 CUDA Plugin 能力，边界清楚，适合作为第一版 MVP；`aggregation-only` 在 Plan D 中耗时同样靠前，但主要由卷积分支构成，需等 Phase 2 TensorRT Nsight attribution 后判断标准优化是否已覆盖。
+    - **P1a：局部单段 Plugin（MVP 优先）** —— 包括 `aggregation-only` 与 `relu_linear_att-only`。其中 `relu_linear_att-only` 最能展示非标准线性注意力 CUDA Plugin 能力，边界清楚，适合作为第一版 MVP；`aggregation-only` 在 Plan D 中耗时同样靠前，但主要由卷积分支构成，需结合 Phase 2 TensorRT Nsight attribution 判断标准优化后的 residual 空间。
     - **P1b：中段组合 Plugin（收益评估主方向）** —— 融合 `aggregation + cat + relu_linear_att`。Plan D 显示 `aggregation` 与 `relu_linear_att` 几乎并列为 LiteMLA 内部主耗时，二者之间的 `cat` 会引入中间张量拼接与 memory traffic；组合边界有机会同时减少 kernel launch 与中间读写，是比单段 Plugin 更有潜在端到端收益的主评估方向。
     - **P1c：整体 LiteMLA Plugin（fallback / 上限方案）** —— 若单段或中段组合方案收益不足、TensorRT 图集成边界不合适，或希望最大化融合空间，再考虑整体 LiteMLA 级 Plugin。它不是优先 MVP，而是复杂度更高的兜底/上限方案。
-  - 🥈 **P2：标准算子链工程优化候选（stage0 / head / stage2-local）** —— 这些区域在 PyTorch Nsight 结果中占比高，端到端收益潜力更直接；但主要由 MBConv / Conv / BN / activation / upsample / add 等标准算子链构成，更可能被 TensorRT/cuDNN 或图优化较好处理，因此应在 Phase 2 TensorRT Nsight attribution 后再决定是否投入手写 Plugin。
-    - **P2a：stage0 early MBConv / Conv 堆叠** —— 当前最大 GPU kernel 热点，主要受高分辨率 feature map 和 memory traffic 影响；先观察 TensorRT 后残余瓶颈。
+  - 🥈 **P2：标准算子链工程优化候选（stage0 / head / stage2-local）** —— 这些区域在 PyTorch Nsight 结果中占比高，端到端收益潜力更直接；Phase 2 TensorRT Nsight 仍显示 `stage0` 是最大 residual hotspot、`stage2` 第二，但这类区域主要由 MBConv / Conv / BN / activation / upsample / add 等标准算子链构成，是否值得手写 Plugin 仍需按展示价值和 TensorRT 已优化程度谨慎排序。
+    - **P2a：stage0 early MBConv / Conv 堆叠** —— 当前 PyTorch 与 TensorRT 两条路径下都很重，主要受高分辨率 feature map 和 memory traffic 影响；端到端收益潜力高，但自定义 Plugin 展示区分度低于 LiteMLA。
     - **P2b：Seg Head / head middle** —— `head/middle` 是 MBConv，单项耗时明显但大概率属于标准优化区域；`Conv1x1 + bicubic Upsample + add` 在当前固定 shape / TensorRT 8.6.1 下已能通过，后续只在 TensorRT Nsight 显示 residual hotspot 时再作为工程优化候选。
     - **P2c：stage2-local MBConv** —— 与 `stage2/context` 同属 stage2 热点区，但结构上更接近标准 MBConv，展示价值低于 LiteMLA。
   - 🥉 **P3：低优先级探索项** —— 多尺度 QKV 聚合段（`Conv1x1 + DWConv5×5 + grouped Conv1x1 + concat`）、head resize 替代、INT8/混合精度策略等。B0 scales 只有 1 个，短期收益可能有限；B1/B2 或更大模型上价值更高。
-  - 最终选择 P1a / P1b / P1c 中哪种 LiteMLA Plugin 边界，以及是否追加 P2 工程优化，**由阶段一 Plan D + 阶段二 TensorRT Nsight attribution 共同决定**，不能只凭"论文模块"、"PyTorch hotspot"或"TensorRT 端到端 speedup"单边判断。
+  - 最终选择 P1a / P1b / P1c 中哪种 LiteMLA Plugin 边界，以及是否追加 P2 工程优化，**由阶段一 Plan D + 阶段二 TensorRT Nsight attribution + Phase 2 baseline report** 共同决定，不能只凭"论文模块"、"PyTorch hotspot"或"TensorRT 端到端 speedup"单边判断。
 - **融合算子设计**: 撰写算子融合设计文档，包含：
   - 原始计算图与融合后计算图的对比
   - 内存布局优化策略（reshape/transpose 消除、shared memory 使用、epilogue fusion）

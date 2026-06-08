@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **关联 Phase 1 基线**：[`phase1/bottleneck_analysis_report.md`](../../phase1/bottleneck_analysis_report.md)
-> **状态**：v1.4，`export_onnx.py` 与 `_compat.py` 已落盘；该 ONNX 已完成 ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 build 与 benchmark，仍需 TensorRT Nsight attribution 复核 Phase 3 候选，并补 C++ runtime demo。
+> **状态**：v1.5，`export_onnx.py` 与 `_compat.py` 已落盘；该 ONNX 已完成 ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 build、benchmark 与 TensorRT Nsight attribution，仍需补 C++ runtime demo 和 Phase 2 baseline report。
 
 ---
 
@@ -277,4 +277,4 @@ phase2/scripts/_compat.py
 4. ONNX 导出、`onnx.checker` 与 ONNXRuntime 对齐验证已通过。
 5. 该 ONNX 已成功构建 TensorRT 8.6.1 FP32 / FP16 engine，并完成 runtime benchmark。
 
-下一步：补做 TensorRT Nsight Systems profiling / attribution，确认 TensorRT 后残余热点与 Phase 3 Plugin 候选排序；再补轻量 TensorRT C++ runtime demo；随后撰写 `phase2/tensorrt_baseline_report.md`，其中明确 FP32 是本机主 baseline，FP16 是已验证但不建议采用的风险实验。
+下一步：补轻量 TensorRT C++ runtime demo；随后撰写 `phase2/tensorrt_baseline_report.md`，其中明确 FP32 是本机主 baseline，FP16 是已验证但不建议采用的风险实验，并引用 TensorRT Nsight attribution 对 Phase 3 候选做复核。

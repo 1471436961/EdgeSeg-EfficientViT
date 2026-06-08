@@ -75,6 +75,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--atol", type=float, default=DEFAULT_ATOL)
     p.add_argument("--rtol", type=float, default=DEFAULT_RTOL)
     p.add_argument("--skip-reference", action="store_true", help="Skip PyTorch reference and output comparison.")
+    p.add_argument("--nvtx", action="store_true", help="Annotate warmup/measure/execute ranges for Nsight Systems.")
     args = p.parse_args()
     args.engine = args.engine or default_engine_path(args.precision)
     args.metadata = args.metadata or default_metadata_path(args.precision)
@@ -237,32 +238,56 @@ def allocate_bindings(trt, engine, context, input_tensor: torch.Tensor) -> Tuple
     return bindings, {"bindings": binding_meta}, output_tensor
 
 
-def execute_once(context, bindings: List[int], stream_handle: int) -> None:
+def nvtx_push(name: str, enabled: bool) -> None:
+    if enabled:
+        torch.cuda.nvtx.range_push(name)
+
+
+def nvtx_pop(enabled: bool) -> None:
+    if enabled:
+        torch.cuda.nvtx.range_pop()
+
+
+def execute_once(context, bindings: List[int], stream_handle: int, nvtx_name: str = "", nvtx_enabled: bool = False) -> None:
+    if nvtx_name:
+        nvtx_push(nvtx_name, nvtx_enabled)
     ok = context.execute_async_v2(bindings=bindings, stream_handle=stream_handle)
+    if nvtx_name:
+        nvtx_pop(nvtx_enabled)
     if not ok:
         raise RuntimeError("TensorRT execute_async_v2 returned False")
 
 
-def measure_latency_ms(context, bindings: List[int], warmup: int, measure: int) -> Tuple[List[float], float]:
+def measure_latency_ms(
+    context, bindings: List[int], warmup: int, measure: int, nvtx_enabled: bool
+) -> Tuple[List[float], float]:
     stream = torch.cuda.current_stream()
     stream_handle = int(stream.cuda_stream)
 
     torch.cuda.synchronize()
     with torch.inference_mode():
-        for _ in range(warmup):
-            execute_once(context, bindings, stream_handle)
+        nvtx_push("trt/warmup", nvtx_enabled)
+        try:
+            for _ in range(warmup):
+                execute_once(context, bindings, stream_handle, "trt/execute", nvtx_enabled)
+        finally:
+            nvtx_pop(nvtx_enabled)
     torch.cuda.synchronize()
 
     times: List[float] = []
     with torch.inference_mode():
-        for _ in range(measure):
-            start = torch.cuda.Event(enable_timing=True)
-            end = torch.cuda.Event(enable_timing=True)
-            start.record(stream)
-            execute_once(context, bindings, stream_handle)
-            end.record(stream)
-            end.synchronize()
-            times.append(float(start.elapsed_time(end)))
+        nvtx_push("trt/measure", nvtx_enabled)
+        try:
+            for _ in range(measure):
+                start = torch.cuda.Event(enable_timing=True)
+                end = torch.cuda.Event(enable_timing=True)
+                start.record(stream)
+                execute_once(context, bindings, stream_handle, "trt/execute", nvtx_enabled)
+                end.record(stream)
+                end.synchronize()
+                times.append(float(start.elapsed_time(end)))
+        finally:
+            nvtx_pop(nvtx_enabled)
 
     torch.cuda.synchronize()
     return times, stream_handle
@@ -337,7 +362,7 @@ def main() -> None:
         reference = run_pytorch_reference(model, x)
 
     bindings, binding_meta, output_tensor = allocate_bindings(trt, engine, context, x)
-    times, stream_handle = measure_latency_ms(context, bindings, args.warmup, args.measure)
+    times, stream_handle = measure_latency_ms(context, bindings, args.warmup, args.measure, args.nvtx)
     torch.cuda.synchronize()
 
     comparison_meta = {"comparison_target": "skipped", "allclose_pass": None, "atol": args.atol, "rtol": args.rtol}
@@ -382,6 +407,7 @@ def main() -> None:
             "warmup": args.warmup,
             "measure": args.measure,
             "stream_handle": stream_handle,
+            "nvtx_enabled": bool(args.nvtx),
             "latency_ms": summarize_times(times),
             "samples_ms": times,
         },
