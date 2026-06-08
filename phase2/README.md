@@ -53,9 +53,9 @@ Phase 2 不做：
   - `onnx.checker` 结构检查。
   - ONNXRuntime 推理输出与 PyTorch 输出对齐。
   - 记录 `max_abs_diff`、`mean_abs_diff`、`cosine_similarity`。
-- [ ] Step 4：实现 `phase2/scripts/build_trt_engine.py`。
-  - 先构建 FP32 engine。
-  - 再尝试 FP16 engine。
+- [x] Step 4：实现 `phase2/scripts/build_trt_engine.py`。
+  - 第一版先构建 FP32 engine。
+  - FP16 作为 FP32 构建和 benchmark 成功后的第二轮实验。
   - 记录 parser / builder 日志、engine 大小、构建配置。
 - [ ] Step 5：实现 TensorRT benchmark。
   - 复用 Phase 1 CUDA Events 计时口径。
@@ -74,18 +74,22 @@ phase2/
 ├── README.md
 ├── scripts/
 │   ├── _compat.py
+│   ├── build_trt_engine.py
 │   └── export_onnx.py
 ├── design_notes/
+│   ├── build_trt_engine_design.md
 │   └── onnx_export_design.md
 ├── results/
 │   ├── onnx/
 │   │   ├── .gitkeep
 │   │   └── efficientvit_seg_b0_cityscapes_1024x2048.onnx  # 运行产物，不入 git
 │   ├── engines/
-│   │   └── .gitkeep
+│   │   ├── .gitkeep
+│   │   └── efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # 运行产物，不入 git
 │   └── metrics/
 │       ├── .gitkeep
-│       └── onnx_export_b0_cityscapes_1024x2048.json
+│       ├── onnx_export_b0_cityscapes_1024x2048.json
+│       └── trt_build_b0_cityscapes_1024x2048_fp32.json
 └── logs/
     └── .gitkeep
 ```
@@ -131,6 +135,38 @@ TensorRT baseline 验收：
 - TensorRT 输出与 PyTorch / ONNXRuntime 输出误差可解释。
 - TensorRT latency 使用与 Phase 1 可比的 CUDA Events 口径。
 - 若 FP16 engine 构建或数值对齐失败，报告中明确记录原因，不强行包装成成功。
+
+当前 TensorRT 构建环境口径：
+
+| 项目 | 结果 |
+|---|---|
+| GPU | NVIDIA GeForce MX250 (`sm_61`) |
+| 最新 pip TensorRT | `tensorrt-cu12==11.0.0.114` 可安装，但 `trt.Builder` 报 `Unsupported SM: 0x601`，不可用于本机 |
+| 当前可用 TensorRT | NVIDIA archived TensorRT `8.6.1` Windows zip |
+| TensorRT root | `E:\NVIDIA\TensorRT-8.6.1.6` |
+| Python wheel | `tensorrt-8.6.1-cp310-none-win_amd64.whl` |
+| 补充 runtime | `nvidia-cudnn-cu12==8.9.7.29`、`nvidia-cublas-cu12==12.9.2.10`、`nvidia-cuda-nvrtc-cu12==12.9.86` |
+| Builder smoke | `trt.Builder(...)` 创建成功 |
+
+说明：MX250 是 Pascal `sm_61`，需要旧版 TensorRT 路线。`build_trt_engine.py` 会在 import `tensorrt` 前显式注入 TensorRT / cuDNN / cuBLAS / NVRTC DLL 目录，避免依赖系统全局 PATH。
+
+当前 FP32 engine 构建结果：
+
+| 项目 | 结果 |
+|---|---|
+| 构建脚本 | `phase2/scripts/build_trt_engine.py` |
+| 设计文档 | `phase2/design_notes/build_trt_engine_design.md` |
+| ONNX 输入 | `phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx` |
+| Engine 输出 | `phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`（约 3.67 MB，不入 git） |
+| Metadata | `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp32.json` |
+| TensorRT | `8.6.1` |
+| Precision | FP32 |
+| Workspace | 1024 MiB |
+| Network IO | input `[1, 3, 1024, 2048]` -> segout `[1, 19, 128, 256]` |
+| TensorRT network layers | 331 |
+| Parser errors | 0 |
+
+构建日志中出现两个需要记录但不阻断的提示：ONNX 中存在 INT64 权重，TensorRT 会尝试 cast 到 INT32，且有超出 INT32 范围的权重被 clamp；另外 TensorRT 默认启用的 TF32 flag 因 MX250 不支持 TF32 被禁用。后续 benchmark / 输出对齐时需要确认这些转换是否影响 logits 误差。
 
 ---
 

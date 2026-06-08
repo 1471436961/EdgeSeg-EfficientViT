@@ -86,3 +86,7 @@ A: `correlationId` 是 Nsight/CUPTI 用来把 CPU 侧 CUDA Runtime API 和 GPU �
 Q: 为什么 ONNXRuntime 对齐验证中，ONNX 输出和 PyTorch 输出没有逐 bit 完全相同？
 
 A: 这是正常现象。当前比较的是 PyTorch CUDA 输出和 ONNXRuntime CPUExecutionProvider 输出，它们数学语义等价，但底层 kernel、算子分解、执行顺序和 reduction 顺序不同；FP32 又不满足严格结合律，所以最后几位可能不同。ONNX 导出还可能做图转换、常量折叠和运行时优化，也会让实际执行图不完全等同于 PyTorch eager 路径。因此判断导出是否正确不应要求 bitwise identical，而应看 `allclose_pass`、`max_abs_diff`、`mean_abs_diff`、`cosine_similarity` 和输出 shape。当前 Phase 2 首版验证结果为 `allclose_pass=true`、`max_abs_diff≈3.44e-4`、`mean_abs_diff≈1.81e-5`、`cosine_similarity≈0.99999999999`，属于健康范围。`max_rel_diff` 较大时要谨慎解读，因为接近 0 的输出值会把相对误差放大。
+
+Q: TensorRT 的基本工作流是什么？
+
+A: TensorRT 工作流可以概括为 `PyTorch -> ONNX -> TensorRT parser -> TensorRT builder -> engine -> runtime inference / benchmark`。ONNX 是桥梁，负责把 PyTorch 模型变成可交换的静态图；TensorRT parser 读取 ONNX 并转换成 TensorRT network；builder 根据 GPU、shape、dtype、workspace 和 tactic 选择生成针对当前环境优化过的 engine；runtime 反序列化 engine、绑定输入输出 buffer，并执行推理。Phase 2 的目标是先建立“无自定义 Plugin 的 TensorRT baseline”：验证 ONNX 能否被 TensorRT 解析，先构建 FP32 engine，再尝试 FP16 engine，使用与 Phase 1 可比的 CUDA Events latency 口径，并检查 TensorRT 输出与 PyTorch / ONNXRuntime 的误差。这样可以回答标准 Conv/MBConv 热点是否已被 TensorRT 自动优化、LiteMLA 是否仍是残余热点，以及 Phase 3 Plugin 候选是否需要调整。
