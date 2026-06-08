@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：Phase 2 刚启动；本文件记录阶段范围、任务清单、验收标准和风险口径。
+> **当前状态**：ONNX 固定 shape 导出与 ONNXRuntime 对齐验证已完成；下一步进入 TensorRT engine 构建与 benchmark。
 
 ---
 
@@ -49,7 +49,7 @@ Phase 2 不做：
   - 加载 Phase 1 权重与固定输入。
   - 导出 ONNX。
   - 写入导出元信息 JSON。
-- [ ] Step 3：ONNX 基础验证。
+- [x] Step 3：ONNX 基础验证。
   - `onnx.checker` 结构检查。
   - ONNXRuntime 推理输出与 PyTorch 输出对齐。
   - 记录 `max_abs_diff`、`mean_abs_diff`、`cosine_similarity`。
@@ -79,11 +79,13 @@ phase2/
 │   └── onnx_export_design.md
 ├── results/
 │   ├── onnx/
-│   │   └── .gitkeep
+│   │   ├── .gitkeep
+│   │   └── efficientvit_seg_b0_cityscapes_1024x2048.onnx  # 运行产物，不入 git
 │   ├── engines/
 │   │   └── .gitkeep
 │   └── metrics/
-│       └── .gitkeep
+│       ├── .gitkeep
+│       └── onnx_export_b0_cityscapes_1024x2048.json
 └── logs/
     └── .gitkeep
 ```
@@ -105,6 +107,22 @@ phase2/
 - opset：`17`（PyTorch 2.4.1 的默认 ONNX opset）。
 - exporter：legacy `torch.onnx.export`。
 - compat：`phase2/scripts/_compat.py` 提供 import-only `triton_stub` 与 `wandb_stub`。
+
+当前 ONNX 验证结果：
+
+| 项目 | 结果 |
+|---|---|
+| ONNX 文件 | `phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx`（约 2.92 MB，不入 git） |
+| Metadata | `phase2/results/metrics/onnx_export_b0_cityscapes_1024x2048.json` |
+| `onnx.checker` | 通过 |
+| ONNXRuntime provider | `CPUExecutionProvider` |
+| 输出 shape | `[1, 19, 128, 256]` |
+| `allclose_pass` | `true` (`atol=1e-4`, `rtol=1e-4`) |
+| `max_abs_diff` | `3.44e-4` |
+| `mean_abs_diff` | `1.81e-5` |
+| `cosine_similarity` | `0.99999999999` |
+
+说明：当前对齐比较的是 PyTorch CUDA 输出与 ONNXRuntime CPU 输出，不要求逐 bit 完全一致；以上误差属于可接受范围。`max_rel_diff` 对接近 0 的输出值敏感，不作为单独否决指标。
 
 TensorRT baseline 验收：
 

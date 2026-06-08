@@ -80,3 +80,9 @@ A: 主要纠正了三类问题。第一类是测量方法论：单请求 latency
 Q: CUDA runtime/kernel `correlationId` 是什么，为什么 Phase 1 attribution 需要它？
 
 A: `correlationId` 是 Nsight/CUPTI 用来把 CPU 侧 CUDA Runtime API 和 GPU 侧 kernel execution 配对的编号。PyTorch forward 在 CPU 线程上发出 `cudaLaunchKernel`、`cudaMemcpyAsync`、`cudaEventRecord` 等 API，而真正计算发生在 CUDA stream 上的 kernel 中；二者异步执行，不能单靠时间重叠判断归属。Nsight 会让一次 runtime launch 和它触发的 GPU kernel 共享同一个 `correlationId`，于是可以从某个 NVTX range 内发出的 CUDA Runtime API 找到对应 kernel，再汇总这些 kernel 的 GPU duration。Phase 1 的正确口径是：NVTX 负责结构标签，CUDA Events 负责端到端 latency，SQLite attribution 通过 `correlationId` 把 kernel time 归因到 Plan B/C/D 的组件 range；不能直接把 NVTX range 的 end-start 当成组件 GPU 耗时。
+
+## 2026-06-08
+
+Q: 为什么 ONNXRuntime 对齐验证中，ONNX 输出和 PyTorch 输出没有逐 bit 完全相同？
+
+A: 这是正常现象。当前比较的是 PyTorch CUDA 输出和 ONNXRuntime CPUExecutionProvider 输出，它们数学语义等价，但底层 kernel、算子分解、执行顺序和 reduction 顺序不同；FP32 又不满足严格结合律，所以最后几位可能不同。ONNX 导出还可能做图转换、常量折叠和运行时优化，也会让实际执行图不完全等同于 PyTorch eager 路径。因此判断导出是否正确不应要求 bitwise identical，而应看 `allclose_pass`、`max_abs_diff`、`mean_abs_diff`、`cosine_similarity` 和输出 shape。当前 Phase 2 首版验证结果为 `allclose_pass=true`、`max_abs_diff≈3.44e-4`、`mean_abs_diff≈1.81e-5`、`cosine_similarity≈0.99999999999`，属于健康范围。`max_rel_diff` 较大时要谨慎解读，因为接近 0 的输出值会把相对误差放大。
