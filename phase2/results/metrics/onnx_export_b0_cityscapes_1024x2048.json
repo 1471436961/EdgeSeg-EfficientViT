@@ -1,0 +1,103 @@
+{
+  "status": "ok",
+  "model_name": "efficientvit_seg_b0",
+  "dataset": "cityscapes",
+  "input_resolution": [
+    1024,
+    2048
+  ],
+  "batch_size": 1,
+  "dtype": "float32",
+  "device": "cuda",
+  "weights": {
+    "weights_status": "loaded",
+    "weights_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\weights\\efficientvit_seg_b0_cityscapes.pt",
+    "weights_sha256": "923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50",
+    "zoo_key": "efficientvit-seg-b0-cityscapes",
+    "weights_load_msg": "create_efficientvit_seg_model(name='efficientvit-seg-b0-cityscapes', pretrained=True) loaded checkpoint"
+  },
+  "input": {
+    "input_status": "image",
+    "input_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\data\\city_asset_cityscapes_like.png",
+    "input_sha256": "34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630",
+    "input_tensor_sha256": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba",
+    "input_resolution": [
+      1024,
+      2048
+    ],
+    "batch_size": 1,
+    "dtype": "float32",
+    "preprocess": "PIL RGB resize to fixed resolution, scale to [0,1], no mean/std normalization"
+  },
+  "onnx": {
+    "onnx_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase2\\results\\onnx\\efficientvit_seg_b0_cityscapes_1024x2048.onnx",
+    "onnx_sha256": "64906019bab42dc3b88858af5d6f10db0fda1c9396043c4dbccea835ef0fe3f5",
+    "opset": 17,
+    "input_names": [
+      "input"
+    ],
+    "output_names": [
+      "segout"
+    ],
+    "dynamic_axes": null,
+    "expected_output_shape": [
+      1,
+      19,
+      128,
+      256
+    ],
+    "pytorch_output_shape": [
+      1,
+      19,
+      128,
+      256
+    ]
+  },
+  "versions": {
+    "python": "3.10.20",
+    "torch": "2.4.1+cu124",
+    "onnx": "1.21.0",
+    "onnxruntime": "1.23.2",
+    "numpy": "1.26.4"
+  },
+  "compat": {
+    "env_patches": [
+      "triton_stub",
+      "wandb_stub"
+    ],
+    "triton_stubbed": true,
+    "wandb_stubbed": true
+  },
+  "validation": {
+    "onnx_checker_pass": true,
+    "ir_version": 8,
+    "producer_name": "pytorch",
+    "producer_version": "2.4.1",
+    "graph_nodes": 393,
+    "onnxruntime_ran": true,
+    "onnxruntime_providers": [
+      "CPUExecutionProvider"
+    ],
+    "output_shape": [
+      1,
+      19,
+      128,
+      256
+    ],
+    "max_abs_diff": 0.0003437995910644531,
+    "mean_abs_diff": 1.8109775220110397e-05,
+    "max_rel_diff": 0.4156050955414013,
+    "cosine_similarity": 0.9999999999897954,
+    "allclose_pass": true,
+    "atol": 0.0001,
+    "rtol": 0.0001
+  },
+  "known_risks": [
+    "fixed_shape_export",
+    "bicubic_resize_may_affect_tensorrt",
+    "litemla_shape_branch_frozen",
+    "phase2_first_version_uses_legacy_torch_onnx_export"
+  ],
+  "timestamp_utc": "2026-06-08T06:46:57.845196+00:00",
+  "script_version": "export_onnx.py@e7df7ad"
+}
