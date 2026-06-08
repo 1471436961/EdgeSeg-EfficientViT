@@ -1,0 +1,245 @@
+{
+  "status": "ok",
+  "precision": "fp32",
+  "engine": {
+    "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase2\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine",
+    "engine_sha256": "be1200ef379b3d4a1d05c9d643dbf1cb2421cb44c2b05743af23ab2b8615cb32",
+    "engine_size_bytes": 3674476
+  },
+  "input": {
+    "input_status": "image",
+    "input_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\data\\city_asset_cityscapes_like.png",
+    "input_sha256": "34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630",
+    "input_tensor_sha256": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba",
+    "input_resolution": [
+      1024,
+      2048
+    ],
+    "batch_size": 1,
+    "dtype": "float32",
+    "preprocess": "PIL RGB resize to fixed resolution, scale to [0,1], no mean/std normalization",
+    "input_tensor_sha256_after_cuda": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba"
+  },
+  "weights": {
+    "weights_status": "loaded",
+    "weights_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\weights\\efficientvit_seg_b0_cityscapes.pt",
+    "weights_sha256": "923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50",
+    "zoo_key": "efficientvit-seg-b0-cityscapes",
+    "weights_load_msg": "create_efficientvit_seg_model(name='efficientvit-seg-b0-cityscapes', pretrained=True) loaded checkpoint"
+  },
+  "compat": {
+    "env_patches": [
+      "triton_stub",
+      "wandb_stub"
+    ],
+    "triton_stubbed": true,
+    "wandb_stubbed": true
+  },
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ]
+  },
+  "tensorrt": {
+    "version": "8.6.1",
+    "num_bindings": 2,
+    "num_layers": 155,
+    "has_implicit_batch_dimension": false
+  },
+  "bindings": [
+    {
+      "index": 0,
+      "name": "input",
+      "is_input": true,
+      "shape": [
+        1,
+        3,
+        1024,
+        2048
+      ],
+      "dtype": "DataType.FLOAT"
+    },
+    {
+      "index": 1,
+      "name": "segout",
+      "is_input": false,
+      "shape": [
+        1,
+        19,
+        128,
+        256
+      ],
+      "dtype": "DataType.FLOAT"
+    }
+  ],
+  "timing": {
+    "mode": "latency",
+    "clock": "cuda_events",
+    "scope": "engine_execute_only_no_preprocess_no_h2d_no_d2h",
+    "warmup": 20,
+    "measure": 100,
+    "stream_handle": 0,
+    "latency_ms": {
+      "mean": 54.52871242523193,
+      "std": 0.3293723179201942,
+      "min": 54.22489547729492,
+      "max": 55.792640686035156,
+      "p50": 54.43532752990723,
+      "p95": 55.43465118408203,
+      "p99": 55.67605857849121
+    },
+    "samples_ms": [
+      54.6324462890625,
+      54.27711868286133,
+      54.307838439941406,
+      54.33443069458008,
+      54.32012939453125,
+      54.28326416015625,
+      54.36006546020508,
+      54.35084915161133,
+      54.2371826171875,
+      54.353919982910156,
+      54.33340835571289,
+      54.340606689453125,
+      54.315006256103516,
+      54.51264190673828,
+      54.307838439941406,
+      54.351871490478516,
+      54.22489547729492,
+      54.317054748535156,
+      54.33446502685547,
+      54.326271057128906,
+      54.381568908691406,
+      54.4040641784668,
+      54.48806381225586,
+      54.449153900146484,
+      54.49625778198242,
+      54.44812774658203,
+      54.456321716308594,
+      54.359039306640625,
+      54.430686950683594,
+      54.4081916809082,
+      54.43584060668945,
+      54.434814453125,
+      54.5689582824707,
+      54.46963119506836,
+      54.38771057128906,
+      54.43584060668945,
+      54.48396682739258,
+      54.529022216796875,
+      54.45017623901367,
+      54.40409469604492,
+      54.52799987792969,
+      54.354942321777344,
+      54.44607925415039,
+      54.529022216796875,
+      54.43174362182617,
+      54.42457580566406,
+      54.403072357177734,
+      54.39692687988281,
+      54.43382263183594,
+      54.3928337097168,
+      54.41535949707031,
+      54.40409469604492,
+      54.42038345336914,
+      54.395904541015625,
+      54.45219039916992,
+      54.46246337890625,
+      54.51776123046875,
+      54.36518478393555,
+      54.373374938964844,
+      54.51161575317383,
+      54.379520416259766,
+      54.377471923828125,
+      54.377471923828125,
+      54.50239944458008,
+      54.384639739990234,
+      54.447105407714844,
+      54.48089599609375,
+      54.399009704589844,
+      54.542335510253906,
+      54.45427322387695,
+      54.337440490722656,
+      54.54848098754883,
+      54.34880065917969,
+      54.430721282958984,
+      54.551551818847656,
+      54.49311828613281,
+      54.340606689453125,
+      54.44192123413086,
+      54.57817459106445,
+      54.46041488647461,
+      54.40204620361328,
+      54.55974578857422,
+      54.57408142089844,
+      54.46451187133789,
+      54.4716796875,
+      54.48499298095703,
+      54.39897537231445,
+      54.46553421020508,
+      54.45734405517578,
+      54.50751876831055,
+      55.347198486328125,
+      55.792640686035156,
+      55.67488098144531,
+      55.432193756103516,
+      55.48134231567383,
+      55.51308822631836,
+      55.337982177734375,
+      55.35027313232422,
+      55.386112213134766,
+      55.49055862426758
+    ]
+  },
+  "comparison": {
+    "comparison_target": "pytorch_cuda",
+    "output_shape": [
+      1,
+      19,
+      128,
+      256
+    ],
+    "max_abs_diff": 0.0002689361572265625,
+    "mean_abs_diff": 2.5423425543785445e-05,
+    "max_rel_diff": 0.6496815286624203,
+    "cosine_similarity": 0.999999999983229,
+    "allclose_pass": false,
+    "allclose_pass_atol_1e_3_rtol_1e_3": true,
+    "argmax_pixel_agreement": 1.0,
+    "argmax_mismatch_pixels": 0,
+    "argmax_total_pixels": 32768,
+    "atol": 0.0001,
+    "rtol": 0.0001
+  },
+  "memory": {
+    "scope": "pytorch_cuda_allocator_only_not_tensorrt_internal",
+    "torch_max_memory_allocated_mb": 170.759765625,
+    "torch_max_memory_reserved_mb": 228.0
+  },
+  "versions": {
+    "python": "3.10.20",
+    "torch": "2.4.1+cu124",
+    "tensorrt": "8.6.1",
+    "numpy": "1.26.4",
+    "nvidia-cudnn-cu12": "8.9.7.29",
+    "nvidia-cublas-cu12": "12.9.2.10",
+    "nvidia-cuda-nvrtc-cu12": "12.9.86"
+  },
+  "known_risks": [
+    "tensorRT_output_must_be_checked_due_to_int64_to_int32_cast_during_build",
+    "latency_excludes_preprocess_h2d_d2h",
+    "engine_is_specific_to_gpu_and_tensorrt_version"
+  ],
+  "timestamp_utc": "2026-06-08T10:36:36.958580+00:00",
+  "script_version": "benchmark_trt_engine.py@856a511"
+}

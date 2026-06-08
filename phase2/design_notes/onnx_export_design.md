@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **关联 Phase 1 基线**：[`phase1/bottleneck_analysis_report.md`](../../phase1/bottleneck_analysis_report.md)
-> **状态**：v1.0，`export_onnx.py` 与 `_compat.py` 已落盘，待首次导出验证。
+> **状态**：v1.1，`export_onnx.py` 与 `_compat.py` 已落盘，ONNXRuntime 对齐验证已通过；该 ONNX 也已被 TensorRT 8.6.1 成功 parser/build。
 
 ---
 
@@ -96,9 +96,15 @@ python phase2/scripts/export_onnx.py `
 - 如果 TensorRT parser/build 因 bicubic 失败，这本身就是重要工程证据。
 - 直接改 bilinear 会改变模型语义，必须配套数值/精度说明。
 
-备选：
+实测结果：
 
-- 若 TensorRT 明确不支持该路径，再设计 `bilinear` 替代版或 head resize Plugin 方案。
+- ONNX 中有 2 个 SegHead `Resize` 节点，属性为 `mode=cubic`、`coordinate_transformation_mode=half_pixel`、`cubic_coeff_a=-0.75`。
+- TensorRT 8.6.1 在当前固定 shape 下 parser/build/runtime 均通过。
+- 因此第一版不需要把 SegHead bicubic 改成 bilinear，也不把 head resize Plugin 作为当前候选。
+
+边界：
+
+- 该结论只覆盖当前固定输入 shape、opset 17、TensorRT 8.6.1 和上述 Resize 参数；动态 shape、其他 TensorRT 版本或其他 cubic 参数组合仍需单独复验。
 
 ### D3：先 ONNXRuntime validation vs 直接 TensorRT
 
@@ -214,7 +220,7 @@ FP32 PyTorch vs ONNXRuntime:
 
   "known_risks": [
     "fixed_shape_export",
-    "bicubic_resize_may_affect_tensorrt",
+    "fixed_shape_bicubic_resize_verified_on_tensorrt_8_6_1",
     "litemla_shape_branch_frozen"
   ],
 
@@ -261,12 +267,14 @@ phase2/scripts/_compat.py
 
 ---
 
-## 9. 下一步
+## 9. 当前结果与下一步
 
-已确认并落盘：
+已完成：
 
 1. 当前环境已安装 `onnx==1.21.0` / `onnxruntime==1.23.2`。
 2. 第一版使用 `opset=17`。
 3. 第一版已引入 `phase2/scripts/_compat.py`，不再内联 compat patch。
+4. ONNX 导出、`onnx.checker` 与 ONNXRuntime 对齐验证已通过。
+5. 该 ONNX 已成功构建 TensorRT 8.6.1 FP32 engine，并完成 runtime benchmark。
 
-下一步：运行 `py_compile` / `--help`，再执行第一次 ONNX 导出验证。
+下一步：撰写 `phase2/tensorrt_baseline_report.md`，并决定是否继续 FP16 engine build / benchmark。

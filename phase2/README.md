@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：ONNX 固定 shape 导出与 ONNXRuntime 对齐验证已完成；下一步进入 TensorRT engine 构建与 benchmark。
+> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32 engine 构建与 benchmark 均已完成；下一步撰写 TensorRT baseline report，并决定是否继续 FP16 实验。
 
 ---
 
@@ -57,7 +57,7 @@ Phase 2 不做：
   - 第一版先构建 FP32 engine。
   - FP16 作为 FP32 构建和 benchmark 成功后的第二轮实验。
   - 记录 parser / builder 日志、engine 大小、构建配置。
-- [ ] Step 5：实现 TensorRT benchmark。
+- [x] Step 5：实现 TensorRT benchmark。
   - 复用 Phase 1 CUDA Events 计时口径。
   - 记录 latency、显存、输出误差。
 - [ ] Step 6：撰写 `phase2/tensorrt_baseline_report.md`。
@@ -74,9 +74,11 @@ phase2/
 ├── README.md
 ├── scripts/
 │   ├── _compat.py
+│   ├── benchmark_trt_engine.py
 │   ├── build_trt_engine.py
 │   └── export_onnx.py
 ├── design_notes/
+│   ├── benchmark_trt_engine_design.md
 │   ├── build_trt_engine_design.md
 │   └── onnx_export_design.md
 ├── results/
@@ -89,6 +91,7 @@ phase2/
 │   └── metrics/
 │       ├── .gitkeep
 │       ├── onnx_export_b0_cityscapes_1024x2048.json
+│       ├── trt_benchmark_b0_cityscapes_1024x2048_fp32.json
 │       └── trt_build_b0_cityscapes_1024x2048_fp32.json
 └── logs/
     └── .gitkeep
@@ -168,6 +171,39 @@ TensorRT baseline 验收：
 
 构建日志中出现两个需要记录但不阻断的提示：ONNX 中存在 INT64 权重，TensorRT 会尝试 cast 到 INT32，且有超出 INT32 范围的权重被 clamp；另外 TensorRT 默认启用的 TF32 flag 因 MX250 不支持 TF32 被禁用。后续 benchmark / 输出对齐时需要确认这些转换是否影响 logits 误差。
 
+当前 TensorRT benchmark 口径：
+
+- 脚本：`phase2/scripts/benchmark_trt_engine.py`
+- 设计文档：`phase2/design_notes/benchmark_trt_engine_design.md`
+- 计时工具：CUDA Events
+- 计时范围：只测 `context.execute_async_v2(...)`，不包含 preprocess / H2D / D2H / PyTorch reference
+- 对齐对象：PyTorch CUDA logits reference
+- 输出 JSON：`phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32.json`
+
+当前 TensorRT FP32 benchmark 结果：
+
+| 项目 | 结果 |
+|---|---|
+| Engine | `phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine` |
+| Metadata | `phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32.json` |
+| warmup / measure | 20 / 100 |
+| TensorRT FP32 p50 / p95 / p99 | `54.44 ms` / `55.43 ms` / `55.68 ms` |
+| Phase 1 PyTorch Plan A formal p50 | `85.70 ms` |
+| p50 speedup | `1.57x` |
+| TensorRT max / mean abs diff vs PyTorch | `2.69e-4` / `2.54e-5` |
+| strict `1e-4` allclose | `false` |
+| relaxed `1e-3` allclose | `true` |
+| argmax pixel agreement | `100%` (`0 / 32768` mismatch) |
+| PyTorch CUDA allocator peak during benchmark process | `170.76 MB allocated`, `228.0 MB reserved`（不代表 TensorRT 内部显存峰值） |
+
+说明：TensorRT build 阶段存在 INT64 -> INT32 cast / clamp 提示，因此 `1e-4` logits allclose 未通过需要保守记录；但误差量级较小，`1e-3` 通过，且当前样图的分割 argmax 完全一致。Phase 2 报告中应把它表述为“FP32 TensorRT runtime 数值接近且语义输出一致”，而不是“逐元素严格一致”。
+
+SegHead bicubic upsample 验证：
+
+- ONNX 中存在 2 个 SegHead `Resize` 节点，属性为 `mode=cubic`、`coordinate_transformation_mode=half_pixel`、`cubic_coeff_a=-0.75`。
+- TensorRT 8.6.1 parser/build 对这两个节点无 parser error，FP32 engine 构建和 runtime benchmark 均通过。
+- 因此，`SegHead bicubic upsample` 对当前固定 shape / TensorRT 8.6.1 路线不是阻塞项；该结论不外推到动态 shape、其他 cubic 参数组合或 TensorRT 10/11。
+
 ---
 
 ## 6. 已知风险
@@ -177,7 +213,7 @@ TensorRT baseline 验收：
 | Windows 上 `triton` import 问题 | import EfficientViT 失败 | 复用 Phase 1 延迟注入 stub 思路，必要时抽成 `_compat.py` |
 | `wandb` 退出清理 PermissionError | 脚本退出噪声 | Phase 2 脚本启动时禁用/隔离 wandb |
 | LiteMLA shape-adaptive branch | 动态 shape 导出不稳定 | 第一版固定 `1024x2048` |
-| SegHead bicubic upsample | TensorRT parser/build 可能不支持 | 第一版保持上游结构并记录失败；后续再决定 bilinear 替代或 Plugin |
+| SegHead bicubic upsample | 已验证当前固定 shape / TensorRT 8.6.1 支持；动态 shape 或其他 TensorRT 版本仍需复验 | 不改 bilinear，不作为当前 Plugin 候选；在报告中记录验证边界 |
 | LiteMLA autocast-disabled 语义 | FP16 输出误差可能变大 | 先建立 FP32 baseline，FP16 作为第二轮对比 |
 
 ---
@@ -194,6 +230,6 @@ Phase 2 要验证：
 
 - TensorRT 是否已经自动优化 P2 标准算子链热点。
 - LiteMLA 在 TensorRT 后是否仍然是值得手写 Plugin 的残余热点。
-- `bicubic upsample` 和 FP16 数值策略是否成为新的工程约束。
+- FP16 数值策略是否成为新的工程约束；`bicubic upsample` 已在当前固定 shape / TensorRT 8.6.1 下通过。
 
 Phase 3 才开始真正实现 Plugin。

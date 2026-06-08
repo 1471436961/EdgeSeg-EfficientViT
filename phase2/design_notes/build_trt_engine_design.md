@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入产物**：`phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx`
-> **状态**：v1.0，第一版只构建 FP32 TensorRT engine。
+> **状态**：v1.1，第一版 FP32 TensorRT engine 已成功构建。
 
 ---
 
@@ -132,15 +132,24 @@ D:\software\anaconda3\envs\efficientvit\Lib\site-packages\nvidia\cuda_nvrtc\bin
 |---|---|---|
 | TensorRT 8.6.1 是 archived 版本 | 与当前 CUDA/cuDNN/PyTorch 生态不完全一致 | JSON 记录版本和 DLL 路径 |
 | MX250 `sm_61` 只能走旧 TensorRT | 不具备现代 TensorRT 10/11 行为代表性 | 报告中将其定义为本机 baseline，不外推到新 GPU |
-| `Resize` bicubic 或 LiteMLA 子图 parser 失败 | engine 无法构建 | parser 错误完整写入 metadata |
+| `Resize` bicubic | 当前固定 shape / TensorRT 8.6.1 已验证通过；动态 shape 或其他 TRT 版本仍需复验 | 不改 bilinear，不作为当前阻塞项 |
+| LiteMLA 子图 parser 失败 | 当前 FP32 engine 已构建成功，但后续版本/shape 仍可能变化 | parser 错误完整写入 metadata |
 | engine 绑定当前 GPU / TensorRT 版本 | 不可跨机器复用 | `.engine` 不入 git，只保留 metadata |
 | FP16 尚未测试 | 暂不能声称 TensorRT FP16 加速 | FP16 作为后续单独 Step |
 
 ---
 
-## 6. 下一步
+## 6. 当前结果与下一步
 
-1. 运行 `build_trt_engine.py --help`。
-2. 构建 FP32 engine。
-3. 若构建成功，再设计 `benchmark_trt_engine.py`。
-4. 若构建失败，先分析 parser/build metadata，再决定是否修改 ONNX 或模型结构。
+已完成：
+
+1. `build_trt_engine.py --help` 通过。
+2. FP32 engine 构建成功。
+3. parser error 为空。
+4. engine metadata 已写入 `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp32.json`。
+
+下一步：
+
+1. 使用 `benchmark_trt_engine.py` 完成 runtime latency 与输出对齐验证。
+2. 在 `phase2/tensorrt_baseline_report.md` 中解释 INT64 -> INT32 cast / clamp、TF32 disabled 与固定 shape bicubic Resize 的影响。
+3. FP32 benchmark 稳定后，再决定是否设计 FP16 build / benchmark。
