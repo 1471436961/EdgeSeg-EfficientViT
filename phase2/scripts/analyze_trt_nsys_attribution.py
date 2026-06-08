@@ -141,6 +141,34 @@ def group_name(name: str) -> str:
     return "other"
 
 
+def stage2_context_component(name: str) -> str:
+    """Heuristic TensorRT layer-name mapping for stage2 LiteMLA context."""
+    text = normalize_layer_path(name)
+    if "/backbone/stages.2/" not in text or "/context_module/" not in text:
+        return ""
+    if "/qkv/" in text:
+        return "qkv"
+    if "/aggreg." in text:
+        return "aggregation"
+    if "/kernel_func" in text and "Relu" in text:
+        return "relu_qk"
+    if "Reformatting" in text:
+        return "reformat"
+    if "/proj/" in text:
+        return "proj_add"
+    if "/Div" in text or "/Add" in text:
+        return "norm_add_div"
+    if "MatMul" in text:
+        return "matmul"
+    if "Cast" in text:
+        return "cast"
+    if "Pad" in text:
+        return "pad"
+    if "Reshape" in text or "[Shuffle]" in text:
+        return "reshape_shuffle"
+    return "other_context"
+
+
 def layer_attribution(con: sqlite3.Connection, metrics: Dict[str, Any]) -> Dict[str, Any]:
     warmup = int(metrics["timing"]["warmup"])
     measure = int(metrics["timing"]["measure"])
@@ -233,6 +261,106 @@ def layer_attribution(con: sqlite3.Connection, metrics: Dict[str, Any]) -> Dict[
         "layer_attribution_vs_execute_pct": 100.0 * layer_total_avg_ms / execute_avg_ms if execute_avg_ms else 0.0,
         "groups": sorted(groups.values(), key=lambda row: row["avg_kernel_ms"], reverse=True),
         "layers": sorted(layers, key=lambda row: row["avg_kernel_ms"], reverse=True),
+    }
+
+
+def stage2_context_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
+    rows = []
+    for row in summary["layers"]:
+        component = stage2_context_component(row["name"])
+        if not component:
+            continue
+        enriched = dict(row)
+        enriched["component"] = component
+        block_match = re.search(r"/backbone/stages\.2/op_list\.(\d+)/context_module/", row["name"])
+        enriched["block"] = f"op_list.{block_match.group(1)}" if block_match else "unknown"
+        rows.append(enriched)
+
+    component_map: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        component = component_map.setdefault(
+            row["component"],
+            {
+                "component": row["component"],
+                "layer_count": 0,
+                "avg_kernel_ms": 0.0,
+                "launches_per_iter": 0.0,
+                "share_of_execute_kernel_pct": 0.0,
+                "share_of_latency_mean_pct": 0.0,
+            },
+        )
+        component["layer_count"] += 1
+        component["avg_kernel_ms"] += row["avg_kernel_ms"]
+        component["launches_per_iter"] += row["launches_per_iter"]
+        component["share_of_execute_kernel_pct"] += row["share_of_execute_kernel_pct"]
+        component["share_of_latency_mean_pct"] += row["share_of_latency_mean_pct"]
+
+    block_map: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        block = block_map.setdefault(
+            row["block"],
+            {
+                "block": row["block"],
+                "layer_count": 0,
+                "avg_kernel_ms": 0.0,
+                "launches_per_iter": 0.0,
+                "share_of_execute_kernel_pct": 0.0,
+                "share_of_latency_mean_pct": 0.0,
+            },
+        )
+        block["layer_count"] += 1
+        block["avg_kernel_ms"] += row["avg_kernel_ms"]
+        block["launches_per_iter"] += row["launches_per_iter"]
+        block["share_of_execute_kernel_pct"] += row["share_of_execute_kernel_pct"]
+        block["share_of_latency_mean_pct"] += row["share_of_latency_mean_pct"]
+
+    components = sorted(component_map.values(), key=lambda row: row["avg_kernel_ms"], reverse=True)
+    component_by_name = {row["component"]: row for row in components}
+
+    def candidate_boundary(name: str, includes: Sequence[str]) -> Dict[str, Any]:
+        rows = [component_by_name[item] for item in includes if item in component_by_name]
+        return {
+            "candidate": name,
+            "includes": list(includes),
+            "avg_kernel_ms": sum(row["avg_kernel_ms"] for row in rows),
+            "launches_per_iter": sum(row["launches_per_iter"] for row in rows),
+            "share_of_execute_kernel_pct": sum(row["share_of_execute_kernel_pct"] for row in rows),
+            "share_of_latency_mean_pct": sum(row["share_of_latency_mean_pct"] for row in rows),
+        }
+
+    candidate_boundaries = [
+        candidate_boundary("attention_core", ["relu_qk", "pad", "matmul", "norm_add_div"]),
+        candidate_boundary("aggregation_only", ["aggregation"]),
+        candidate_boundary(
+            "aggregation_plus_attention_core",
+            ["aggregation", "relu_qk", "pad", "matmul", "norm_add_div"],
+        ),
+        candidate_boundary("qkv_proj_overhead", ["qkv", "proj_add"]),
+        candidate_boundary(
+            "full_stage2_context",
+            [
+                "qkv",
+                "aggregation",
+                "relu_qk",
+                "pad",
+                "matmul",
+                "norm_add_div",
+                "proj_add",
+                "cast",
+                "reshape_shuffle",
+            ],
+        ),
+    ]
+
+    return {
+        "total_avg_kernel_ms": sum(row["avg_kernel_ms"] for row in rows),
+        "total_launches_per_iter": sum(row["launches_per_iter"] for row in rows),
+        "total_share_of_execute_kernel_pct": sum(row["share_of_execute_kernel_pct"] for row in rows),
+        "total_share_of_latency_mean_pct": sum(row["share_of_latency_mean_pct"] for row in rows),
+        "components": components,
+        "candidate_boundaries": sorted(candidate_boundaries, key=lambda row: row["avg_kernel_ms"], reverse=True),
+        "blocks": sorted(block_map.values(), key=lambda row: row["block"]),
+        "layers": sorted(rows, key=lambda row: row["avg_kernel_ms"], reverse=True),
     }
 
 
@@ -363,6 +491,80 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
             f"{row['share_of_execute_kernel_pct']:.2f}% | {row['launches_per_iter']:.1f} |"
         )
 
+    stage2_context = summary["stage2_context"]
+    lines.extend(
+        [
+            "",
+            "## Stage2 Context Runtime Detail",
+            "",
+            f"- Total stage2 context kernel avg: {stage2_context['total_avg_kernel_ms']:.3f} ms / iter",
+            f"- Total stage2 context launches: {stage2_context['total_launches_per_iter']:.1f} / iter",
+            f"- Share of execute kernel time: {stage2_context['total_share_of_execute_kernel_pct']:.2f}%",
+            "",
+            "Component mapping is inferred from TensorRT layer names. It is a runtime attribution summary, not EngineInspector tactic metadata.",
+            "",
+            "### Stage2 Context Components",
+            "",
+            "| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for row in stage2_context["components"]:
+        lines.append(
+            f"| `{row['component']}` | {row['avg_kernel_ms']:.3f} | "
+            f"{row['share_of_execute_kernel_pct']:.2f}% | {row['launches_per_iter']:.1f} | "
+            f"{row['layer_count']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "### Stage2 Context Candidate Boundaries",
+            "",
+            "| Candidate boundary | Includes | Avg kernel ms / iter | Share of execute kernel | Launches / iter |",
+            "|---|---|---:|---:|---:|",
+        ]
+    )
+    for row in stage2_context["candidate_boundaries"]:
+        includes = " + ".join(f"`{item}`" for item in row["includes"])
+        lines.append(
+            f"| `{row['candidate']}` | {includes} | {row['avg_kernel_ms']:.3f} | "
+            f"{row['share_of_execute_kernel_pct']:.2f}% | {row['launches_per_iter']:.1f} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "### Stage2 Context Blocks",
+            "",
+            "| Block | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |",
+            "|---|---:|---:|---:|---:|",
+        ]
+    )
+    for row in stage2_context["blocks"]:
+        lines.append(
+            f"| `{row['block']}` | {row['avg_kernel_ms']:.3f} | "
+            f"{row['share_of_execute_kernel_pct']:.2f}% | {row['launches_per_iter']:.1f} | "
+            f"{row['layer_count']} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "### Stage2 Context Layer Rows",
+            "",
+            "| Rank | Block | Component | Layer / NVTX range | Avg kernel ms / iter | Share of execute kernel | Launches / iter |",
+            "|---:|---|---|---|---:|---:|---:|",
+        ]
+    )
+    for rank, row in enumerate(stage2_context["layers"], 1):
+        name = row["name"].replace("|", "\\|")
+        lines.append(
+            f"| {rank} | `{row['block']}` | `{row['component']}` | `{name}` | "
+            f"{row['avg_kernel_ms']:.3f} | {row['share_of_execute_kernel_pct']:.2f}% | "
+            f"{row['launches_per_iter']:.1f} |"
+        )
+
     lines.extend(
         [
             "",
@@ -409,6 +611,7 @@ def main() -> None:
     execute_correlations = correlations_in_intervals(con, execute_intervals)
     summary["kernel_types"] = kernel_type_summary(con, summary["measure"], execute_correlations)
     summary["memory"] = memory_summary(con, summary["measure"], execute_intervals)
+    summary["stage2_context"] = stage2_context_summary(summary)
     args.out_md.parent.mkdir(parents=True, exist_ok=True)
     args.out_md.write_text(render_markdown(summary, args.sqlite, args.metrics, args.top_k), encoding="utf-8")
     if args.out_json:

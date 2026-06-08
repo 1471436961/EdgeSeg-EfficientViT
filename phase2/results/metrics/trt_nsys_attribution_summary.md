@@ -55,6 +55,80 @@ NVTX range duration itself is not used as GPU component time.
 | 24 | `stem` | `PWN(PWN(/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish), /backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish_1)` | 0.680 | 1.25% | 1.0 |
 | 25 | `stage1` | `PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)` | 0.679 | 1.25% | 1.0 |
 
+## Stage2 Context Runtime Detail
+
+- Total stage2 context kernel avg: 6.383 ms / iter
+- Total stage2 context launches: 42.0 / iter
+- Share of execute kernel time: 11.72%
+
+Component mapping is inferred from TensorRT layer names. It is a runtime attribution summary, not EngineInspector tactic metadata.
+
+### Stage2 Context Components
+
+| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |
+|---|---:|---:|---:|---:|
+| `matmul` | 1.947 | 3.58% | 4.0 | 6 |
+| `aggregation` | 1.754 | 3.22% | 26.0 | 4 |
+| `pad` | 0.695 | 1.28% | 2.0 | 2 |
+| `relu_qk` | 0.685 | 1.26% | 4.0 | 4 |
+| `qkv` | 0.544 | 1.00% | 2.0 | 2 |
+| `proj_add` | 0.396 | 0.73% | 2.0 | 2 |
+| `norm_add_div` | 0.361 | 0.66% | 2.0 | 2 |
+| `cast` | 0.000 | 0.00% | 0.0 | 2 |
+| `reshape_shuffle` | 0.000 | 0.00% | 0.0 | 6 |
+
+### Stage2 Context Candidate Boundaries
+
+| Candidate boundary | Includes | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---|---:|---:|---:|
+| `full_stage2_context` | `qkv` + `aggregation` + `relu_qk` + `pad` + `matmul` + `norm_add_div` + `proj_add` + `cast` + `reshape_shuffle` | 6.383 | 11.72% | 42.0 |
+| `aggregation_plus_attention_core` | `aggregation` + `relu_qk` + `pad` + `matmul` + `norm_add_div` | 5.443 | 10.00% | 38.0 |
+| `attention_core` | `relu_qk` + `pad` + `matmul` + `norm_add_div` | 3.689 | 6.77% | 12.0 |
+| `aggregation_only` | `aggregation` | 1.754 | 3.22% | 26.0 |
+| `qkv_proj_overhead` | `qkv` + `proj_add` | 0.940 | 1.73% | 4.0 |
+
+### Stage2 Context Blocks
+
+| Block | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |
+|---|---:|---:|---:|---:|
+| `op_list.1` | 3.192 | 5.86% | 21.0 | 15 |
+| `op_list.2` | 3.190 | 5.86% | 21.0 | 15 |
+
+### Stage2 Context Layer Rows
+
+| Rank | Block | Component | Layer / NVTX range | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---:|---|---|---|---:|---:|---:|
+| 1 | `op_list.2` | `matmul` | `/backbone/stages.2/op_list.2/context_module/main/MatMul` | 0.723 | 1.33% | 1.0 |
+| 2 | `op_list.1` | `matmul` | `/backbone/stages.2/op_list.1/context_module/main/MatMul` | 0.723 | 1.33% | 1.0 |
+| 3 | `op_list.1` | `aggregation` | `/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv` | 0.475 | 0.87% | 1.0 |
+| 4 | `op_list.2` | `aggregation` | `/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv` | 0.474 | 0.87% | 1.0 |
+| 5 | `op_list.2` | `aggregation` | `/backbone/stages.2/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv` | 0.402 | 0.74% | 12.0 |
+| 6 | `op_list.1` | `aggregation` | `/backbone/stages.2/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv` | 0.402 | 0.74% | 12.0 |
+| 7 | `op_list.1` | `pad` | `/backbone/stages.2/op_list.1/context_module/main/Pad` | 0.348 | 0.64% | 1.0 |
+| 8 | `op_list.2` | `pad` | `/backbone/stages.2/op_list.2/context_module/main/Pad` | 0.347 | 0.64% | 1.0 |
+| 9 | `op_list.1` | `qkv` | `/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv` | 0.273 | 0.50% | 1.0 |
+| 10 | `op_list.2` | `qkv` | `/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv` | 0.272 | 0.50% | 1.0 |
+| 11 | `op_list.1` | `matmul` | `/backbone/stages.2/op_list.1/context_module/main/MatMul_1` | 0.251 | 0.46% | 1.0 |
+| 12 | `op_list.2` | `matmul` | `/backbone/stages.2/op_list.2/context_module/main/MatMul_1` | 0.251 | 0.46% | 1.0 |
+| 13 | `op_list.2` | `proj_add` | `/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.2/context_module/Add` | 0.198 | 0.36% | 1.0 |
+| 14 | `op_list.1` | `proj_add` | `/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.1/context_module/Add` | 0.198 | 0.36% | 1.0 |
+| 15 | `op_list.1` | `norm_add_div` | `PWN(/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0 + (Unnamed Layer* 80) [Shuffle] + /backbone/stages.2/op_list.1/context_module/main/Add, /backbone/stages.2/op_list.1/context_module/main/Div)` | 0.181 | 0.33% | 1.0 |
+| 16 | `op_list.2` | `norm_add_div` | `PWN(/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 145) [Shuffle] + /backbone/stages.2/op_list.2/context_module/main/Add, /backbone/stages.2/op_list.2/context_module/main/Div)` | 0.181 | 0.33% | 1.0 |
+| 17 | `op_list.2` | `relu_qk` | `PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu)` | 0.172 | 0.32% | 1.0 |
+| 18 | `op_list.1` | `relu_qk` | `PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu)` | 0.172 | 0.32% | 1.0 |
+| 19 | `op_list.1` | `relu_qk` | `PWN(/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu)` | 0.171 | 0.31% | 1.0 |
+| 20 | `op_list.2` | `relu_qk` | `PWN(/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu)` | 0.171 | 0.31% | 1.0 |
+| 21 | `op_list.1` | `cast` | `/backbone/stages.2/op_list.1/context_module/main/Cast_1` | 0.000 | 0.00% | 0.0 |
+| 22 | `op_list.1` | `reshape_shuffle` | `/backbone/stages.2/op_list.1/context_module/main/Reshape` | 0.000 | 0.00% | 0.0 |
+| 23 | `op_list.1` | `reshape_shuffle` | `/backbone/stages.2/op_list.1/context_module/main/Reshape_3` | 0.000 | 0.00% | 0.0 |
+| 24 | `op_list.2` | `cast` | `/backbone/stages.2/op_list.2/context_module/main/Cast_1` | 0.000 | 0.00% | 0.0 |
+| 25 | `op_list.2` | `reshape_shuffle` | `/backbone/stages.2/op_list.2/context_module/main/Reshape` | 0.000 | 0.00% | 0.0 |
+| 26 | `op_list.2` | `reshape_shuffle` | `/backbone/stages.2/op_list.2/context_module/main/Reshape_3` | 0.000 | 0.00% | 0.0 |
+| 27 | `op_list.1` | `reshape_shuffle` | `Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/Reshape_3` | 0.000 | 0.00% | 0.0 |
+| 28 | `op_list.2` | `reshape_shuffle` | `Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/Reshape_3` | 0.000 | 0.00% | 0.0 |
+| 29 | `op_list.1` | `matmul` | `Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.1/context_module/main/MatMul_1` | 0.000 | 0.00% | 0.0 |
+| 30 | `op_list.2` | `matmul` | `Reformatting CopyNode for Output Tensor 0 to /backbone/stages.2/op_list.2/context_module/main/MatMul_1` | 0.000 | 0.00% | 0.0 |
+
 ## Top 25 CUDA Kernel Names
 
 | Rank | Kernel | Avg ms / iter | Share | Count |

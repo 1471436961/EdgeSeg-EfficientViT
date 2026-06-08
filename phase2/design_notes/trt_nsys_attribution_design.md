@@ -199,3 +199,50 @@ Group-level 结构变化：
 - 当前 FP32 engine 的 EngineInspector detail 为 `layer_names_only`，足以做 layer name / fusion pattern 映射，但不能给出 tactic-level 选择。
 - 若后续要回答具体 tactic、format、implementation 选择，需要重新构建带 detailed profiling verbosity 的 engine，或捕获 verbose builder log。
 - EngineInspector 是结构辅助证据；真实 GPU kernel time 仍以 Nsight SQLite attribution 为准。
+
+---
+
+## 10. TensorRT stage2/context 细粒度 runtime attribution
+
+在 `trt_nsys_attribution_summary.md` 中新增 `Stage2 Context Runtime Detail` 小节，基于 TensorRT layer name 将 `/backbone/stages.2/.../context_module/...` 的 layer runtime 做启发式组件聚合。该表仍使用 CUDA runtime/kernel `correlationId` attribution，不使用 NVTX range duration。
+
+总量：
+
+| 项目 | 结果 |
+|---|---:|
+| Total stage2 context kernel avg | `6.383 ms / iter` |
+| Total stage2 context launches | `42.0 / iter` |
+| Share of execute kernel time | `11.72%` |
+
+组件级结果：
+
+| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |
+|---|---:|---:|---:|---:|
+| `matmul` | `1.947` | `3.58%` | `4.0` | `6` |
+| `aggregation` | `1.754` | `3.22%` | `26.0` | `4` |
+| `pad` | `0.695` | `1.28%` | `2.0` | `2` |
+| `relu_qk` | `0.685` | `1.26%` | `4.0` | `4` |
+| `qkv` | `0.544` | `1.00%` | `2.0` | `2` |
+| `proj_add` | `0.396` | `0.73%` | `2.0` | `2` |
+| `norm_add_div` | `0.361` | `0.66%` | `2.0` | `2` |
+
+候选边界聚合：
+
+| Candidate boundary | Includes | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---|---:|---:|---:|
+| `full_stage2_context` | `qkv + aggregation + relu_qk + pad + matmul + norm_add_div + proj_add` | `6.383` | `11.72%` | `42.0` |
+| `aggregation_plus_attention_core` | `aggregation + relu_qk + pad + matmul + norm_add_div` | `5.443` | `10.00%` | `38.0` |
+| `attention_core` | `relu_qk + pad + matmul + norm_add_div` | `3.689` | `6.77%` | `12.0` |
+| `aggregation_only` | `aggregation` | `1.754` | `3.22%` | `26.0` |
+
+对 Phase 3 的含义：
+
+- TensorRT 后，`matmul` 与 `aggregation` 仍是 `stage2/context` 的前两项 residual runtime。
+- `aggregation` 的 launches / iter 高达 `26.0`，说明它虽然是标准 Conv 路径，但仍有明显 launch density / kernel fragmentation 问题。
+- `relu_qk` 已被 TensorRT pointwise fusion 压到 `0.685 ms / iter`，不再适合作为单独最高收益 Plugin 边界。
+- Phase 3 第一版候选应从“只做狭义 ReLU pointwise”调整为更谨慎的两步：先用 `attention_core`（`relu_qk + pad + matmul + norm_add_div`）做 MVP 验证 Plugin 接入，再评估 `aggregation + attention_core` 的组合边界是否值得扩大。
+
+证据边界：
+
+- 该组件映射依赖 TensorRT layer name，因此是 heuristic mapping；它比 stage-level runtime 更细，但仍不等于原 PyTorch Plan D 的一一对应范围。
+- 若要做最终 Plugin 设计，需要结合 ONNX graph、EngineInspector layer name 与实际 Plugin 可替换边界，再定义精确输入/输出 tensor contract。

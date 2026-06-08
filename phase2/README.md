@@ -279,6 +279,29 @@ FP16 风险实验口径：
 
 说明：Step 6 使用 TensorRT/NVTX layer range -> CUDA runtime launch -> CUDA kernel `correlationId` 的归因口径，不把 NVTX range end-start 当作 GPU component time。该结果说明 TensorRT 后 `stage0` 仍是最大 residual hotspot，`stage2` 仍是第二大 residual hotspot 且 launch 密度高；但 TensorRT layer range 与 Phase 1 PyTorch Plan B/C/D 的模块范围不是一一对应关系，Phase 2 report 中需要按“趋势复核”而非“逐模块复刻”来表述。
 
+TensorRT 后 `stage2/context` 细粒度 runtime 归因：
+
+| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---:|---:|---:|
+| `matmul` | `1.947` | `3.58%` | `4.0` |
+| `aggregation` | `1.754` | `3.22%` | `26.0` |
+| `pad` | `0.695` | `1.28%` | `2.0` |
+| `relu_qk` | `0.685` | `1.26%` | `4.0` |
+| `qkv` | `0.544` | `1.00%` | `2.0` |
+| `proj_add` | `0.396` | `0.73%` | `2.0` |
+| `norm_add_div` | `0.361` | `0.66%` | `2.0` |
+
+候选边界聚合：
+
+| Candidate boundary | Includes | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---|---:|---:|---:|
+| `full_stage2_context` | `qkv + aggregation + relu_qk + pad + matmul + norm_add_div + proj_add` | `6.383` | `11.72%` | `42.0` |
+| `aggregation_plus_attention_core` | `aggregation + relu_qk + pad + matmul + norm_add_div` | `5.443` | `10.00%` | `38.0` |
+| `attention_core` | `relu_qk + pad + matmul + norm_add_div` | `3.689` | `6.77%` | `12.0` |
+| `aggregation_only` | `aggregation` | `1.754` | `3.22%` | `26.0` |
+
+说明：这张表来自 `trt_nsys_attribution_summary.md` 的 TensorRT layer-name heuristic mapping，真实时间仍是 CUDA kernel `correlationId` attribution。它显示 TensorRT 后 `matmul` 与 `aggregation` 仍是 `stage2/context` 的主要 residual runtime；`relu_qk` 已被 pointwise fusion 压低，不应单独当作最高收益候选。Phase 3 的 LiteMLA MVP 更适合表述为 `attention_core`，而不是狭义的 `relu_qk`。
+
 当前 TensorRT EngineInspector / ONNX node name 映射结果：
 
 | 项目 | 结果 |
@@ -319,7 +342,7 @@ Phase 1 给出 PyTorch 路径证据：
 
 - `stage0` 是当前 PyTorch 最大 GPU kernel 热点。
 - `stage2/context` LiteMLA 是最高区分度 Plugin 主线。
-- Plan D 将 LiteMLA 候选细化为 `aggregation-only` / `relu_linear_att-only`、`aggregation + cat + relu_linear_att`、整体 LiteMLA fallback。
+- Phase 1 Plan D 将 LiteMLA 候选细化为 `aggregation-only` / `relu_linear_att-only`、`aggregation + cat + relu_linear_att`、整体 LiteMLA fallback；Phase 2 TensorRT 细分后进一步把第一版 MVP 候选收敛为 `attention_core`，并把收益评估边界改写为 `aggregation + attention_core`。
 
 Phase 2 要验证：
 
