@@ -28,14 +28,20 @@ DEFAULT_ATOL = 1e-4
 DEFAULT_RTOL = 1e-4
 DEFAULT_RESOLUTION = (1024, 2048)
 DEFAULT_TRT_ROOT = Path(r"E:\NVIDIA\TensorRT-8.6.1.6")
-DEFAULT_ENGINE = Path("phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine")
-DEFAULT_METADATA = Path("phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32.json")
 _DLL_DIRECTORY_HANDLES: List[object] = []
 torch = None
 
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def default_engine_path(precision: str) -> Path:
+    return Path(f"phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_{precision}.engine")
+
+
+def default_metadata_path(precision: str) -> Path:
+    return Path(f"phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_{precision}.json")
 
 
 def parse_resolution(value: str) -> Tuple[int, int]:
@@ -53,9 +59,10 @@ def parse_resolution(value: str) -> Tuple[int, int]:
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Benchmark a TensorRT FP32 engine.")
-    p.add_argument("--engine", type=Path, default=DEFAULT_ENGINE, help="Input TensorRT engine path.")
-    p.add_argument("--metadata", type=Path, default=DEFAULT_METADATA, help="Benchmark metadata JSON path.")
+    p = argparse.ArgumentParser(description="Benchmark a TensorRT FP32/FP16 engine.")
+    p.add_argument("--precision", choices=["fp32", "fp16"], default="fp32", help="Engine precision label.")
+    p.add_argument("--engine", type=Path, default=None, help="Input TensorRT engine path.")
+    p.add_argument("--metadata", type=Path, default=None, help="Benchmark metadata JSON path.")
     p.add_argument("--trt-root", type=Path, default=DEFAULT_TRT_ROOT, help="TensorRT zip root directory.")
     p.add_argument("--weights", required=True, help="Path to Cityscapes B0 weights for PyTorch reference.")
     p.add_argument("--input", "--input-image", dest="input_image", required=True, help="Fixed input image path.")
@@ -68,7 +75,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--atol", type=float, default=DEFAULT_ATOL)
     p.add_argument("--rtol", type=float, default=DEFAULT_RTOL)
     p.add_argument("--skip-reference", action="store_true", help="Skip PyTorch reference and output comparison.")
-    return p.parse_args()
+    args = p.parse_args()
+    args.engine = args.engine or default_engine_path(args.precision)
+    args.metadata = args.metadata or default_metadata_path(args.precision)
+    return args
 
 
 def version_of(package: str):
@@ -335,9 +345,17 @@ def main() -> None:
         comparison_meta = compare_outputs(output_tensor, reference, args.atol, args.rtol)
 
     engine_path = args.engine.expanduser().resolve()
+    known_risks = [
+        "tensorRT_output_must_be_checked_due_to_int64_to_int32_cast_during_build",
+        "latency_excludes_preprocess_h2d_d2h",
+        "engine_is_specific_to_gpu_and_tensorrt_version",
+    ]
+    if args.precision == "fp16":
+        known_risks.append("fp16_on_mx250_without_tensor_cores_may_be_slower_than_fp32")
+
     payload = {
         "status": "ok",
-        "precision": "fp32",
+        "precision": args.precision,
         "engine": {
             "engine_path": str(engine_path),
             "engine_sha256": sha256_of_file(engine_path),
@@ -382,11 +400,7 @@ def main() -> None:
             "nvidia-cublas-cu12": version_of("nvidia-cublas-cu12"),
             "nvidia-cuda-nvrtc-cu12": version_of("nvidia-cuda-nvrtc-cu12"),
         },
-        "known_risks": [
-            "tensorRT_output_must_be_checked_due_to_int64_to_int32_cast_during_build",
-            "latency_excludes_preprocess_h2d_d2h",
-            "engine_is_specific_to_gpu_and_tensorrt_version",
-        ],
+        "known_risks": known_risks,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "script_version": resolve_script_version(),
     }

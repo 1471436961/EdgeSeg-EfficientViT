@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入产物**：`phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx`
-> **状态**：v1.1，第一版 FP32 TensorRT engine 已成功构建。
+> **状态**：v1.3，FP32 / FP16 engine 均已成功构建；FP16 仅作为风险实验记录。
 
 ---
 
@@ -39,6 +39,14 @@ precision:   fp32
 workspace:   1024 MiB
 ```
 
+FP16 风险实验输出：
+
+```text
+engine:      phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine
+metadata:    phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp16.json
+precision:   fp16
+```
+
 ---
 
 ## 3. 关键取舍
@@ -67,13 +75,15 @@ python/tensorrt-8.6.1-cp310-none-win_amd64.whl
 
 ### D2：第一版 FP32 vs 同时做 FP32/FP16
 
-**选择：第一版只构建 FP32。**
+**选择：先构建 FP32，再把 FP16 作为单独风险实验。**
 
 原因：
 
 - Phase 1 PyTorch baseline 与 Phase 2 ONNX 对齐都基于 FP32。
 - LiteMLA 有 FP32 数值保护语义，FP16 应单独做风险实验。
 - MX250 没有 Tensor Core，`platform_has_fast_fp16=True` 不等于 FP16 一定更快。
+
+脚本实现上，`--precision fp16` 会设置 `BuilderFlag.FP16`，并切换默认输出路径到 `_fp16.engine` / `_fp16.json`。FP16 是否进入报告结论，要等 benchmark 的 latency 与输出误差共同判断。
 
 ### D3：build 与 benchmark 是否合并
 
@@ -135,7 +145,7 @@ D:\software\anaconda3\envs\efficientvit\Lib\site-packages\nvidia\cuda_nvrtc\bin
 | `Resize` bicubic | 当前固定 shape / TensorRT 8.6.1 已验证通过；动态 shape 或其他 TRT 版本仍需复验 | 不改 bilinear，不作为当前阻塞项 |
 | LiteMLA 子图 parser 失败 | 当前 FP32 engine 已构建成功，但后续版本/shape 仍可能变化 | parser 错误完整写入 metadata |
 | engine 绑定当前 GPU / TensorRT 版本 | 不可跨机器复用 | `.engine` 不入 git，只保留 metadata |
-| FP16 尚未测试 | 暂不能声称 TensorRT FP16 加速 | FP16 作为后续单独 Step |
+| FP16 build | 已成功构建，但出现 subnormal FP16 weights warning | 通过 benchmark 判断是否可接受 |
 
 ---
 
@@ -147,9 +157,10 @@ D:\software\anaconda3\envs\efficientvit\Lib\site-packages\nvidia\cuda_nvrtc\bin
 2. FP32 engine 构建成功。
 3. parser error 为空。
 4. engine metadata 已写入 `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp32.json`。
+5. FP16 engine 也已构建成功，metadata 写入 `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp16.json`。
 
 下一步：
 
-1. 使用 `benchmark_trt_engine.py` 完成 runtime latency 与输出对齐验证。
+1. 使用 `benchmark_trt_engine.py` 对 FP32 / FP16 runtime latency 与输出对齐结果做报告汇总。
 2. 在 `phase2/tensorrt_baseline_report.md` 中解释 INT64 -> INT32 cast / clamp、TF32 disabled 与固定 shape bicubic Resize 的影响。
-3. FP32 benchmark 稳定后，再决定是否设计 FP16 build / benchmark。
+3. 在报告中明确：FP16 可构建但在 MX250 上不比 FP32 快，因此不作为本机主 baseline。

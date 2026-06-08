@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **关联 Phase 1 基线**：[`phase1/bottleneck_analysis_report.md`](../../phase1/bottleneck_analysis_report.md)
-> **状态**：v1.1，`export_onnx.py` 与 `_compat.py` 已落盘，ONNXRuntime 对齐验证已通过；该 ONNX 也已被 TensorRT 8.6.1 成功 parser/build。
+> **状态**：v1.2，`export_onnx.py` 与 `_compat.py` 已落盘；该 ONNX 已完成 ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 build 与 benchmark。
 
 ---
 
@@ -275,6 +275,6 @@ phase2/scripts/_compat.py
 2. 第一版使用 `opset=17`。
 3. 第一版已引入 `phase2/scripts/_compat.py`，不再内联 compat patch。
 4. ONNX 导出、`onnx.checker` 与 ONNXRuntime 对齐验证已通过。
-5. 该 ONNX 已成功构建 TensorRT 8.6.1 FP32 engine，并完成 runtime benchmark。
+5. 该 ONNX 已成功构建 TensorRT 8.6.1 FP32 / FP16 engine，并完成 runtime benchmark。
 
-下一步：撰写 `phase2/tensorrt_baseline_report.md`，并决定是否继续 FP16 engine build / benchmark。
+下一步：撰写 `phase2/tensorrt_baseline_report.md`，其中明确 FP32 是本机主 baseline，FP16 是已验证但不建议采用的风险实验。

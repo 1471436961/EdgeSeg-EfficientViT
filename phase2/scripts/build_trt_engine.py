@@ -24,8 +24,6 @@ from typing import Any, Dict, List, Optional
 SCRIPT_NAME = "build_trt_engine.py"
 DEFAULT_TRT_ROOT = Path(r"E:\NVIDIA\TensorRT-8.6.1.6")
 DEFAULT_ONNX = Path("phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx")
-DEFAULT_ENGINE = Path("phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine")
-DEFAULT_METADATA = Path("phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp32.json")
 DEFAULT_WORKSPACE_MIB = 1024
 _DLL_DIRECTORY_HANDLES: List[object] = []
 
@@ -34,16 +32,27 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def default_engine_path(precision: str) -> Path:
+    return Path(f"phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_{precision}.engine")
+
+
+def default_metadata_path(precision: str) -> Path:
+    return Path(f"phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_{precision}.json")
+
+
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Build a TensorRT FP32 engine from ONNX.")
+    p = argparse.ArgumentParser(description="Build a TensorRT FP32/FP16 engine from ONNX.")
     p.add_argument("--onnx", type=Path, default=DEFAULT_ONNX, help="Input ONNX path.")
-    p.add_argument("--engine", type=Path, default=DEFAULT_ENGINE, help="Output TensorRT engine path.")
-    p.add_argument("--metadata", type=Path, default=DEFAULT_METADATA, help="Build metadata JSON path.")
+    p.add_argument("--engine", type=Path, default=None, help="Output TensorRT engine path.")
+    p.add_argument("--metadata", type=Path, default=None, help="Build metadata JSON path.")
     p.add_argument("--trt-root", type=Path, default=DEFAULT_TRT_ROOT, help="TensorRT zip root directory.")
     p.add_argument("--workspace-mib", type=int, default=DEFAULT_WORKSPACE_MIB, help="Workspace limit in MiB.")
-    p.add_argument("--precision", choices=["fp32"], default="fp32", help="First build version supports FP32 only.")
+    p.add_argument("--precision", choices=["fp32", "fp16"], default="fp32", help="Engine precision.")
     p.add_argument("--verbose", action="store_true", help="Use verbose TensorRT logger.")
-    return p.parse_args()
+    args = p.parse_args()
+    args.engine = args.engine or default_engine_path(args.precision)
+    args.metadata = args.metadata or default_metadata_path(args.precision)
+    return args
 
 
 def sha256_of_file(path: Path) -> str:
@@ -173,8 +182,10 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
     workspace_bytes = int(args.workspace_mib) * 1024 * 1024
     workspace_method = set_workspace_limit(config, trt, workspace_bytes)
 
-    if args.precision != "fp32":
-        raise ValueError("only fp32 is supported in the first TensorRT build script")
+    precision_flags: List[str] = []
+    if args.precision == "fp16":
+        config.set_flag(trt.BuilderFlag.FP16)
+        precision_flags.append("FP16")
 
     serialized = builder.build_serialized_network(network, config)
     if serialized is None:
@@ -186,6 +197,15 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
 
     metadata_path = args.metadata.expanduser().resolve()
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
+
+    build_log_notes = [
+        "TensorRT may cast ONNX INT64 weights down to INT32 during parsing/building.",
+        "TensorRT may disable TF32 when the current GPU does not support TF32.",
+    ]
+    if args.precision == "fp16":
+        build_log_notes.append(
+            "FP16 build may report subnormal FP16 weights; benchmark output alignment decides whether it is acceptable."
+        )
 
     build_meta = {
         "status": "ok",
@@ -209,11 +229,9 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
             "workspace_bytes": workspace_bytes,
             "workspace_method": workspace_method,
             "network_definition": "explicit_batch",
+            "precision_flags": precision_flags,
             "parser_errors": parser_errors,
-            "build_log_notes": [
-                "TensorRT may cast ONNX INT64 weights down to INT32 during parsing/building.",
-                "TensorRT may disable TF32 when the current GPU does not support TF32.",
-            ],
+            "build_log_notes": build_log_notes,
         },
         "network": collect_network_io(network),
         "runtime_paths": runtime_meta,
@@ -227,7 +245,7 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
         "known_risks": [
             "tensorrt_8_6_1_manual_zip_install",
             "mx250_pascal_sm61_requires_legacy_tensorrt",
-            "fp32_build_only_first_version",
+            "fp16_on_mx250_without_tensor_cores_may_not_speed_up" if args.precision == "fp16" else "fp32_baseline_build",
             "engine_is_gpu_and_tensorrt_version_specific",
         ],
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),

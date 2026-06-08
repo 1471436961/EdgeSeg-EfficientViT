@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入 engine**：`phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`
-> **状态**：v1.1，第一版 FP32 TensorRT engine benchmark 已完成。
+> **状态**：v1.3，FP32 / FP16 TensorRT engine benchmark 均已完成；FP16 不建议作为本机主 baseline。
 
 ---
 
@@ -34,6 +34,12 @@ print_summary()
 
 ```text
 phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32.json
+```
+
+FP16 风险实验输出：
+
+```text
+phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp16.json
 ```
 
 ---
@@ -146,8 +152,23 @@ benchmark metadata 记录：
 4. 严格 `1e-4` allclose 未通过，但 `1e-3` allclose 通过，argmax pixel agreement 为 100%。
 5. Phase 2 README Step 5 已更新。
 
+FP16 风险实验口径：
+
+- 使用 `--precision fp16` 自动读取 `_fp16.engine` 并写入 `_fp16.json`。
+- 计时口径与 FP32 完全一致，仍然只测 engine execute。
+- 输出对齐仍以 PyTorch CUDA FP32 logits reference 为目标。
+- 判定时不能只看 latency：还要看 `max_abs_diff`、`mean_abs_diff`、`1e-3 allclose` 和 `argmax_pixel_agreement`。
+
+FP16 实测结果：
+
+- FP16 p50 / p95 / p99 为 `59.39 ms` / `65.34 ms` / `66.85 ms`。
+- FP32 p50 / p95 / p99 为 `54.44 ms` / `55.43 ms` / `55.68 ms`。
+- FP16 在当前 MX250 上更慢，p50 约为 FP32 的 `0.92x`。
+- FP16 输出误差与 FP32 TensorRT 基本一致：`max_abs_diff≈2.69e-4`、`mean_abs_diff≈2.54e-5`、`1e-3 allclose=true`、argmax pixel agreement 100%。
+- 因此 FP16 语义可接受，但没有速度收益，不建议作为本机主 baseline。
+
 下一步：
 
 1. 撰写 `phase2/tensorrt_baseline_report.md`。
 2. 报告中使用“数值接近且语义输出一致”的保守表述。
-3. 决定是否继续 FP16 engine build / benchmark；如果继续，需单独记录 LiteMLA FP32 数值保护语义和 MX250 FP16 加速不确定性。
+3. 报告中记录 FP16 风险实验结论：可构建、语义一致、但在 MX250 上慢于 FP32。

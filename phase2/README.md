@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32 engine 构建与 benchmark 均已完成；下一步撰写 TensorRT baseline report，并决定是否继续 FP16 实验。
+> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark 均已完成；下一步撰写 TensorRT baseline report。
 
 ---
 
@@ -60,6 +60,10 @@ Phase 2 不做：
 - [x] Step 5：实现 TensorRT benchmark。
   - 复用 Phase 1 CUDA Events 计时口径。
   - 记录 latency、显存、输出误差。
+- [x] Step 5.5：TensorRT FP16 风险实验。
+  - 构建 FP16 engine。
+  - 复用 benchmark 脚本记录 latency 与输出误差。
+  - 结论：FP16 可构建且语义一致，但在 MX250 上慢于 FP32，不作为本机主 baseline。
 - [ ] Step 6：撰写 `phase2/tensorrt_baseline_report.md`。
   - PyTorch vs ONNXRuntime vs TensorRT 对比。
   - TensorRT 后热点是否变化。
@@ -87,11 +91,14 @@ phase2/
 │   │   └── efficientvit_seg_b0_cityscapes_1024x2048.onnx  # 运行产物，不入 git
 │   ├── engines/
 │   │   ├── .gitkeep
+│   │   ├── efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine  # 运行产物，不入 git
 │   │   └── efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # 运行产物，不入 git
 │   └── metrics/
 │       ├── .gitkeep
 │       ├── onnx_export_b0_cityscapes_1024x2048.json
+│       ├── trt_benchmark_b0_cityscapes_1024x2048_fp16.json
 │       ├── trt_benchmark_b0_cityscapes_1024x2048_fp32.json
+│       ├── trt_build_b0_cityscapes_1024x2048_fp16.json
 │       └── trt_build_b0_cityscapes_1024x2048_fp32.json
 └── logs/
     └── .gitkeep
@@ -198,6 +205,30 @@ TensorRT baseline 验收：
 
 说明：TensorRT build 阶段存在 INT64 -> INT32 cast / clamp 提示，因此 `1e-4` logits allclose 未通过需要保守记录；但误差量级较小，`1e-3` 通过，且当前样图的分割 argmax 完全一致。Phase 2 报告中应把它表述为“FP32 TensorRT runtime 数值接近且语义输出一致”，而不是“逐元素严格一致”。
 
+FP16 风险实验口径：
+
+- FP16 不是默认主线结论，而是风险实验。
+- MX250 是 Pascal `sm_61`，没有 Tensor Core，FP16 不一定比 FP32 快。
+- LiteMLA 存在 FP32 数值保护语义，FP16 需要重点检查 logits diff 和 argmax pixel agreement。
+- 判断标准：若 FP16 latency 明显优于 FP32 且输出误差可解释，可纳入 Phase 2 baseline；否则记录为“不建议在本机 MX250 路线启用 FP16”。
+
+当前 TensorRT FP16 风险实验结果：
+
+| 项目 | 结果 |
+|---|---|
+| FP16 build | 成功，`BuilderFlag.FP16` 已启用 |
+| Engine | `phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine`（约 3.55 MB，不入 git） |
+| Build metadata | `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp16.json` |
+| Benchmark metadata | `phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp16.json` |
+| TensorRT FP16 p50 / p95 / p99 | `59.39 ms` / `65.34 ms` / `66.85 ms` |
+| TensorRT FP32 p50 / p95 / p99 | `54.44 ms` / `55.43 ms` / `55.68 ms` |
+| FP16 vs FP32 latency | FP16 更慢，p50 约 `0.92x` FP32 |
+| FP16 max / mean abs diff vs PyTorch | `2.69e-4` / `2.54e-5` |
+| FP16 relaxed `1e-3` allclose | `true` |
+| FP16 argmax pixel agreement | `100%` (`0 / 32768` mismatch) |
+
+结论：当前 MX250 / TensorRT 8.6.1 路线下，FP16 engine 可构建且语义输出一致，但没有速度收益，反而比 FP32 慢。因此 Phase 2 主 baseline 应采用 FP32 TensorRT；FP16 作为风险实验记录，不建议作为本机主线优化结论。
+
 SegHead bicubic upsample 验证：
 
 - ONNX 中存在 2 个 SegHead `Resize` 节点，属性为 `mode=cubic`、`coordinate_transformation_mode=half_pixel`、`cubic_coeff_a=-0.75`。
@@ -214,7 +245,7 @@ SegHead bicubic upsample 验证：
 | `wandb` 退出清理 PermissionError | 脚本退出噪声 | Phase 2 脚本启动时禁用/隔离 wandb |
 | LiteMLA shape-adaptive branch | 动态 shape 导出不稳定 | 第一版固定 `1024x2048` |
 | SegHead bicubic upsample | 已验证当前固定 shape / TensorRT 8.6.1 支持；动态 shape 或其他 TensorRT 版本仍需复验 | 不改 bilinear，不作为当前 Plugin 候选；在报告中记录验证边界 |
-| LiteMLA autocast-disabled 语义 | FP16 输出误差可能变大 | 先建立 FP32 baseline，FP16 作为第二轮对比 |
+| LiteMLA autocast-disabled 语义 | FP16 输出误差可能变大 | 已建立 FP32 baseline；FP16 作为风险实验单独验证 |
 
 ---
 
