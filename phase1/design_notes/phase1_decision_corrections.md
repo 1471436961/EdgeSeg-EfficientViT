@@ -1,6 +1,8 @@
 # Phase 1 设计纠偏记录
 
-> 本文记录 Phase 1 实施过程中由人工 review 纠正的关键设计决策与取舍问题。它不是流水账，而是方法论审计：哪些地方曾经判断不严谨、最终如何修正、这些修正为什么影响后续 Phase 2/3。
+> 本文记录 Phase 1 实施过程中由人工 review 纠正的关键设计决策与取舍问题。它不是流水账，也不是学习笔记，而是阶段内方法论审计：哪些地方曾经判断不严谨、最终如何修正、这些修正为什么影响后续 Phase 2/3。
+>
+> 跨阶段摘要见 [`../../PROJECT_DECISION_CORRECTIONS.md`](../../PROJECT_DECISION_CORRECTIONS.md)；概念学习与技术问答沉淀见 [`../../LEARNING_LOG.md`](../../LEARNING_LOG.md)。
 
 ---
 

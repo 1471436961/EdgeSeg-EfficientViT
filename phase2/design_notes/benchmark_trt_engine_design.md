@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入 engine**：`phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`
-> **状态**：v1.6，FP32 / FP16 TensorRT engine benchmark 与 FP32 TensorRT Nsight Systems attribution 均已完成；下一步补 TensorRT C++ runtime demo，再撰写 baseline report。
+> **状态**：v1.7，FP32 / FP16 TensorRT engine benchmark、FP32 TensorRT Nsight Systems attribution、TensorRT C++ runtime demo 与 Phase 2 baseline report 均已完成。
 
 ---
 
@@ -154,7 +154,7 @@ benchmark metadata 记录：
 
 ---
 
-## 6. 当前结果与下一步
+## 6. 当前结果与后续使用
 
 已完成：
 
@@ -189,8 +189,8 @@ TensorRT Nsight attribution 已完成第一版：
 - TensorRT layer attribution 覆盖：`100.00%` execute kernel time
 - residual hotspot 排序：`stage0 > stage2 > stage3 > stage1 > head > stem`
 
-下一步：
+后续使用：
 
-1. 完成轻量 TensorRT C++ runtime demo，验证 FP32 engine 能被 C++ API 加载和执行。
-2. 撰写 `phase2/tensorrt_baseline_report.md`，同时引用 FP32/FP16 benchmark 与 TensorRT Nsight attribution。
-3. 报告中使用“数值接近且语义输出一致”的保守表述，并记录 FP16 风险实验结论：可构建、语义一致、但在 MX250 上慢于 FP32。
+1. Phase 3 Plugin benchmark 应沿用本脚本的 execute-only CUDA Events 口径、`warmup=20 / measure=100` 和输出对齐字段。
+2. 含 Plugin engine 的 latency 需要同时对比 PyTorch Phase 1 baseline、TensorRT FP32 baseline 与 Plugin engine。
+3. 报告中继续使用“数值接近且语义输出一致”的保守表述；若 Plugin 改变内部精度策略，需要重新定义 relaxed allclose 与 argmax agreement 阈值。

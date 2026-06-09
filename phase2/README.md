@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark、TensorRT Nsight Systems runtime attribution、TensorRT C++ runtime demo 均已完成；下一步撰写 Phase 2 baseline report。
+> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark、TensorRT Nsight Systems runtime attribution、TensorRT C++ runtime demo 与 Phase 2 baseline report 均已完成。
 
 ---
 
@@ -79,7 +79,7 @@ Phase 2 不做：
   - 输出 binding 信息、输出 checksum / 简单统计，不追求独立性能优化。
   - 记录 CMake / MSVC / TensorRT include/lib 路径，为 Phase 3 Plugin 集成做工程预热。
   - 当前状态：`phase2/cpp_demo/` 与设计文档已落盘；`efficientvit` 环境已安装 CMake `4.2.3`；最小 MSVC C++ Build Tools 组件安装于 `E:\VSBuildTools`；C++ demo 已成功构建并运行 FP32 engine smoke。
-- [ ] Step 8：撰写 `phase2/tensorrt_baseline_report.md`。
+- [x] Step 8：撰写 `phase2/tensorrt_baseline_report.md`。
   - PyTorch vs ONNXRuntime vs TensorRT 对比。
   - TensorRT 后热点是否变化。
   - Phase 3 Plugin 候选是否需要调整。
@@ -91,6 +91,7 @@ Phase 2 不做：
 ```text
 phase2/
 |-- README.md
+|-- tensorrt_baseline_report.md
 |-- scripts/
 |   |-- _compat.py
 |   |-- _common.py
@@ -104,6 +105,7 @@ phase2/
 |   |-- benchmark_trt_engine_design.md
 |   |-- build_trt_engine_design.md
 |   |-- onnx_export_design.md
+|   |-- phase2_decision_corrections.md
 |   |-- trt_cpp_demo_design.md
 |   `-- trt_nsys_attribution_design.md
 |-- cpp_demo/

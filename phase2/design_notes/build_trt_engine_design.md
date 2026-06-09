@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **输入产物**：`phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx`
-> **状态**：v1.6，FP32 / FP16 engine 均已成功构建；FP16 仅作为风险实验记录；TensorRT Nsight attribution 已完成第一版，Phase 2 仍需补 C++ runtime demo 和 baseline report。
+> **状态**：v1.7，FP32 / FP16 engine 均已成功构建；FP16 仅作为风险实验记录；TensorRT Nsight attribution、C++ runtime demo 与 Phase 2 baseline report 均已完成。
 
 ---
 
@@ -149,7 +149,7 @@ D:\software\anaconda3\envs\efficientvit\Lib\site-packages\nvidia\cuda_nvrtc\bin
 
 ---
 
-## 6. 当前结果与下一步
+## 6. 当前结果与后续使用
 
 已完成：
 
@@ -159,8 +159,8 @@ D:\software\anaconda3\envs\efficientvit\Lib\site-packages\nvidia\cuda_nvrtc\bin
 4. engine metadata 已写入 `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp32.json`。
 5. FP16 engine 也已构建成功，metadata 写入 `phase2/results/metrics/trt_build_b0_cityscapes_1024x2048_fp16.json`。
 
-下一步：
+后续使用：
 
-1. 补做轻量 TensorRT C++ runtime demo，验证 FP32 engine 能被 C++ API 加载和执行。
-2. 在 `phase2/tensorrt_baseline_report.md` 中汇总 FP32 / FP16 runtime latency、输出对齐结果与 TensorRT Nsight attribution。
-3. 在报告中解释 INT64 -> INT32 cast / clamp、TF32 disabled、固定 shape bicubic Resize、FP16 风险实验、TensorRT C++ demo 状态，以及 TensorRT 后残余热点对 Phase 3 Plugin 排序的影响。
+1. Phase 3 若引入 Plugin，应以当前 FP32 engine 作为无 Plugin TensorRT baseline。
+2. 含 Plugin engine 的构建脚本应复用本脚本的 TensorRT root / DLL path / metadata 记录口径。
+3. 若切换 TensorRT 版本、GPU、workspace 或 precision strategy，需要重新生成 engine metadata，并在 Phase 3 报告中与本 baseline 区分。

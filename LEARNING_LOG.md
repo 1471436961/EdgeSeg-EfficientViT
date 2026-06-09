@@ -89,4 +89,46 @@ A: 这是正常现象。当前比较的是 PyTorch CUDA 输出和 ONNXRuntime CP
 
 Q: TensorRT 的基本工作流是什么？
 
-A: TensorRT 工作流可以概括为 `PyTorch -> ONNX -> TensorRT parser -> TensorRT builder -> engine -> runtime inference / benchmark`。ONNX 是桥梁，负责把 PyTorch 模型变成可交换的静态图；TensorRT parser 读取 ONNX 并转换成 TensorRT network；builder 根据 GPU、shape、dtype、workspace 和 tactic 选择生成针对当前环境优化过的 engine；runtime 反序列化 engine、绑定输入输出 buffer，并执行推理。Phase 2 的目标是先建立“无自定义 Plugin 的 TensorRT baseline”：验证 ONNX 能否被 TensorRT 解析，先构建 FP32 engine，再尝试 FP16 engine，使用与 Phase 1 可比的 CUDA Events latency 口径，并检查 TensorRT 输出与 PyTorch / ONNXRuntime 的误差。这样可以回答标准 Conv/MBConv 热点是否已被 TensorRT 自动优化、LiteMLA 是否仍是残余热点，以及 Phase 3 Plugin 候选是否需要调整。
+A: TensorRT 总流程可以概括为 `PyTorch -> ONNX -> TensorRT parser -> TensorRT builder -> engine -> runtime inference / benchmark -> C++ runtime demo`。前半段是“构建期”：ONNX 把 PyTorch 模型变成静态图，TensorRT parser 把 ONNX 转成 TensorRT network，builder 根据 GPU、shape、dtype、workspace 和 tactic 选择生成当前机器专用的 serialized engine。后半段是“运行期”：runtime 不再解析 ONNX，而是直接反序列化 engine、创建 execution context、绑定输入输出 GPU buffer，并 enqueue 执行推理。
+
+TensorRT C++ 工作流更贴近真实部署：第一步用 `ILogger` 创建日志器，用 `nvinfer1::createInferRuntime(logger)` 得到 `IRuntime`；第二步读取 `.engine` 文件字节，通过 `runtime->deserializeCudaEngine(...)` 得到 `ICudaEngine`；第三步用 `engine->createExecutionContext()` 创建 `IExecutionContext`；第四步查询 input/output binding 的 name、shape、dtype 和元素数量，按这些信息分配 host buffer 与 CUDA device buffer；第五步准备输入，把 host input 通过 `cudaMemcpy` 拷到 device input；第六步把 device pointer 放入 bindings 数组，调用 `context->executeV2(...)` 或异步版本 `enqueueV2 / enqueueV3`；第七步同步 CUDA stream，把 device output 拷回 host，再做输出统计或对齐检查；最后释放 CUDA buffer 和 TensorRT 对象。CMake/编译层面还要能找到 TensorRT include/lib，并在运行时让 Windows 能找到 `nvinfer.dll` 等 DLL。
+
+Python 侧的 `build_trt_engine.py` / `benchmark_trt_engine.py` 更适合完成 engine 构建、latency benchmark、输出对齐和 Nsight attribution；C++ demo 的重点不是重新做严谨 benchmark，而是验证部署侧 TensorRT Runtime API 的最小闭环。它的价值在于为 Phase 3 Plugin 链路预热：后续自定义 Plugin 需要在 C++/TensorRT runtime 中注册、反序列化、加载 engine 并执行推理，C++ demo 证明这条工程链已经能跑通。
+
+## 2026-06-10
+
+Q: `logits diff`、`relaxed allclose`、`cosine similarity`、`argmax pixel agreement` 分别在 Phase 2 中说明什么？
+
+A: `logits diff` 直接比较 TensorRT / ONNXRuntime 输出 logits 和 PyTorch reference 的逐元素误差，常看 `max_abs_diff` 与 `mean_abs_diff`；它能发现数值偏移，但不直接等价于语义错误。`relaxed allclose` 是放宽阈值后的逐元素近似一致性判断，例如 TensorRT FP32 strict `1e-4` 未过但 relaxed `1e-3` 通过，说明误差可解释但不能写成“逐元素严格一致”。`cosine similarity` 看两个输出向量方向是否几乎一致，适合衡量整体 logits 分布是否接近。`argmax pixel agreement` 比较每个像素最终类别是否一致；当前样图 `100%` 一致，说明语义分割输出在这张图上没有类别变化。Phase 2 的正确表述是“数值接近且语义输出一致”，不是“bitwise identical”。
+
+Q: bicubic 和 bilinear resize 有什么区别，为什么 SegHead 的 bicubic 在 Phase 2 要单独记录？
+
+A: bilinear 使用 2x2 邻域做线性插值，计算简单、边界清晰、部署框架普遍支持；bicubic 使用 4x4 邻域做三次插值，结果通常更平滑，但算子参数和实现细节更多，例如 cubic 系数、坐标变换模式、align/half-pixel 语义等。EfficientViT-Seg 的 SegHead ONNX 中存在 `mode=cubic` 的 `Resize` 节点，因此一开始担心 TensorRT parser/build 不支持或语义不一致。Phase 2 已验证：当前固定 shape、TensorRT 8.6.1、`mode=cubic`、`half_pixel`、`cubic_coeff_a=-0.75` 组合可以 parse/build/runtime，不是当前阻塞项。但这个结论不能外推到动态 shape、其他 TensorRT 版本或其他 cubic 参数。
+
+Q: `tensorrt==8.6.1` 的 pip 包和 NVIDIA archived Windows zip 有什么区别？
+
+A: pip 包主要提供 Python binding，方便 `import tensorrt`；但 TensorRT 真正运行还依赖本地 DLL、lib、header、parser/runtime 库等。NVIDIA archived Windows zip 提供完整的本地 TensorRT runtime / builder / include / lib 文件，是 Windows 上手动部署 legacy TensorRT 的核心来源。本项目的 MX250 是 Pascal `sm_61`，新版 pip TensorRT / TensorRT 10+ 路线可能安装成功但 builder 不支持该 GPU；最终采用 archived TensorRT 8.6.1 Windows zip，再配合 Python wheel 和显式 DLL path 注入，才让 build / benchmark / C++ demo 都跑通。
+
+Q: 为什么 `benchmark_trt_engine.py` 用 PyTorch CUDA tensor 作为 TensorRT binding buffer？
+
+A: TensorRT C++/Python runtime 执行时需要的是 GPU 内存地址，`bindings[input_idx] = int(input_tensor.data_ptr())` 和 `bindings[output_idx] = int(output_tensor.data_ptr())` 本质上是把 PyTorch CUDA tensor 的底层 device pointer 交给 TensorRT。这样可以复用 PyTorch 的 CUDA runtime、显存分配和 stream，避免第一版引入 pycuda / cuda-python 新依赖。代价是必须严格保证 tensor 生命周期覆盖 TensorRT 执行期，shape/dtype 与 engine binding 完全一致，tensor contiguous，且位于正确 CUDA device。这个方案适合 Python benchmark；C++ demo 则使用 TensorRT/CUDA 原生 buffer，服务 Phase 3 Plugin 集成链路。
+
+Q: HardSwish 是什么运算，为什么在 TensorRT attribution 中经常出现？
+
+A: HardSwish 是 Swish 的分段线性近似，常见公式是 `x * ReLU6(x + 3) / 6`，在移动端网络和 EfficientViT 的 MBConv / Conv-Act 路径中很常见。它比标准 Swish 更容易高效实现，因为不需要 sigmoid。TensorRT attribution 中大量 `PWN(...HardSwish...)` 表示 TensorRT 把 HardSwish 相关 pointwise 操作融合成 pointwise fusion layer。它说明 TensorRT 对标准 activation/pointwise 链有自动融合能力，也支持“标准 MBConv/Conv 链未必适合作为首个自定义 Plugin 主线”的判断。
+
+Q: EngineInspector / ONNX node name 映射能说明 TensorRT 具体优化了什么吗？
+
+A: 能说明结构变化，但不能单独说明真实耗时。EngineInspector 显示 ONNX `393` nodes 被 TensorRT 降到 `155` engine layers，存在 `PWN(...)` pointwise fusion、layer name 中的显式 `+` fusion、Conv/Add 合并、部分 activation fusion 等，这说明 TensorRT 做了图优化和算子融合。但 EngineInspector 当前主要是 layer name 级结构证据，不含完整 tactic metadata，也不提供 GPU kernel duration。真实瓶颈仍要看 Nsight SQLite attribution；报告中应把 EngineInspector 作为“TensorRT 做了哪些结构优化”的辅助证据，而不是 runtime 排序依据。
+
+Q: TensorRT 优化后，LiteMLA 是否已经被自动融合成一个算子？
+
+A: 没有。Phase 2 EngineInspector 和 Nsight attribution 都显示，`stage2/context` LiteMLA 没有被 TensorRT 自动合成一个单独 fused operator；仍能看到 `qkv/Conv`、`aggregation Conv`、`Relu`、`Pad`、`MatMul`、`Add/Div`、`proj/Conv + Add` 等多个相关 engine layers。Nsight 中 `stage2/context` 仍有约 `6.383 ms / iter` 和 `42 launches / iter`。这说明 TensorRT 虽然做了局部 pointwise / Conv+Add 融合，但并没有完成 LiteMLA 级别的整体融合，因此 Phase 3 继续评估 LiteMLA Plugin 仍有依据。
+
+Q: Phase 1 的 `relu_linear_att` 与 Phase 2 TensorRT attribution 中的 `matmul / aggregation / pad / relu_qk / qkv / proj_add / norm_add_div` 怎么对应？
+
+A: Phase 1 Plan D 是 PyTorch 源码语义边界：`qkv`、`aggregation`、`cat`、`relu_linear_att`、`proj`。Phase 2 TensorRT attribution 是 TensorRT layer-name 视角，会把 `relu_linear_att` 内部进一步分散成 `relu_qk`、`pad`、`matmul`、`norm_add_div` 等 proxy component，同时 `aggregation`、`qkv`、`proj_add` 仍能通过 ONNX-like path 大致识别。关键是不能把 Phase 2 的 `attention_core = relu_qk + pad + matmul + norm_add_div` 反向改写成 Phase 1 的 MVP；它只是 TensorRT 侧对 `relu_linear_att` 内部 residual path 的 proxy。Phase 1 候选仍是 `relu_linear_att-only` / `aggregation-only`、`aggregation + cat + relu_linear_att`、整体 LiteMLA fallback。
+
+Q: TensorRT 后各 group 的加速比应该怎么理解？
+
+A: Phase 2 报告新增了同名 group 的近似归因对比：Phase 1 Plan B attributed groups 总计约 `86.818 ms / iter`，TensorRT attributed groups 总计约 `54.454 ms / iter`，group-level 约 `1.59x`，与端到端 p50 speedup `1.57x` 接近，说明 attribution 与 CUDA Events 主结论相互吻合。逐 group 看，`stage0` 绝对节省最大（约 `9.859 ms / iter`），仍是端到端收益最大的工程热点；`stage2` 也被加速但仍保留 `12.179 ms / iter` 和较高 launch density，因此 LiteMLA Plugin 主线仍有 residual evidence。注意 Phase 1 PyTorch NVTX group 和 Phase 2 TensorRT layer-name group 语义接近但不是逐层一一对应。

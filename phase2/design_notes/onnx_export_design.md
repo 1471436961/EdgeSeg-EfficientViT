@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase2/README.md`](../README.md)
 > **关联 Phase 1 基线**：[`phase1/bottleneck_analysis_report.md`](../../phase1/bottleneck_analysis_report.md)
-> **状态**：v1.5，`export_onnx.py` 与 `_compat.py` 已落盘；该 ONNX 已完成 ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 build、benchmark 与 TensorRT Nsight attribution，仍需补 C++ runtime demo 和 Phase 2 baseline report。
+> **状态**：v1.6，`export_onnx.py` 与 `_compat.py` 已落盘；该 ONNX 已完成 ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 build、benchmark、TensorRT Nsight attribution、C++ runtime demo 与 Phase 2 baseline report 引用验证。
 
 ---
 
@@ -267,7 +267,7 @@ phase2/scripts/_compat.py
 
 ---
 
-## 9. 当前结果与下一步
+## 9. 当前结果与后续使用
 
 已完成：
 
@@ -276,5 +276,6 @@ phase2/scripts/_compat.py
 3. 第一版已引入 `phase2/scripts/_compat.py`，不再内联 compat patch。
 4. ONNX 导出、`onnx.checker` 与 ONNXRuntime 对齐验证已通过。
 5. 该 ONNX 已成功构建 TensorRT 8.6.1 FP32 / FP16 engine，并完成 runtime benchmark。
+6. 该 ONNX 已被 TensorRT Nsight attribution、EngineInspector、C++ runtime demo 与 `phase2/tensorrt_baseline_report.md` 引用。
 
-下一步：补轻量 TensorRT C++ runtime demo；随后撰写 `phase2/tensorrt_baseline_report.md`，其中明确 FP32 是本机主 baseline，FP16 是已验证但不建议采用的风险实验，并引用 TensorRT Nsight attribution 对 Phase 3 候选做复核。
+后续使用：Phase 3 若需要重建含 Plugin 的 TensorRT engine，应以当前固定 shape ONNX 作为 baseline 参照；若引入 graph surgery、Plugin 替换或动态 shape，需要单独更新导出设计与验证阈值。
