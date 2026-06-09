@@ -127,8 +127,8 @@
 
 - **目标算子选择（按"求职展示价值"与"端到端收益"双维度排序）**：
   - 🥇 **P1：stage2 LiteMLA Plugin 主线**（默认主交付物） —— LiteMLA 是论文核心创新，也是 TensorRT 难以自动融合的非标准线性注意力结构；它不一定是当前 PyTorch profile 的最大端到端瓶颈，但最能展示非标准算子分析、CUDA kernel 设计和 TensorRT Plugin 集成能力。
-    - **P1a：`attention_core` Plugin（MVP 优先）** —— Phase 2 TensorRT Nsight 细分后，`attention_core = relu_qk + pad + matmul + norm_add_div` 约 `3.689 ms / iter`、`12` launches / iter。它比狭义 `relu_qk` 更符合 LiteMLA 线性注意力核心，也比整体 LiteMLA 边界更适合第一版验证 Plugin 接入。
-    - **P1b：中段组合 Plugin（收益评估主方向）** —— 融合 `aggregation + attention_core`。Phase 2 TensorRT 后该边界约 `5.443 ms / iter`、`38` launches / iter，覆盖 stage2/context 的大部分 residual runtime；它对应 Phase 1 的 `aggregation + cat + relu_linear_att` 思路，但需重新按 TensorRT layer name / ONNX tensor 边界定义精确输入输出。
+    - **P1a：局部单段 Plugin（MVP 优先）** —— Phase 1 Plan D 的 MVP 仍是 `relu_linear_att-only` 或 `aggregation-only`：边界小，便于先验证 TensorRT Plugin 接入、数值对齐、engine 替换与 Nsight attribution。Phase 2 中的 `attention_core = relu_qk + pad + matmul + norm_add_div` 只是 TensorRT layer-name 视角下对 `relu_linear_att` 内部残余路径的 proxy，不反向改写 Phase 1 的 MVP 定义。
+    - **P1b：中段组合 Plugin（收益评估主方向）** —— Phase 1 主性能边界仍是 `aggregation + cat + relu_linear_att`，因为 Plan D 显示 `aggregation` 与 `relu_linear_att` 是两大主耗时，且二者之间存在 `cat` 中间拼接。Phase 2 TensorRT 后可用 `aggregation + attention_core`（约 `5.443 ms / iter`、`38` launches / iter）作为对应的 residual-runtime 复核 proxy，但最终 Plugin 输入输出仍需按 ONNX / TensorRT graph 精确定义。
     - **P1c：整体 LiteMLA Plugin（fallback / 上限方案）** —— 若单段或中段组合方案收益不足、TensorRT 图集成边界不合适，或希望最大化融合空间，再考虑整体 LiteMLA 级 Plugin。它不是优先 MVP，而是复杂度更高的兜底/上限方案。
   - 🥈 **P2：标准算子链工程优化候选（stage0 / head / stage2-local）** —— 这些区域在 PyTorch Nsight 结果中占比高，端到端收益潜力更直接；Phase 2 TensorRT Nsight 仍显示 `stage0` 是最大 residual hotspot、`stage2` 第二，但这类区域主要由 MBConv / Conv / BN / activation / upsample / add 等标准算子链构成，是否值得手写 Plugin 仍需按展示价值和 TensorRT 已优化程度谨慎排序。
     - **P2a：stage0 early MBConv / Conv 堆叠** —— 当前 PyTorch 与 TensorRT 两条路径下都很重，主要受高分辨率 feature map 和 memory traffic 影响；端到端收益潜力高，但自定义 Plugin 展示区分度低于 LiteMLA。

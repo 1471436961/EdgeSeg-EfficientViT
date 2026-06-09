@@ -239,8 +239,9 @@ Group-level 结构变化：
 
 - TensorRT 后，`matmul` 与 `aggregation` 仍是 `stage2/context` 的前两项 residual runtime。
 - `aggregation` 的 launches / iter 高达 `26.0`，说明它虽然是标准 Conv 路径，但仍有明显 launch density / kernel fragmentation 问题。
-- `relu_qk` 已被 TensorRT pointwise fusion 压到 `0.685 ms / iter`，不再适合作为单独最高收益 Plugin 边界。
-- Phase 3 第一版候选应从“只做狭义 ReLU pointwise”调整为更谨慎的两步：先用 `attention_core`（`relu_qk + pad + matmul + norm_add_div`）做 MVP 验证 Plugin 接入，再评估 `aggregation + attention_core` 的组合边界是否值得扩大。
+- `relu_qk` 已被 TensorRT pointwise fusion 压到 `0.685 ms / iter`，不应被误读为 Phase 1 的最高收益 MVP；Phase 1 Plan D 的 MVP 仍是 `relu_linear_att-only` 或 `aggregation-only`。
+- `attention_core`（`relu_qk + pad + matmul + norm_add_div`）是 TensorRT layer-name 视角下对 `relu_linear_att` 内部残余路径的 proxy；`aggregation + attention_core` 是 Phase 1 `aggregation + cat + relu_linear_att` 中段组合在 TensorRT 侧的 residual-runtime proxy。
+- Phase 3 第一版仍建议先做局部单段 Plugin 验证接入与数值对齐，再评估中段组合是否值得扩大；不能把 TensorRT proxy 名称反向改写成 Phase 1 Plan D 的候选定义。
 
 证据边界：
 

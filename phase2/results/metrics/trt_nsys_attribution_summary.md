@@ -62,6 +62,7 @@ NVTX range duration itself is not used as GPU component time.
 - Share of execute kernel time: 11.72%
 
 Component mapping is inferred from TensorRT layer names. It is a runtime attribution summary, not EngineInspector tactic metadata.
+`attention_core` is a TensorRT-side proxy for residual paths inside Phase 1 `relu_linear_att`; it does not replace the Phase 1 Plan D MVP candidates (`relu_linear_att-only` / `aggregation-only`) or the Phase 1 main performance boundary (`aggregation + cat + relu_linear_att`).
 
 ### Stage2 Context Components
 
@@ -171,3 +172,4 @@ Component mapping is inferred from TensorRT layer names. It is a runtime attribu
 - This summary uses TensorRT-emitted layer NVTX ranges, not PyTorch module hooks.
 - Group names are inferred from ONNX-like layer paths such as `/backbone/stages.2/...`.
 - This can answer residual hotspot trends after TensorRT, but it is not a one-to-one replay of Phase 1 Plan B/C/D ranges.
+- `attention_core` / `aggregation_plus_attention_core` are TensorRT-side residual-runtime proxy boundaries; they should be mapped back to Phase 1 Plan D as `relu_linear_att` internal residual paths and `aggregation + cat + relu_linear_att`, not treated as renamed Phase 1 MVP definitions.

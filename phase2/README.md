@@ -321,7 +321,7 @@ TensorRT 后 `stage2/context` 细粒度 runtime 归因：
 | `attention_core` | `relu_qk + pad + matmul + norm_add_div` | `3.689` | `6.77%` | `12.0` |
 | `aggregation_only` | `aggregation` | `1.754` | `3.22%` | `26.0` |
 
-说明：这张表来自 `trt_nsys_attribution_summary.md` 的 TensorRT layer-name heuristic mapping，真实时间仍是 CUDA kernel `correlationId` attribution。它显示 TensorRT 后 `matmul` 与 `aggregation` 仍是 `stage2/context` 的主要 residual runtime；`relu_qk` 已被 pointwise fusion 压低，不应单独当作最高收益候选。Phase 3 的 LiteMLA MVP 更适合表述为 `attention_core`，而不是狭义的 `relu_qk`。
+说明：这张表来自 `trt_nsys_attribution_summary.md` 的 TensorRT layer-name heuristic mapping，真实时间仍是 CUDA kernel `correlationId` attribution。它显示 TensorRT 后 `matmul` 与 `aggregation` 仍是 `stage2/context` 的主要 residual runtime；`relu_qk` 已被 pointwise fusion 压低，不应单独当作最高收益候选。这里的 `attention_core` 是 TensorRT 侧对 Phase 1 `relu_linear_att` 内部残余路径的 proxy，不反向替代 Phase 1 Plan D 的候选定义；Phase 3 第一版 MVP 仍应从 `relu_linear_att-only` / `aggregation-only` 这种局部单段边界开始，随后评估 `aggregation + cat + relu_linear_att` 的中段组合收益。
 
 当前 TensorRT EngineInspector / ONNX node name 映射结果：
 
@@ -363,7 +363,7 @@ Phase 1 给出 PyTorch 路径证据：
 
 - `stage0` 是当前 PyTorch 最大 GPU kernel 热点。
 - `stage2/context` LiteMLA 是最高区分度 Plugin 主线。
-- Phase 1 Plan D 将 LiteMLA 候选细化为 `aggregation-only` / `relu_linear_att-only`、`aggregation + cat + relu_linear_att`、整体 LiteMLA fallback；Phase 2 TensorRT 细分后进一步把第一版 MVP 候选收敛为 `attention_core`，并把收益评估边界改写为 `aggregation + attention_core`。
+- Phase 1 Plan D 将 LiteMLA 候选细化为 `aggregation-only` / `relu_linear_att-only`、`aggregation + cat + relu_linear_att`、整体 LiteMLA fallback。Phase 2 TensorRT 细分只提供 residual-runtime 复核：`attention_core` 对应 TensorRT 侧的 `relu_linear_att` 内部残余路径 proxy，`aggregation + attention_core` 对应 Phase 1 中段组合的 TensorRT 侧 proxy；它们不能反向改写 Phase 1 的 MVP / 主性能边界。
 
 Phase 2 要验证：
 
