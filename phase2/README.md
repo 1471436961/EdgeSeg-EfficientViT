@@ -93,6 +93,8 @@ phase2/
 |-- README.md
 |-- scripts/
 |   |-- _compat.py
+|   |-- _common.py
+|   |-- _trt_runtime.py
 |   |-- analyze_trt_nsys_attribution.py
 |   |-- benchmark_trt_engine.py
 |   |-- build_trt_engine.py

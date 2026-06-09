@@ -8,28 +8,19 @@ failures remain easy to diagnose.
 from __future__ import annotations
 
 import argparse
-import hashlib
-import importlib.metadata
 import json
-import os
 import platform
-import site
-import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
+from _common import resolve_script_version, sha256_of_file, version_of
+from _trt_runtime import DEFAULT_TRT_ROOT, prepare_runtime_paths
 
 
 SCRIPT_NAME = "build_trt_engine.py"
-DEFAULT_TRT_ROOT = Path(r"E:\NVIDIA\TensorRT-8.6.1.6")
 DEFAULT_ONNX = Path("phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx")
 DEFAULT_WORKSPACE_MIB = 1024
-_DLL_DIRECTORY_HANDLES: List[object] = []
-
-
-def repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
 
 
 def default_engine_path(precision: str) -> Path:
@@ -53,80 +44,6 @@ def parse_args() -> argparse.Namespace:
     args.engine = args.engine or default_engine_path(args.precision)
     args.metadata = args.metadata or default_metadata_path(args.precision)
     return args
-
-
-def sha256_of_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def version_of(package: str) -> Optional[str]:
-    try:
-        return importlib.metadata.version(package)
-    except importlib.metadata.PackageNotFoundError:
-        return None
-
-
-def resolve_script_version() -> str:
-    root = repo_root()
-    try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=root,
-            text=True,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        ).strip()
-        rel = Path(__file__).resolve().relative_to(root)
-        diff = subprocess.run(
-            ["git", "diff", "--quiet", "HEAD", "--", str(rel)],
-            cwd=root,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        suffix = "-dirty" if diff.returncode == 1 else ""
-        return f"{SCRIPT_NAME}@{commit}{suffix}"
-    except Exception:
-        return f"{SCRIPT_NAME}@unknown"
-
-
-def candidate_runtime_dirs(trt_root: Path) -> List[Path]:
-    dirs: List[Path] = [
-        trt_root / "lib",
-        trt_root / "bin",
-    ]
-    for site_dir in site.getsitepackages():
-        base = Path(site_dir) / "nvidia"
-        dirs.extend(
-            [
-                base / "cudnn" / "bin",
-                base / "cublas" / "bin",
-                base / "cuda_nvrtc" / "bin",
-            ]
-        )
-    return dirs
-
-
-def prepare_runtime_paths(trt_root: Path) -> Dict[str, Any]:
-    """Make TensorRT/cuDNN/cuBLAS DLLs visible to this Python process."""
-    added: List[str] = []
-    missing: List[str] = []
-    for path in candidate_runtime_dirs(trt_root):
-        if path.is_dir():
-            _DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(str(path)))
-            os.environ["PATH"] = f"{path}{os.pathsep}{os.environ.get('PATH', '')}"
-            added.append(str(path))
-        else:
-            missing.append(str(path))
-    return {
-        "trt_root": str(trt_root),
-        "dll_dirs_added": added,
-        "candidate_dirs_missing": missing,
-    }
 
 
 def input_shape_to_list(shape) -> List[int]:
@@ -249,7 +166,7 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
             "engine_is_gpu_and_tensorrt_version_specific",
         ],
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "script_version": resolve_script_version(),
+        "script_version": resolve_script_version(SCRIPT_NAME, Path(__file__)),
     }
     metadata_path.write_text(json.dumps(build_meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return build_meta
@@ -267,7 +184,7 @@ def save_failure_metadata(args: argparse.Namespace, error: Exception) -> None:
         "error_type": type(error).__name__,
         "error": str(error),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "script_version": resolve_script_version(),
+        "script_version": resolve_script_version(SCRIPT_NAME, Path(__file__)),
     }
     metadata_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 

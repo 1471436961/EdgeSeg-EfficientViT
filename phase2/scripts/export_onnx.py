@@ -9,46 +9,33 @@ ONNXRuntime CPU validation, and writes a reproducibility metadata JSON.
 from __future__ import annotations
 
 import argparse
-import hashlib
-import importlib.metadata
-import json
 import math
 import platform
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import torch
 
 from _compat import install_import_compat_patches
+from _common import (
+    DEFAULT_RESOLUTION,
+    parse_resolution,
+    repo_root,
+    resolve_script_version,
+    save_json,
+    sha256_of_file,
+    sha256_of_tensor,
+    version_of,
+)
 
 
 SCRIPT_NAME = "export_onnx.py"
 DEFAULT_OPSET = 17
-DEFAULT_RESOLUTION = (1024, 2048)
 DEFAULT_ATOL = 1e-4
 DEFAULT_RTOL = 1e-4
-
-
-def parse_resolution(value: str) -> Tuple[int, int]:
-    text = value.lower().replace("x", " ").replace(",", " ")
-    parts = [p for p in text.split() if p]
-    if len(parts) != 2:
-        raise argparse.ArgumentTypeError("resolution must look like 1024x2048")
-    try:
-        h, w = int(parts[0]), int(parts[1])
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("resolution values must be integers") from exc
-    if h <= 0 or w <= 0:
-        raise argparse.ArgumentTypeError("resolution values must be positive")
-    return h, w
-
-
-def repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
 
 
 def default_output_path(args: argparse.Namespace) -> Path:
@@ -79,50 +66,6 @@ def parse_args() -> argparse.Namespace:
     args.output = args.output or default_output_path(args)
     args.metadata = args.metadata or default_metadata_path(args)
     return args
-
-
-def sha256_of_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def sha256_of_tensor(t: torch.Tensor) -> str:
-    arr = t.detach().to("cpu").contiguous().numpy()
-    return hashlib.sha256(arr.tobytes()).hexdigest()
-
-
-def version_of(package: str) -> Optional[str]:
-    try:
-        return importlib.metadata.version(package)
-    except importlib.metadata.PackageNotFoundError:
-        return None
-
-
-def resolve_script_version() -> str:
-    root = repo_root()
-    try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=root,
-            text=True,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        ).strip()
-        rel = Path(__file__).resolve().relative_to(root)
-        diff = subprocess.run(
-            ["git", "diff", "--quiet", "HEAD", "--", str(rel)],
-            cwd=root,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        suffix = "-dirty" if diff.returncode == 1 else ""
-        return f"{SCRIPT_NAME}@{commit}{suffix}"
-    except Exception:
-        return f"{SCRIPT_NAME}@unknown"
 
 
 def build_model(args: argparse.Namespace) -> Tuple[torch.nn.Module, Dict[str, Any], Dict[str, Any]]:
@@ -297,13 +240,8 @@ def assemble_metadata(
             "phase2_first_version_uses_legacy_torch_onnx_export",
         ],
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "script_version": resolve_script_version(),
+        "script_version": resolve_script_version(SCRIPT_NAME, Path(__file__)),
     }
-
-
-def save_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def main() -> None:

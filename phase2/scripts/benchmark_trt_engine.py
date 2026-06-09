@@ -7,14 +7,8 @@ allocated before timing, and preprocessing is outside the measured region.
 from __future__ import annotations
 
 import argparse
-import hashlib
-import importlib.metadata
-import json
 import math
-import os
 import platform
-import site
-import subprocess
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,18 +16,22 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
+from _common import (
+    DEFAULT_RESOLUTION,
+    parse_resolution,
+    resolve_script_version,
+    save_json,
+    sha256_of_file,
+    sha256_of_tensor,
+    version_of,
+)
+from _trt_runtime import DEFAULT_TRT_ROOT, load_serialized_engine
+
 
 SCRIPT_NAME = "benchmark_trt_engine.py"
 DEFAULT_ATOL = 1e-4
 DEFAULT_RTOL = 1e-4
-DEFAULT_RESOLUTION = (1024, 2048)
-DEFAULT_TRT_ROOT = Path(r"E:\NVIDIA\TensorRT-8.6.1.6")
-_DLL_DIRECTORY_HANDLES: List[object] = []
 torch = None
-
-
-def repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
 
 
 def default_engine_path(precision: str) -> Path:
@@ -42,20 +40,6 @@ def default_engine_path(precision: str) -> Path:
 
 def default_metadata_path(precision: str) -> Path:
     return Path(f"phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_{precision}.json")
-
-
-def parse_resolution(value: str) -> Tuple[int, int]:
-    text = value.lower().replace("x", " ").replace(",", " ")
-    parts = [p for p in text.split() if p]
-    if len(parts) != 2:
-        raise argparse.ArgumentTypeError("resolution must look like 1024x2048")
-    try:
-        h, w = int(parts[0]), int(parts[1])
-    except ValueError as exc:
-        raise argparse.ArgumentTypeError("resolution values must be integers") from exc
-    if h <= 0 or w <= 0:
-        raise argparse.ArgumentTypeError("resolution values must be positive")
-    return h, w
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,101 +66,12 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def version_of(package: str):
-    try:
-        return importlib.metadata.version(package)
-    except importlib.metadata.PackageNotFoundError:
-        return None
-
-
-def sha256_of_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def sha256_of_tensor(t) -> str:
-    arr = t.detach().to("cpu").contiguous().numpy()
-    return hashlib.sha256(arr.tobytes()).hexdigest()
-
-
-def resolve_script_version() -> str:
-    root = repo_root()
-    try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=root,
-            text=True,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        ).strip()
-        rel = Path(__file__).resolve().relative_to(root)
-        diff = subprocess.run(
-            ["git", "diff", "--quiet", "HEAD", "--", str(rel)],
-            cwd=root,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        suffix = "-dirty" if diff.returncode == 1 else ""
-        return f"{SCRIPT_NAME}@{commit}{suffix}"
-    except Exception:
-        return f"{SCRIPT_NAME}@unknown"
-
-
-def candidate_runtime_dirs(trt_root: Path) -> List[Path]:
-    dirs = [trt_root / "lib", trt_root / "bin"]
-    for site_dir in site.getsitepackages():
-        base = Path(site_dir) / "nvidia"
-        dirs.extend(
-            [
-                base / "cudnn" / "bin",
-                base / "cublas" / "bin",
-                base / "cuda_nvrtc" / "bin",
-            ]
-        )
-    return dirs
-
-
-def prepare_runtime_paths(trt_root: Path) -> Dict[str, Any]:
-    added: List[str] = []
-    missing: List[str] = []
-    for path in candidate_runtime_dirs(trt_root):
-        if path.is_dir():
-            _DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(str(path)))
-            os.environ["PATH"] = f"{path}{os.pathsep}{os.environ.get('PATH', '')}"
-            added.append(str(path))
-        else:
-            missing.append(str(path))
-    return {
-        "trt_root": str(trt_root),
-        "dll_dirs_added": added,
-        "candidate_dirs_missing": missing,
-    }
-
-
 def load_engine(engine_path: Path, trt_root: Path):
-    runtime_meta = prepare_runtime_paths(trt_root.expanduser().resolve())
-    try:
-        import tensorrt as trt
-    except Exception as exc:
-        raise RuntimeError(f"failed to import TensorRT after DLL path setup: {exc}") from exc
-
-    engine_path = engine_path.expanduser().resolve()
-    if not engine_path.is_file():
-        raise FileNotFoundError(f"engine file not found: {engine_path}")
-
-    logger = trt.Logger(trt.Logger.WARNING)
-    runtime = trt.Runtime(logger)
-    engine = runtime.deserialize_cuda_engine(engine_path.read_bytes())
-    if engine is None:
-        raise RuntimeError(f"failed to deserialize TensorRT engine: {engine_path}")
+    trt, runtime_meta, runtime, engine = load_serialized_engine(engine_path, trt_root)
     context = engine.create_execution_context()
     if context is None:
         raise RuntimeError("failed to create TensorRT execution context")
-    return trt, runtime_meta, engine, context
+    return trt, runtime_meta, runtime, engine, context
 
 
 def binding_shape_to_tuple(shape) -> Tuple[int, ...]:
@@ -335,15 +230,10 @@ def compare_outputs(trt_output: torch.Tensor, reference: np.ndarray, atol: float
     }
 
 
-def save_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-
-
 def main() -> None:
     global torch
     args = parse_args()
-    trt, runtime_meta, engine, context = load_engine(args.engine, args.trt_root)
+    trt, runtime_meta, _runtime, engine, context = load_engine(args.engine, args.trt_root)
 
     import torch as torch_module
     from export_onnx import build_input_tensor, build_model, run_pytorch_reference
@@ -428,7 +318,7 @@ def main() -> None:
         },
         "known_risks": known_risks,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "script_version": resolve_script_version(),
+        "script_version": resolve_script_version(SCRIPT_NAME, Path(__file__)),
     }
     save_json(args.metadata, payload)
     print(

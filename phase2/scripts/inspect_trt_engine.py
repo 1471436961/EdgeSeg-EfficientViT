@@ -8,31 +8,23 @@ analyze_trt_nsys_attribution.py and Nsight SQLite correlationId joins.
 from __future__ import annotations
 
 import argparse
-import hashlib
-import importlib.metadata
 import json
-import os
 import platform
 import re
-import site
-import subprocess
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
+
+from _common import resolve_script_version, sha256_of_file, version_of
+from _trt_runtime import DEFAULT_TRT_ROOT, load_serialized_engine
 
 
 SCRIPT_NAME = "inspect_trt_engine.py"
-DEFAULT_TRT_ROOT = Path(r"E:\NVIDIA\TensorRT-8.6.1.6")
 DEFAULT_ENGINE = Path("phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine")
 DEFAULT_ONNX = Path("phase2/results/onnx/efficientvit_seg_b0_cityscapes_1024x2048.onnx")
 DEFAULT_OUT_JSON = Path("phase2/results/metrics/trt_engine_inspection_summary.json")
 DEFAULT_OUT_MD = Path("phase2/results/metrics/trt_engine_inspection_summary.md")
-_DLL_DIRECTORY_HANDLES: List[object] = []
-
-
-def repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,76 +35,6 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--out-json", type=Path, default=DEFAULT_OUT_JSON, help="JSON summary output.")
     p.add_argument("--out-md", type=Path, default=DEFAULT_OUT_MD, help="Markdown summary output.")
     return p.parse_args()
-
-
-def sha256_of_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def version_of(package: str) -> Optional[str]:
-    try:
-        return importlib.metadata.version(package)
-    except importlib.metadata.PackageNotFoundError:
-        return None
-
-
-def resolve_script_version() -> str:
-    root = repo_root()
-    try:
-        commit = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=root,
-            text=True,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        ).strip()
-        rel = Path(__file__).resolve().relative_to(root)
-        diff = subprocess.run(
-            ["git", "diff", "--quiet", "HEAD", "--", str(rel)],
-            cwd=root,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=2,
-        )
-        suffix = "-dirty" if diff.returncode == 1 else ""
-        return f"{SCRIPT_NAME}@{commit}{suffix}"
-    except Exception:
-        return f"{SCRIPT_NAME}@unknown"
-
-
-def candidate_runtime_dirs(trt_root: Path) -> List[Path]:
-    dirs = [trt_root / "lib", trt_root / "bin"]
-    for site_dir in site.getsitepackages():
-        base = Path(site_dir) / "nvidia"
-        dirs.extend(
-            [
-                base / "cudnn" / "bin",
-                base / "cublas" / "bin",
-                base / "cuda_nvrtc" / "bin",
-            ]
-        )
-    return dirs
-
-
-def prepare_runtime_paths(trt_root: Path) -> Dict[str, Any]:
-    added: List[str] = []
-    missing: List[str] = []
-    for path in candidate_runtime_dirs(trt_root):
-        if path.is_dir():
-            _DLL_DIRECTORY_HANDLES.append(os.add_dll_directory(str(path)))
-            os.environ["PATH"] = f"{path}{os.pathsep}{os.environ.get('PATH', '')}"
-            added.append(str(path))
-        else:
-            missing.append(str(path))
-    return {
-        "trt_root": str(trt_root),
-        "dll_dirs_added": added,
-        "candidate_dirs_missing": missing,
-    }
 
 
 def group_name(name: str) -> str:
@@ -174,15 +96,7 @@ def load_onnx_nodes(onnx_path: Path) -> List[Dict[str, Any]]:
 
 
 def load_engine_layers(engine_path: Path, trt_root: Path) -> Dict[str, Any]:
-    runtime_meta = prepare_runtime_paths(trt_root.expanduser().resolve())
-
-    import tensorrt as trt
-
-    logger = trt.Logger(trt.Logger.WARNING)
-    runtime = trt.Runtime(logger)
-    engine = runtime.deserialize_cuda_engine(engine_path.read_bytes())
-    if engine is None:
-        raise RuntimeError(f"failed to deserialize TensorRT engine: {engine_path}")
+    trt, runtime_meta, _runtime, engine = load_serialized_engine(engine_path, trt_root)
 
     inspector = engine.create_engine_inspector()
     engine_info_raw = inspector.get_engine_information(trt.LayerInformationFormat.JSON)
@@ -446,7 +360,7 @@ def main() -> None:
             "tensorrt": version_of("tensorrt"),
         },
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "script_version": resolve_script_version(),
+        "script_version": resolve_script_version(SCRIPT_NAME, Path(__file__)),
     }
 
     args.out_json.parent.mkdir(parents=True, exist_ok=True)
