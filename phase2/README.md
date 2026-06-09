@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch baseline 与 Nsight attribution 的基础上，建立 `PyTorch -> ONNX -> TensorRT` 的基础部署链路，产出可和 Phase 1 对比的 TensorRT baseline，并为 Phase 3 LiteMLA Plugin 选择提供新的证据。
 >
-> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark、TensorRT Nsight Systems runtime attribution 均已完成；下一步进入 TensorRT C++ runtime demo，然后撰写 Phase 2 baseline report。
+> **当前状态**：ONNX 固定 shape 导出、ONNXRuntime 对齐、TensorRT 8.6.1 FP32/FP16 engine 构建与 benchmark、TensorRT Nsight Systems runtime attribution、TensorRT C++ runtime demo 均已完成；下一步撰写 Phase 2 baseline report。
 
 ---
 
@@ -73,11 +73,12 @@ Phase 2 不做：
   - EngineInspector / verbose layer dump 只作为解释 engine 结构的辅助证据，不替代 Nsight runtime 归因。
   - 当前正式结果：沿用 `warmup=20 / measure=100`，`trt/execute` kernel avg `54.454 ms/iter`，layer attribution 覆盖 `100.00%` execute kernel time；残余热点排序为 `stage0 > stage2 > stage3 > stage1 > head > stem`。
   - 已补 EngineInspector / ONNX node name 映射：ONNX `393` nodes -> TensorRT `155` engine layers，总体 layer-count reduction `60.56%`。
-- [ ] Step 7：TensorRT C++ 推理 Demo。
+- [x] Step 7：TensorRT C++ 推理 Demo。
   - 使用 TensorRT C++ Runtime API 加载 FP32 engine。
   - 分配固定 shape input / output buffer，执行一次或多次 inference。
   - 输出 binding 信息、输出 checksum / 简单统计，不追求独立性能优化。
   - 记录 CMake / MSVC / TensorRT include/lib 路径，为 Phase 3 Plugin 集成做工程预热。
+  - 当前状态：`phase2/cpp_demo/` 与设计文档已落盘；`efficientvit` 环境已安装 CMake `4.2.3`；最小 MSVC C++ Build Tools 组件安装于 `E:\VSBuildTools`；C++ demo 已成功构建并运行 FP32 engine smoke。
 - [ ] Step 8：撰写 `phase2/tensorrt_baseline_report.md`。
   - PyTorch vs ONNXRuntime vs TensorRT 对比。
   - TensorRT 后热点是否变化。
@@ -89,45 +90,49 @@ Phase 2 不做：
 
 ```text
 phase2/
-??? README.md
-??? scripts/
-?   ??? _compat.py
-?   ??? analyze_trt_nsys_attribution.py
-?   ??? benchmark_trt_engine.py
-?   ??? build_trt_engine.py
-?   ??? export_onnx.py
-?   ??? inspect_trt_engine.py
-??? design_notes/
-?   ??? benchmark_trt_engine_design.md
-?   ??? build_trt_engine_design.md
-?   ??? onnx_export_design.md
-?   ??? trt_nsys_attribution_design.md
-??? results/
-?   ??? onnx/
-?   ?   ??? .gitkeep
-?   ?   ??? efficientvit_seg_b0_cityscapes_1024x2048.onnx  # ??????? git
-?   ??? engines/
-?   ?   ??? .gitkeep
-?   ?   ??? efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine  # ??????? git
-?   ?   ??? efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # ??????? git
-?   ??? metrics/
-?   ?   ??? .gitkeep
-?   ?   ??? onnx_export_b0_cityscapes_1024x2048.json
-?   ?   ??? trt_engine_inspection_summary.md
-?   ?   ??? trt_engine_inspection_summary.json
-?   ?   ??? trt_nsys_attribution_summary.md
-?   ?   ??? trt_nsys_attribution_summary.json
-?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
-?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp16.json
-?   ?   ??? trt_benchmark_b0_cityscapes_1024x2048_fp32.json
-?   ?   ??? trt_build_b0_cityscapes_1024x2048_fp16.json
-?   ?   ??? trt_build_b0_cityscapes_1024x2048_fp32.json
-?   ??? nsight/
-?       ??? TensorRT Nsight trace / sqlite ???????????? git?
-??? cpp_demo/
-?   ??? TensorRT C++ runtime demo?Step 7 ???
-??? logs/
-    ??? .gitkeep
+|-- README.md
+|-- scripts/
+|   |-- _compat.py
+|   |-- analyze_trt_nsys_attribution.py
+|   |-- benchmark_trt_engine.py
+|   |-- build_trt_engine.py
+|   |-- export_onnx.py
+|   `-- inspect_trt_engine.py
+|-- design_notes/
+|   |-- benchmark_trt_engine_design.md
+|   |-- build_trt_engine_design.md
+|   |-- onnx_export_design.md
+|   |-- trt_cpp_demo_design.md
+|   `-- trt_nsys_attribution_design.md
+|-- cpp_demo/
+|   |-- CMakeLists.txt
+|   |-- README.md
+|   `-- trt_runtime_demo.cpp
+|-- results/
+|   |-- onnx/
+|   |   |-- .gitkeep
+|   |   `-- efficientvit_seg_b0_cityscapes_1024x2048.onnx  # 不入 git
+|   |-- engines/
+|   |   |-- .gitkeep
+|   |   |-- efficientvit_seg_b0_cityscapes_1024x2048_fp16.engine  # 不入 git
+|   |   `-- efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine  # 不入 git
+|   |-- metrics/
+|   |   |-- .gitkeep
+|   |   |-- onnx_export_b0_cityscapes_1024x2048.json
+|   |   |-- trt_engine_inspection_summary.md
+|   |   |-- trt_engine_inspection_summary.json
+|   |   |-- trt_nsys_attribution_summary.md
+|   |   |-- trt_nsys_attribution_summary.json
+|   |   |-- trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
+|   |   |-- trt_benchmark_b0_cityscapes_1024x2048_fp16.json
+|   |   |-- trt_benchmark_b0_cityscapes_1024x2048_fp32.json
+|   |   |-- trt_build_b0_cityscapes_1024x2048_fp16.json
+|   |   `-- trt_build_b0_cityscapes_1024x2048_fp32.json
+|   `-- nsight/
+|       |-- .gitkeep
+|       `-- TensorRT Nsight trace / sqlite 运行产物，不入 git
+`-- logs/
+    `-- .gitkeep
 ```
 
 ---
@@ -192,6 +197,20 @@ TensorRT baseline 验收：
 | Builder smoke | `trt.Builder(...)` 创建成功 |
 
 说明：MX250 是 Pascal `sm_61`，需要旧版 TensorRT 路线。`build_trt_engine.py` 会在 import `tensorrt` 前显式注入 TensorRT / cuDNN / cuBLAS / NVRTC DLL 目录，避免依赖系统全局 PATH。
+
+当前 TensorRT C++ demo 工具链口径：
+
+| 项目 | 结果 |
+|---|---|
+| CMake | `D:\software\anaconda3\envs\efficientvit\Library\bin\cmake.exe`，版本 `4.2.3` |
+| MSVC Build Tools | 最小组件安装到 `E:\VSBuildTools` |
+| MSVC compiler | `E:\VSBuildTools\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\cl.exe` |
+| Developer env | `E:\VSBuildTools\Common7\Tools\VsDevCmd.bat -arch=x64 -host_arch=x64` |
+| C++ demo | `phase2/cpp_demo/trt_runtime_demo.cpp` |
+| C++ demo build | `phase2/cpp_demo/build/trt_runtime_demo.exe`（构建产物，不入 git） |
+| Runtime DLL PATH | TensorRT `lib/bin` + CUDA `bin` + conda env 下的 `nvidia/cudnn/bin`、`nvidia/cublas/bin`、`nvidia/cuda_nvrtc/bin` |
+
+当前 C++ demo smoke 结果：FP32 engine 可从 C++ Runtime API 反序列化，binding 为 input `[1, 3, 1024, 2048]` / output `segout [1, 19, 128, 256]`，单次 enqueue 推理成功并输出 checksum / min / max / mean。C++ demo 不作为性能 benchmark，也不替代 Python 侧输出对齐。
 
 当前 FP32 engine 构建结果：
 
