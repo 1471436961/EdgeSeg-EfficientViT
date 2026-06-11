@@ -67,6 +67,8 @@ Phase 2 不做：
 | TensorRT FP32 benchmark | [`results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32.json`](results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32.json) |
 | TensorRT FP16 benchmark | [`results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp16.json`](results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp16.json) |
 | TensorRT Nsight attribution | [`results/metrics/trt_nsys_attribution_summary.md`](results/metrics/trt_nsys_attribution_summary.md) |
+| TensorRT Nsight overview figure | [`results/figures/trt_timeline_overview.png`](results/figures/trt_timeline_overview.png) |
+| TensorRT single execute figure | [`results/figures/trt_execute_single_iter.png`](results/figures/trt_execute_single_iter.png) |
 | TensorRT EngineInspector | [`results/metrics/trt_engine_inspection_summary.md`](results/metrics/trt_engine_inspection_summary.md) |
 | C++ runtime demo | [`cpp_demo/README.md`](cpp_demo/README.md) |
 
@@ -195,6 +197,10 @@ EngineInspector 结构证据：
 
 ## 8. TensorRT Runtime Attribution
 
+![TensorRT Nsight timeline overview](results/figures/trt_timeline_overview.png)
+
+图 1 展示 TensorRT benchmark 的 Nsight Systems 全局时间线。`trt/warmup` 与 `trt/measure` 两个 NVTX range 清晰可见，CUDA HW 轨道在 measure 区间内持续执行 kernels。该图用于证明 Nsight trace 覆盖了 TensorRT engine runtime；定量结论仍以后续 SQLite attribution 表为准。
+
 TensorRT Nsight attribution 结果：
 
 | 项目 | 结果 |
@@ -234,6 +240,10 @@ Group summary：
 - TensorRT 对所有主要 group 都有收益，但收益不是均匀的：`stem/stage0/stage1/head` 约 `1.64x~1.70x`，`stage2` 约 `1.52x`，`stage3` 约 `1.39x`。
 - `stage0` 绝对节省最大，约 `9.859 ms / iter`，因此仍是端到端收益最大的 residual engineering hotspot。
 - `stage2` 虽然也被 TensorRT 加速，但仍保留 `12.179 ms / iter`、`57 launches / iter`，其中 `stage2/context` 仍有可解释的 LiteMLA residual runtime，因此 Phase 3 LiteMLA Plugin 主线仍成立。
+
+![Single TensorRT execute iteration](results/figures/trt_execute_single_iter.png)
+
+图 2 展示一次完整 `trt/execute`，约 `55 ms`。CUDA HW 轨道显示一次 TensorRT execute 内部仍由多个 TensorRT layers / CUDA kernels 组成，而不是单个巨大 fused kernel。底部 `cudaEventSynchronize` 是 CUDA Events latency 的读取 / 等待边界，不作为组件耗时归因依据；组件 GPU time 仍以 `correlationId` attribution 汇总为准。
 
 结论：
 
