@@ -6,7 +6,7 @@
 >
 > **修订规则**：本契约的任何修改本身必须遵守 §1 的三段式流程。
 >
-> **当前版本**：v1.1 · 创建时间：2026-05-26
+> **当前版本**：v1.2 · 创建时间：2026-05-26 · 最近更新：2026-06-10
 >
 > **相关文档**：
 > - 项目战略：[`PROJECT_STRATEGY.md`](./PROJECT_STRATEGY.md)
@@ -106,7 +106,8 @@
 - **文件**：
   - `PROJECT_STRATEGY.md` — 战略主文档（三阶段路线、跨阶段决策、版本演进 V3.x）
   - `PROJECT_CONVENTIONS.md` — AI 协作契约（三段式、文档分层、路径/提交约定）
-  - `LEARNING_LOG.md` — 学习笔记与人工 review 纠偏沉淀
+  - `PROJECT_DECISION_CORRECTIONS.md` — 跨阶段设计纠偏总账，记录人工 review 如何修正关键方案
+  - `LEARNING_LOG.md` — 学习笔记与技术问答沉淀
 - **位置**：项目 git 根目录（`E:\EdgeSeg-EfficientViT\EdgeSeg-EfficientViT\`）
 - **变更频率**：低（每个大版本一次，V3.1 / V3.2 …）
 - **读者优先级**：面试官 > 未来的项目接手者 > 当前的你
@@ -154,39 +155,191 @@
 
 ## §3 分支与提交规范
 
-> ⏸ 大纲占位，待补全。已有约定：
-> - 分支命名：`phase{N}-{主题}`，例如 `phase1-baseline` / `phase2-tensorrt` / `phase3-plugin`
-> - 主分支：`master`（仅在每个 phase 完整结束后合入）
-> - 提交者身份：`user.email=phase{N}@edgeseg.local` / `user.name=EdgeSeg-Phase{N}`
-> - commit message 风格：`type(scope): subject`，type ∈ {feat, fix, docs, refactor, perf, test, chore}
+### §3.1 分支命名
+
+- 阶段分支命名：`phase{N}-{主题}`，例如 `phase1-baseline`、`phase2-tensorrt`、`phase3-plugin`。
+- `master` 只承载阶段完成后的稳定结果；每个 phase 完整验收后再合入。
+- 不在 `master` 上直接做阶段开发。
+
+### §3.2 提交身份
+
+每个阶段允许使用阶段化 git identity，便于从 commit log 看出阶段归属：
+
+| 阶段 | user.name | user.email |
+|---|---|---|
+| Phase 1 | `EdgeSeg-Phase1` | `phase1@edgeseg.local` |
+| Phase 2 | `EdgeSeg-Phase2` | `phase2@edgeseg.local` |
+| Phase 3 | `EdgeSeg-Phase3` | `phase3@edgeseg.local` |
+
+若使用真实 GitHub identity，也必须保证 commit message 能看出阶段和改动范围。
+
+### §3.3 Commit Message
+
+Commit message 使用：
+
+```text
+type(scope): subject
+```
+
+允许的 `type`：
+
+| type | 用途 |
+|---|---|
+| `feat` | 新功能 / 新脚本 / 新阶段产物 |
+| `fix` | bug 修复 / 口径错误修正 |
+| `docs` | 文档与报告 |
+| `refactor` | 不改变行为的代码整理 |
+| `perf` | 性能优化或性能实验 |
+| `test` | 测试与验证 |
+| `chore` | 环境、目录、gitignore、清理 |
+
+示例：
+
+```text
+docs(phase2): add TensorRT baseline report
+refactor(phase2): share common script helpers
+fix(phase1): correct NVTX timing description
+```
+
+### §3.4 Git 操作边界
+
+- `commit`、`merge`、`push`、`tag` 属于 §1.2 的强制触发场景，必须先说明再执行，除非用户本轮明确要求。
+- 提交前必须检查 `git status --short`，只 stage 与当前任务相关的文件。
+- 不得用 `git reset --hard`、`git checkout --` 等 destructive 操作回滚用户改动，除非用户明确要求。
 
 ---
 
 ## §4 文件路径与命名规则
 
-> ⏸ 大纲占位，待补全。已有约定：
-> - `PROJECT_STRATEGY.md`、`PROJECT_CONVENTIONS.md` 与 `LEARNING_LOG.md` 位于项目 git 根目录，入 git
-> - `weights/` `*.pt` `*.onnx` `*.engine` `*.nsys-rep` 不入 git（见 `.gitignore`）
-> - 归档文件后缀：`_archived_{YYYYMMDD}.md`
+### §4.1 项目级文件
+
+以下文件位于项目 git 根目录，并应入 git：
+
+| 文件 | 职责 |
+|---|---|
+| `README.md` | 项目入口，优先展示个人工作 |
+| `UPSTREAM_README.md` | 上游 EfficientViT 原始 README |
+| `PROJECT_STRATEGY.md` | 项目战略与阶段路线 |
+| `PROJECT_CONVENTIONS.md` | 协作契约 |
+| `PROJECT_DECISION_CORRECTIONS.md` | 跨阶段设计纠偏总账 |
+| `LEARNING_LOG.md` | 学习笔记与技术问答沉淀 |
+
+### §4.2 阶段目录
+
+阶段目录统一使用：
+
+```text
+phase{N}/
+|-- README.md
+|-- design_notes/
+|-- scripts/
+|-- results/
+`-- logs/
+```
+
+阶段报告放在 `phase{N}/` 根下，例如：
+
+- `phase1/bottleneck_analysis_report.md`
+- `phase2/tensorrt_baseline_report.md`
+
+代码级设计文档放在 `phase{N}/design_notes/`，命名为 `{script_or_topic}_design.md`。
+
+### §4.3 结果文件入库边界
+
+默认不入 git：
+
+- 权重：`*.pt`、`*.pth`
+- ONNX：`*.onnx`
+- TensorRT engine：`*.engine`
+- Nsight 原始结果：`*.nsys-rep`、`*.sqlite`
+- 构建产物：`build/`、`__pycache__/`、`.pyc`
+
+可以入 git：
+
+- 小型 JSON metadata / benchmark summary；
+- Nsight attribution 的 Markdown / JSON 汇总；
+- 截图和报告用 figures；
+- `.gitkeep` 占位文件。
+
+### §4.4 归档与重命名
+
+- 不再使用的旧文档如需保留，后缀使用 `_archived_{YYYYMMDD}.md`。
+- 上游 README 不删除，重命名为 `UPSTREAM_README.md`；根 `README.md` 用作个人项目入口。
+- 不静默删除上游源码目录，除非单独设计 release/package 流程。
 
 ---
 
 ## §5 工具与环境约定
 
-> ⏸ 大纲占位，待补全。已有约定：
-> - conda env: `efficientvit`（路径 `D:\software\anaconda3\envs\efficientvit`）
-> - PyTorch: `2.4.1+cu124`（Pascal sm_61 兼容性原因，不升级到 2.7+）
-> - Nsight Systems: `2026.2.1`（路径 `D:\software\nsight_systems\target-windows-x64\nsys.exe`）
+### §5.1 Python / Conda
+
+- conda env：`efficientvit`
+- 典型路径：`D:\software\anaconda3\envs\efficientvit`
+- Windows shell 中裸 `python` 可能命中 Windows Store stub；需要严肃验证时优先使用显式路径：
+
+```powershell
+D:\software\anaconda3\envs\efficientvit\python.exe
+```
+
+### §5.2 PyTorch / CUDA
+
+- PyTorch：`2.4.1+cu124`
+- 选择原因：兼容 Pascal `sm_61`；不随意升级到 PyTorch 2.7+。
+- CUDA Events 是 Phase 1/2 latency 主计时工具。
+- `torch.cuda.synchronize()` 只放在 warmup/measure 边界或 Event 读取处，不放进 NVTX range 内。
+
+### §5.3 Nsight Systems
+
+- Nsight Systems：`2026.2.1`
+- 典型路径：`D:\software\nsight_systems\target-windows-x64\nsys.exe`
+- Windows 普通权限下以 `cuda,nvtx` 为主 trace 口径。
+- CPU sampling / context switch / WDDM trace 通常需要管理员权限；普通权限结果不能声称完全排除 CPU/WDDM 因素。
+- 组件耗时以 SQLite attribution 为主，不直接使用 NVTX range 的 `end-start`。
+
+### §5.4 TensorRT
+
+- 当前可用 TensorRT：NVIDIA archived TensorRT `8.6.1` Windows zip。
+- TensorRT root：`E:\NVIDIA\TensorRT-8.6.1.6`
+- 选择原因：MX250 是 Pascal `sm_61`，新版 TensorRT / TensorRT 10+ 路线不适合作为本机主 baseline。
+- Python 脚本应在 `import tensorrt` 前准备 DLL path。
+- C++ demo 需要同时满足 TensorRT include/lib、CUDA、cuDNN/cuBLAS/NVRTC DLL runtime path。
+
+### §5.5 测量协议
+
+- 正式 Phase 1/2 benchmark 使用 `warmup=20 / measure=100`。
+- smoke / debug 可以降低次数，但结果不得写成正式性能结论。
+- Phase 1/2 不以完整 Cityscapes mIoU 作为阶段完成条件；完整精度回归放到 Phase 3 Plugin 集成验证或最终验收。
 
 ---
 
 ## §6 AI 输出语言与格式
 
-> ⏸ 大纲占位，待补全。已有约定：
-> - 对话回复：中文
-> - 代码注释：英文为主，关键决策点中英混排
-> - 文档：中文（含代码示例的英文标识符）
-> - Markdown 风格：标题用 `#~####`，决策用表格，流程用编号列表
+### §6.1 语言
+
+- 对话回复：中文。
+- 项目文档：中文，保留必要英文术语和代码标识符。
+- 代码注释：英文为主；关键项目决策点可中英混排，但不要写无意义注释。
+- 报告结论：使用保守、可证据支撑的中文表述，避免夸大。
+
+### §6.2 Markdown 格式
+
+- 标题使用 `#` 到 `####`，不跳级过多。
+- 决策、结果和对比优先使用表格。
+- 流程使用编号列表。
+- 真实文件引用尽量使用相对 Markdown 链接。
+- 报告中必须区分：
+  - 端到端 latency；
+  - Nsight runtime attribution；
+  - EngineInspector / graph structure evidence；
+  - 截图观察；
+  - 推测或后续计划。
+
+### §6.3 术语口径
+
+- `stage0/stage1/stage2/stage3` 默认指代码 / NVTX 中的 `backbone.stages` 索引，不是论文语义 stage 编号。
+- “LiteMLA 是 Plugin 主线”不等于“LiteMLA 是全模型最大瓶颈”。
+- Phase 2 的 `attention_core` 是 TensorRT residual-runtime proxy，不反向替代 Phase 1 的 `relu_linear_att` 源码语义边界。
+- `smoke` 只证明链路能跑，不作为正式性能结论。
 
 ---
 
@@ -205,5 +358,6 @@
 
 | 版本 | 日期 | 修订内容 | 触发原因 |
 |---|---|---|---|
+| v1.2 | 2026-06-10 | 补完 §3~§6：分支/提交、文件路径、环境工具、语言格式；新增 `PROJECT_DECISION_CORRECTIONS.md` 的项目级职责 | Phase 2 收口前需要把已实际执行的规则固化，避免进入 Phase 3 后口径漂移 |
 | v1.1 | 2026-06-06 | 将 `PROJECT_CONVENTIONS.md`、`PROJECT_STRATEGY.md`、`LEARNING_LOG.md` 纳入项目 git 根目录，并修正文档分层中的位置说明 | 用户决定把三个项目级文档从外层目录移动到项目 git 目录 |
 | v1.0 | 2026-05-26 | 初版建立，§1 完整、§2 完整、§3~§7 大纲占位 | 用户在三段式讨论中明确要求"将工作约定写入 PROJECT_CONVENTIONS.md §1" |

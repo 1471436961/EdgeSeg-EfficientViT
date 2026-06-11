@@ -1,0 +1,249 @@
+# `trt_nsys_attribution` 设计说明
+
+> **关联阶段**：[`phase2/README.md`](../README.md) Step 6  
+> **前置产物**：`phase2/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine`  
+> **状态**：v1.0，Step 6 第一版已执行完成；已产出 TensorRT Nsight SQLite attribution summary，用于复核 Phase 1 候选在 TensorRT 后的残余热点。
+
+---
+
+## 1. 设计目标
+
+Phase 2 已经证明 TensorRT FP32 baseline 能构建、能推理、比 PyTorch baseline 更快。但这只能说明 **TensorRT 端到端优化有效**，不能说明：
+
+- TensorRT 自动优化后，Phase 1 的 `stage0` / `stage2 LiteMLA` / `head` 候选是否仍是残余热点。
+- `aggregation + cat + relu_linear_att` 是否仍然值得进入 Phase 3 Plugin 主线。
+- P2 标准算子链热点是否已经被 TensorRT / cuDNN 充分处理。
+
+因此 Step 6 的职责是：用 Nsight Systems 对 TensorRT runtime 做归因，回答 **Phase 1 候选在 TensorRT 后是否仍成立**。
+
+---
+
+## 2. 主证据与辅助证据
+
+### 主证据：Nsight Systems runtime trace
+
+Phase 2 继续沿用 Phase 1 的方法论：以 Nsight Systems 的真实运行时间线和 CUDA kernel 事件为主证据。
+
+采集口径：
+
+- trace：`cuda,nvtx`
+- 目标脚本：`phase2/scripts/benchmark_trt_engine.py`
+- 主对象：FP32 engine
+- 输入：固定 `phase1/data/city_asset_cityscapes_like.png`
+- 分辨率：`1024x2048`
+- 计时范围：engine execute only，与 benchmark JSON 口径一致
+
+Windows 普通权限下，CPU sampling / context switch / WDDM tracing 可能不可用；这类信息只能作为限制项记录，不能作为主要归因依据。
+
+### 辅助证据：EngineInspector / verbose layer dump
+
+EngineInspector、verbose build log 或 layer dump 只能回答 engine 结构问题，例如：
+
+- TensorRT engine 有哪些 layer。
+- layer type / name / tensor shape 大致如何。
+- 某些 ONNX 节点是否被融合、重排或消失。
+
+它们不能替代 Nsight runtime profiling，因为 layer 存在不等于耗时高，layer 融合也不等于残余热点消失。
+
+---
+
+## 3. 预期产物
+
+```text
+phase2/results/nsight/
+  trt_fp32_fullres.nsys-rep         # 运行产物，不入 git
+  trt_fp32_fullres.sqlite           # 运行产物，不入 git
+
+phase2/results/metrics/
+  trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json
+  trt_nsys_attribution_summary.md   # 入 git
+  trt_nsys_attribution_summary.json # 入 git
+  trt_engine_inspection_summary.md   # 入 git，结构辅助证据
+  trt_engine_inspection_summary.json # 入 git，结构辅助证据
+```
+
+若导出 SQLite 失败，报告中必须记录原因，并保留 `.nsys-rep` 截图/观察作为降级证据；但不得把截图当作定量归因表的替代品。
+
+---
+
+## 4. 关键问题
+
+Step 6 最终至少回答以下问题：
+
+1. TensorRT FP32 后，kernel 类型分布相比 PyTorch Plan B 是否明显变化。
+2. TensorRT 后是否仍存在大量小 kernel / launch 密度问题。
+3. `stage0` / `head` 这类标准 MBConv / Conv 链是否仍是残余热点。
+4. LiteMLA 相关路径是否仍有可观察的残余 kernel time。
+5. Phase 3 的 P1a / P1b / P1c / P2 排序是否需要调整。
+
+---
+
+## 5. 与 Phase 1 的可比性边界
+
+Phase 1 的 PyTorch 模型可以通过 Python hooks / monkey patch 插入模块级 NVTX；TensorRT engine 内部不能用同样方式直接插入 `stage0/stage2/head` 模块级 NVTX。
+
+因此 Phase 2 的可比性不是“相同 NVTX 层级一一对齐”，而是：
+
+- 使用相同 Nsight Systems 工具链。
+- 使用相同输入、分辨率、权重和 batch size。
+- 使用相同 `cuda,nvtx` 主 trace 口径。
+- 使用 benchmark JSON 的 CUDA Events latency 作为端到端执行时间锚点。
+- 结合 TensorRT layer dump 辅助解释 kernel / layer 对应关系。
+
+报告中必须明确这一限制，避免把 TensorRT engine 内部归因解释得比证据更细。
+
+---
+
+## 6. 建议执行顺序
+
+1. 给 `benchmark_trt_engine.py` 增加最小 NVTX 标记：
+   - `trt/warmup`
+   - `trt/measure`
+   - `trt/execute`
+2. 用 Nsight Systems 采集 FP32 engine benchmark。
+3. 导出 SQLite。
+4. 先做 kernel type / CUDA API / memory copy 汇总。
+5. 如可行，再结合 EngineInspector layer dump 做 layer 结构解释。
+6. 写入 `trt_nsys_attribution_summary.md`，并在 `tensorrt_baseline_report.md` 中引用。
+
+---
+
+## 7. 验收标准
+
+- Nsight trace 能打开，能看到 TensorRT engine execute 区间。
+- CUDA kernel 事件足够完整，能形成 kernel type 级别统计。
+- 汇总表明确说明哪些结论是 Nsight 运行时证据，哪些只是 EngineInspector 辅助解释。
+- 明确回答 Phase 3 候选是否仍沿用 Phase 1 的 P1a/P1b/P1c 排序，或需要调整。
+
+---
+
+## 8. 当前 Step 6 实测结果
+
+本轮使用 Nsight Systems `cuda,nvtx` trace 采集 FP32 TensorRT engine execute 路径，并导出 SQLite 后由 `phase2/scripts/analyze_trt_nsys_attribution.py` 汇总。
+
+运行口径：
+
+- benchmark metadata：`phase2/results/metrics/trt_benchmark_b0_cityscapes_1024x2048_fp32_nsys.json`
+- Nsight SQLite：`phase2/results/nsight/trt_fp32_fullres.sqlite`
+- 汇总表：`phase2/results/metrics/trt_nsys_attribution_summary.md`
+- warmup / measure：`20 / 100`
+- attribution 方法：TensorRT/NVTX layer range -> CUDA runtime launch inside range -> CUDA kernel with same `correlationId`
+- 重要纪律：不使用 NVTX range duration 作为 GPU component time。
+
+关键结果：
+
+| 项目 | 结果 |
+|---|---:|
+| CUDA Events latency mean / p50 | `55.242 ms` / `55.237 ms` |
+| `trt/execute` kernel avg | `54.454 ms / iter` |
+| `trt/execute` launches | `185.0 / iter` |
+| Layer-attributed kernel avg | `54.454 ms / iter` |
+| Layer attribution / execute kernel time | `100.00%` |
+
+TensorRT 后的 residual hotspot 排序：
+
+| Group | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---:|---:|---:|
+| `stage0` | `14.669` | `26.94%` | `10.0` |
+| `stage2` | `12.179` | `22.37%` | `57.0` |
+| `stage3` | `7.511` | `13.79%` | `88.0` |
+| `stage1` | `7.431` | `13.65%` | `10.0` |
+| `head` | `6.608` | `12.14%` | `15.0` |
+| `stem` | `6.056` | `11.12%` | `5.0` |
+
+结论边界：
+
+- TensorRT 后 `stage0` 仍是最大 residual hotspot，但主要仍是标准卷积 / pointwise / activation 路径，不自动等价于 Phase 3 Plugin MVP。
+- `stage2` 仍是第二大 residual hotspot，且 launches / iter 明显高，说明 Phase 1 的 LiteMLA / stage2 候选仍值得保留。
+- TensorRT layer ranges 与 Phase 1 PyTorch Plan B/C/D 模块范围不是一一对应关系；因此 Step 6 支撑的是 residual hotspot 趋势复核，不是 PyTorch 模块耗时的逐项复刻。
+
+---
+
+## 9. EngineInspector / ONNX node name 映射
+
+为补充“TensorRT 结构上优化了什么”的证据，本轮新增 `phase2/scripts/inspect_trt_engine.py`，读取 FP32 engine 的 TensorRT EngineInspector layer names，并与 ONNX node names 做 group-level 映射。
+
+产物：
+
+- `phase2/results/metrics/trt_engine_inspection_summary.md`
+- `phase2/results/metrics/trt_engine_inspection_summary.json`
+
+关键结果：
+
+| 项目 | 结果 |
+|---|---:|
+| ONNX node count | `393` |
+| TensorRT engine layer count | `155` |
+| Overall layer-count reduction | `60.56%` |
+
+Group-level 结构变化：
+
+| Group | ONNX nodes | TensorRT layers | Layer reduction | TRT fused layers |
+|---|---:|---:|---:|---:|
+| `stage3` | `175` | `50` | `71.43%` | `17` |
+| `stage2` | `157` | `47` | `70.06%` | `16` |
+| `head` | `18` | `21` | `-16.67%` | `6` |
+| `stage1` | `11` | `16` | `-45.45%` | `6` |
+| `stage0` | `11` | `12` | `-9.09%` | `5` |
+| `stem` | `6` | `5` | `16.67%` | `3` |
+
+可直接支持的结构判断：
+
+- TensorRT 将 ONNX `393` 个 nodes 降为 `155` 个 engine layers，说明存在显著图层压缩。
+- `PWN(...)` layer 表示 pointwise / activation fusion。
+- layer name 中的 ` + ` 表示多个 ONNX-named operations 被融合到一个 TensorRT engine layer，例如 `Conv + Add`。
+- `stage2/context` 中仍能看到 `qkv/conv`、`aggreg.* Conv`、`MatMul`、`MatMul_1`、`Pad`、`Cast_1`、`Reformatting CopyNode` 和 `proj/conv + Add` 等结构，说明 TensorRT 并未把 LiteMLA 整体折叠成单个高度融合 layer。
+
+证据边界：
+
+- 当前 FP32 engine 的 EngineInspector detail 为 `layer_names_only`，足以做 layer name / fusion pattern 映射，但不能给出 tactic-level 选择。
+- 若后续要回答具体 tactic、format、implementation 选择，需要重新构建带 detailed profiling verbosity 的 engine，或捕获 verbose builder log。
+- EngineInspector 是结构辅助证据；真实 GPU kernel time 仍以 Nsight SQLite attribution 为准。
+
+---
+
+## 10. TensorRT stage2/context 细粒度 runtime attribution
+
+在 `trt_nsys_attribution_summary.md` 中新增 `Stage2 Context Runtime Detail` 小节，基于 TensorRT layer name 将 `/backbone/stages.2/.../context_module/...` 的 layer runtime 做启发式组件聚合。该表仍使用 CUDA runtime/kernel `correlationId` attribution，不使用 NVTX range duration。
+
+总量：
+
+| 项目 | 结果 |
+|---|---:|
+| Total stage2 context kernel avg | `6.383 ms / iter` |
+| Total stage2 context launches | `42.0 / iter` |
+| Share of execute kernel time | `11.72%` |
+
+组件级结果：
+
+| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |
+|---|---:|---:|---:|---:|
+| `matmul` | `1.947` | `3.58%` | `4.0` | `6` |
+| `aggregation` | `1.754` | `3.22%` | `26.0` | `4` |
+| `pad` | `0.695` | `1.28%` | `2.0` | `2` |
+| `relu_qk` | `0.685` | `1.26%` | `4.0` | `4` |
+| `qkv` | `0.544` | `1.00%` | `2.0` | `2` |
+| `proj_add` | `0.396` | `0.73%` | `2.0` | `2` |
+| `norm_add_div` | `0.361` | `0.66%` | `2.0` | `2` |
+
+候选边界聚合：
+
+| Candidate boundary | Includes | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---|---:|---:|---:|
+| `full_stage2_context` | `qkv + aggregation + relu_qk + pad + matmul + norm_add_div + proj_add` | `6.383` | `11.72%` | `42.0` |
+| `aggregation_plus_attention_core` | `aggregation + relu_qk + pad + matmul + norm_add_div` | `5.443` | `10.00%` | `38.0` |
+| `attention_core` | `relu_qk + pad + matmul + norm_add_div` | `3.689` | `6.77%` | `12.0` |
+| `aggregation_only` | `aggregation` | `1.754` | `3.22%` | `26.0` |
+
+对 Phase 3 的含义：
+
+- TensorRT 后，`matmul` 与 `aggregation` 仍是 `stage2/context` 的前两项 residual runtime。
+- `aggregation` 的 launches / iter 高达 `26.0`，说明它虽然是标准 Conv 路径，但仍有明显 launch density / kernel fragmentation 问题。
+- `relu_qk` 已被 TensorRT pointwise fusion 压到 `0.685 ms / iter`，不应被误读为 Phase 1 的最高收益 MVP；Phase 1 Plan D 的 MVP 仍是 `relu_linear_att-only` 或 `aggregation-only`。
+- `attention_core`（`relu_qk + pad + matmul + norm_add_div`）是 TensorRT layer-name 视角下对 `relu_linear_att` 内部残余路径的 proxy；`aggregation + attention_core` 是 Phase 1 `aggregation + cat + relu_linear_att` 中段组合在 TensorRT 侧的 residual-runtime proxy。
+- Phase 3 第一版仍建议先做局部单段 Plugin 验证接入与数值对齐，再评估中段组合是否值得扩大；不能把 TensorRT proxy 名称反向改写成 Phase 1 Plan D 的候选定义。
+
+证据边界：
+
+- 该组件映射依赖 TensorRT layer name，因此是 heuristic mapping；它比 stage-level runtime 更细，但仍不等于原 PyTorch Plan D 的一一对应范围。
+- 若要做最终 Plugin 设计，需要结合 ONNX graph、EngineInspector layer name 与实际 Plugin 可替换边界，再定义精确输入/输出 tensor contract。
