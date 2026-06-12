@@ -66,9 +66,10 @@ Phase 1 结果显示 `stage0` 和 `head` 等 MBConv/Conv 路径占比高，但�
 
 早期候选容易停留在“整体 LiteMLA Plugin”。Plan D 显示 `aggregation`、`cat`、`relu_linear_att` 是更具体的可融合子路径。最终候选分层为：
 
-1. `aggregation-only` 或 `relu_linear_att-only`：MVP / 接入验证；
-2. `aggregation + cat + relu_linear_att`：主性能边界；
-3. 整体 LiteMLA Plugin：复杂 fallback / 上限方案。
+1. `relu_linear_att-only`：Phase 3 Step 2 后收敛为第一版 MVP，真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`；
+2. `aggregation-only`：保留为 fallback / 对照实验；
+3. `aggregation + cat + relu_linear_att`：主性能边界，真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`；
+4. 整体 LiteMLA Plugin：复杂 fallback / 上限方案。
 
 这个修正把 Phase 3 从口号变成了可执行的 Plugin 边界设计。
 

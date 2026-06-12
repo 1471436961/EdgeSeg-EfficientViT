@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，设计并实现一个面向 EfficientViT `stage2/context` LiteMLA 的 TensorRT Plugin MVP，验证自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前状态**：Phase 3 刚启动。本阶段第一步只建立目录骨架和 Plugin 融合设计文档，不直接写 CUDA / TensorRT Plugin 代码。
+> **当前状态**：Phase 3 已完成 `stage2/context` tensor contract 确认；下一步进入最小 Plugin API 与 CMake 构建方案设计。
 
 ---
 
@@ -11,7 +11,7 @@
 Phase 3 做：
 
 - 设计 LiteMLA Plugin 的输入输出 tensor contract。
-- 先实现最小可行 Plugin MVP，优先验证 `relu_linear_att-only` 或 `aggregation-only` 的接入链路。
+- 先实现最小可行 Plugin MVP，优先验证 `relu_linear_att-only` 的接入链路；`aggregation-only` 保留为 fallback / 对照实验。
 - 将 Plugin 集成到 TensorRT engine 构建 / runtime 路径中。
 - 复用 Phase 2 benchmark 与 C++ runtime demo 验证 correctness、latency 和 Nsight attribution。
 - 在成功 MVP 基础上评估 `aggregation + cat + relu_linear_att` 中段组合边界。
@@ -34,6 +34,7 @@ Phase 3 暂不做：
 | Phase 2 TensorRT report | [`../phase2/tensorrt_baseline_report.md`](../phase2/tensorrt_baseline_report.md) | 复核 TensorRT 后 LiteMLA residual runtime |
 | TensorRT engine inspection | [`../phase2/results/metrics/trt_engine_inspection_summary.md`](../phase2/results/metrics/trt_engine_inspection_summary.md) | 说明 TensorRT 未把 LiteMLA 自动融合成单一算子 |
 | TensorRT C++ demo | [`../phase2/cpp_demo/README.md`](../phase2/cpp_demo/README.md) | 作为后续 Plugin engine runtime 验证起点 |
+| Stage2 tensor contract | [`design_notes/stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md) | 确认 P1a/P1b/P1c 的真实输入输出 shape 与替换边界 |
 
 ---
 
@@ -41,8 +42,8 @@ Phase 3 暂不做：
 
 | 优先级 | 候选 | 目标 | 当前判断 |
 |---|---|---|---|
-| P1a | `relu_linear_att-only` | MVP / 接入验证 | 边界小，最适合先验证 Plugin 注册、构建、runtime 和数值对齐 |
-| P1a | `aggregation-only` | MVP / 对照验证 | 耗时接近 `relu_linear_att`，但更接近卷积分支，需确认 TensorRT 已优化程度 |
+| P1a | `relu_linear_att-only` | MVP / 接入验证 | Step 2 已确定真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`；不需要 Plugin 权重，优先实现 |
+| P1a-fallback | `aggregation-only` | 对照 / fallback | contract 为 `[1,192,64,128] -> [1,192,64,128]`；更接近卷积分支，展示区分度低于 `relu_linear_att-only` |
 | P1b | `aggregation + cat + relu_linear_att` | 主性能评估边界 | Phase 1/2 都支持的中段组合候选，潜在收益更高但 graph 集成更复杂 |
 | P1c | 整体 LiteMLA | fallback / 上限方案 | 融合空间最大，但实现、调试和数值验证风险最高，不作为第一步 |
 | P2 | stage0/head MBConv | 工程优化候选 | 端到端收益潜力高，但标准算子链多，展示区分度低于 LiteMLA |
@@ -53,7 +54,7 @@ Phase 3 暂不做：
 
 - [x] Step 0：从 `master` 创建 `phase3-plugin` 分支。
 - [x] Step 1：建立 Phase 3 目录骨架与 `plugin_fusion_design.md` 第一版。
-- [ ] Step 2：精读 ONNX / TensorRT engine 中 `stage2/context` 的实际 tensor 边界，确定 P1a MVP 的输入输出。
+- [x] Step 2：精读 ONNX / TensorRT engine 中 `stage2/context` 的实际 tensor 边界，确定 P1a MVP 的输入输出。产物：[`design_notes/stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md)。
 - [ ] Step 3：设计最小 Plugin API 与 CMake 构建方案。
 - [ ] Step 4：实现 P1a Plugin skeleton，先跑通 TensorRT Plugin 注册与 engine build。
 - [ ] Step 5：实现 CUDA kernel / enqueue 路径，并做 PyTorch / TensorRT baseline 输出对齐。
@@ -69,7 +70,8 @@ Phase 3 暂不做：
 phase3/
 |-- README.md
 |-- design_notes/
-|   `-- plugin_fusion_design.md
+|   |-- plugin_fusion_design.md
+|   `-- stage2_context_tensor_contract.md
 |-- plugin/
 |   `-- .gitkeep
 |-- scripts/
@@ -100,4 +102,3 @@ Phase 3 的一次有效 Plugin 实验至少需要同时满足：
   - Plugin 覆盖的 layer / kernel 范围；
   - 数值误差；
   - 工程风险与 fallback 路线。
-

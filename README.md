@@ -40,8 +40,9 @@ Phase 1 在 NVIDIA GeForce MX250 上，以 Cityscapes 分辨率 `1024x2048` 剖�
 - 当前 PyTorch GPU kernel 最大热点是代码/NVTX `stage0`，主要来自早期高分辨率 MBConv / Conv 计算。
 - `stage2/context` LiteMLA 不是全模型最大端到端瓶颈，但它是最高区分度的 TensorRT Plugin 主线，因为它是 TensorRT 难以自动融合的非标准线性注意力路径。
 - Plan D 将 LiteMLA Plugin 候选细化为三类边界：
-  - `aggregation-only` 或 `relu_linear_att-only`：适合作为 MVP / 单段验证。
-  - `aggregation + cat + relu_linear_att`：更有潜在收益的主性能边界。
+  - `relu_linear_att-only`：Phase 3 Step 2 已确定为第一版 MVP，真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`。
+  - `aggregation-only`：保留为 fallback / 对照实验。
+  - `aggregation + cat + relu_linear_att`：更有潜在收益的主性能边界，真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。
   - 整体 LiteMLA：复杂度更高的 fallback / 上限方案。
 
 完整报告见 [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)。

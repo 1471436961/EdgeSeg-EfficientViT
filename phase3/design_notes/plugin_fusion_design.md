@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase3/README.md`](../README.md)
 >
-> **状态**：v0.1，Phase 3 启动版设计文档。本文先定义 Plugin 候选、证据来源、融合边界和验证口径；尚未开始 CUDA / TensorRT Plugin 代码实现。
+> **状态**：v0.2，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract。本文先定义 Plugin 候选、证据来源、融合边界和验证口径；尚未开始 CUDA / TensorRT Plugin 代码实现。
 
 ---
 
@@ -12,7 +12,7 @@ Phase 3 的核心目标不是“随便写一个 CUDA kernel”，而是基于 Ph
 
 当前默认目标：
 
-1. 先做 **P1a MVP**：`relu_linear_att-only` 或 `aggregation-only`。
+1. 先做 **P1a MVP**：`relu_linear_att-only`，`aggregation-only` 作为 fallback / 对照实验。
 2. MVP 成功后评估 **P1b 主性能边界**：`aggregation + cat + relu_linear_att`。
 3. 只有在必要时再考虑 **P1c fallback**：整体 LiteMLA Plugin。
 
@@ -38,6 +38,17 @@ Phase 2 TensorRT 后：
 
 因此 Phase 3 不是重复 TensorRT 已做好的标准融合，而是针对 TensorRT 未能整体融合的 LiteMLA 子路径做 Plugin 验证。
 
+### 2.3 Step 2 tensor contract
+
+Step 2 已落盘 [`stage2_context_tensor_contract.md`](stage2_context_tensor_contract.md)，关键结论如下：
+
+- 目标只覆盖 ONNX / TensorRT 中的 `backbone.stages.2.op_list.{1,2}.context_module/main` 两个 LiteMLA 实例。
+- ONNX `stages.2` 是 0-indexed，对应 backbone forward 输出字典里的语义 `stage3` 特征层。
+- 固定输入 `1x3x1024x2048` 下，两个目标 context 的输入特征都是 `[1,64,64,128]`。
+- B0 配置中 LiteMLA `dim=16`；qkv Conv 输出 `[1,192,64,128]`；aggregation 输出 `[1,192,64,128]`；cat 后输入 attention 的 tensor 是 `[1,384,64,128]`。
+- `relu_linear_att-only` 的真实 contract 是 `[1,384,64,128] -> [1,128,64,128]`。
+- `aggregation + cat + relu_linear_att` 的真实 contract 是 `[1,192,64,128] -> [1,128,64,128]`。
+
 ---
 
 ## 3. 候选边界
@@ -45,6 +56,8 @@ Phase 2 TensorRT 后：
 ### 3.1 P1a：`relu_linear_att-only`
 
 **目标**：作为第一版 MVP，验证 TensorRT Plugin 注册、engine build、runtime 执行和数值对齐链路。
+
+**Step 2 contract**：替换 `Concat_output_0 -> Cast_1_output_0`，输入 `[1,384,64,128]`，输出 `[1,128,64,128]`，FP32，不需要 Plugin 权重。
 
 **优势**：
 
@@ -60,7 +73,9 @@ Phase 2 TensorRT 后：
 
 ### 3.2 P1a：`aggregation-only`
 
-**目标**：作为 P1a 的对照 MVP，验证 aggregation 分支是否比 `relu_linear_att` 更适合作为第一版 Plugin。
+**目标**：作为 P1a 的对照 / fallback，验证 aggregation 分支是否值得在 `relu_linear_att-only` 之外单独实现。
+
+**Step 2 contract**：替换 `qkv/conv/Conv_output_0 -> aggreg.0/aggreg.0.1/Conv_output_0`，输入 `[1,192,64,128]`，输出 `[1,192,64,128]`，FP32，需要 aggregation depthwise 5x5 与 grouped 1x1 权重。
 
 **优势**：
 
@@ -75,6 +90,8 @@ Phase 2 TensorRT 后：
 ### 3.3 P1b：`aggregation + cat + relu_linear_att`
 
 **目标**：作为主性能评估边界，尝试减少中间 tensor 落地、拼接和重复读取。
+
+**Step 2 contract**：替换 `qkv/conv/Conv_output_0 -> Cast_1_output_0`，输入 `[1,192,64,128]`，输出 `[1,128,64,128]`，FP32，需要 aggregation 权重，后续输出继续喂给现有 `proj/conv/Conv`。
 
 **优势**：
 
@@ -112,10 +129,11 @@ Phase 2 TensorRT 后：
 1. **确认实际 tensor contract**
    - 从 ONNX graph / TensorRT EngineInspector / PyTorch LiteMLA 源码中确认 `stage2/context` 输入输出 shape、layout、dtype。
    - 明确 batch size 固定为 1，输入 shape 固定为 Cityscapes `1024x2048` 导出的 TensorRT engine。
+   - 已完成，见 [`stage2_context_tensor_contract.md`](stage2_context_tensor_contract.md)。
 
 2. **选择 P1a MVP**
-   - 若 `relu_linear_att` 的输入输出边界能在 TensorRT graph 中清晰替换，优先选 `relu_linear_att-only`。
-   - 若 `relu_linear_att` 边界难以插入，但 aggregation layer 边界更清晰，则先选 `aggregation-only`。
+   - Step 2 结论：第一版优先选 `relu_linear_att-only`，因为它边界清晰、不需要权重，最适合先验证 Plugin 接入闭环。
+   - 若 `relu_linear_att-only` 的 graph replacement 在 TensorRT 8.6.1 / Windows 路径下不可行，再退到 `aggregation-only`。
 
 3. **实现 Plugin skeleton**
    - 先不优化 kernel，只跑通 TensorRT Plugin Creator、serialization、engine build、runtime enqueue。
@@ -154,7 +172,7 @@ LiteMLA 原始 PyTorch 实现中 `relu_linear_att` 存在 FP32 保护倾向。Ph
 
 ## 6. TensorRT 集成策略待确认
 
-后续需要在 Step 2 具体确认以下问题：
+后续需要在 Step 3 具体确认以下问题：
 
 1. 使用 ONNX graph surgery 插入 Plugin，还是使用 TensorRT Network API 手动替换子图。
 2. Plugin 接口采用 `IPluginV2DynamicExt` 还是 TensorRT 8.6.1 更推荐的兼容接口。
@@ -184,4 +202,3 @@ LiteMLA 原始 PyTorch 实现中 `relu_linear_att` 存在 FP32 保护倾向。Ph
 - 不为 stage0/head 写第一版 Plugin。
 - 不把 TensorRT `attention_core` proxy 当作源码级候选命名。
 - 不用单次 Nsight screenshot 代替 SQLite attribution。
-
