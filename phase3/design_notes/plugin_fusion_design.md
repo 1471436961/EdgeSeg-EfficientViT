@@ -49,6 +49,16 @@ Step 2 已落盘 [`stage2_context_tensor_contract.md`](stage2_context_tensor_con
 - `relu_linear_att-only` 的真实 contract 是 `[1,384,64,128] -> [1,128,64,128]`。
 - `aggregation + cat + relu_linear_att` 的真实 contract 是 `[1,192,64,128] -> [1,128,64,128]`。
 
+### 2.4 Step 3 Plugin API / CMake design
+
+Step 3 已落盘 [`plugin_api_cmake_design.md`](plugin_api_cmake_design.md)，关键结论如下：
+
+- 第一版 Plugin 使用 TensorRT 8.6.1 支持的 `IPluginV2DynamicExt`。
+- Plugin 名称为 `EdgesegReluLinearAttention_TRT`，namespace 为 `edgeseg`。
+- 第一版仅支持 FP32、NCHW、fixed shape `[1,384,64,128] -> [1,128,64,128]`。
+- 构建产物是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
+- Step 4 先实现 Plugin skeleton 和 toy network build，不直接跳到完整 EfficientViT graph surgery。
+
 ---
 
 ## 3. 候选边界
@@ -170,16 +180,19 @@ LiteMLA 原始 PyTorch 实现中 `relu_linear_att` 存在 FP32 保护倾向。Ph
 
 ---
 
-## 6. TensorRT 集成策略待确认
+## 6. TensorRT 集成策略状态
 
-后续需要在 Step 3 具体确认以下问题：
+Step 3 已确认第一版 Plugin API 与 CMake 构建口径，详见 [`plugin_api_cmake_design.md`](plugin_api_cmake_design.md)。当前状态如下：
 
-1. 使用 ONNX graph surgery 插入 Plugin，还是使用 TensorRT Network API 手动替换子图。
-2. Plugin 接口采用 `IPluginV2DynamicExt` 还是 TensorRT 8.6.1 更推荐的兼容接口。
-3. 是否需要为 Windows / TensorRT 8.6.1 单独处理 DLL 导出和 Plugin 注册。
-4. 是否复用 Phase 2 C++ demo 作为 Plugin engine runtime smoke。
+| 问题 | 当前结论 |
+|---|---|
+| Plugin 接口 | 使用 TensorRT 8.6.1 支持的 `IPluginV2DynamicExt` |
+| 构建产物 | Windows DLL：`edgeseg_relu_linear_attention_plugin.dll` |
+| DLL 加载 | Python 侧用 `ctypes.CDLL`，C++ 侧用 `LoadLibraryA`，均需早于 engine build / deserialize |
+| C++ runtime smoke | 复用 Phase 2 C++ demo 的 TensorRT Runtime 链路 |
+| 真实 EfficientViT graph 替换 | Step 5 再做；优先 ONNX graph surgery，若不稳定再评估 TensorRT Network API 手动替换 |
 
-这些问题确认前，不应开始写正式 CUDA kernel。
+在 Step 4 中只实现 Plugin skeleton 与 toy network build；真实 EfficientViT graph surgery 和正式 CUDA kernel 不应提前混在同一次改动里。
 
 ---
 
