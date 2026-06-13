@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，设计并实现一个面向 EfficientViT `stage2/context` LiteMLA 的 TensorRT Plugin MVP，验证自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录，以及 Step 6 真实 EfficientViT ONNX graph replacement + Plugin engine build。Plugin DLL 可编译，TensorRT registry 能找到 Creator，toy engine 和真实 Plugin engine 均可构建；下一步进入 Step 7 端到端 correctness / latency 对比。
+> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录、Step 6 真实 EfficientViT ONNX graph replacement + Plugin engine build、Step 7 端到端 correctness / latency 对比，以及 Step 8 Plugin engine Nsight attribution。Plugin DLL 可编译，TensorRT registry 能找到 Creator，toy engine 和真实 Plugin engine 均可构建；Plugin engine 与 Phase 2 TensorRT baseline 输出对齐，端到端 p50 有轻微净收益；Nsight 证明 Plugin 替换减少了目标边界 kernel time 和 launch 数，但整网收益被其他标准算子热点稀释。下一步进入 Step 9 integration validation report。
 
 ---
 
@@ -41,6 +41,8 @@ Phase 3 暂不做：
 | Plugin 单层 microbenchmark | [`results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md) | 记录 Step 5.5 单层 latency、Nsight kernel summary 与继续 Step 6 的边界判断 |
 | Plugin ONNX 集成 | [`results/metrics/relu_linear_attention_plugin_onnx_integration.json`](results/metrics/relu_linear_attention_plugin_onnx_integration.json) | 证明两个 `stage2/context` attention 子图已被替换成 Plugin node |
 | Plugin engine build | [`results/metrics/relu_linear_attention_plugin_engine_build.json`](results/metrics/relu_linear_attention_plugin_engine_build.json) | 证明 patched ONNX 可被 TensorRT parser 解析并构建真实 Plugin engine |
+| Plugin engine benchmark | [`results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md) | 证明 Plugin engine 可执行、与 baseline TRT 输出对齐，并给出端到端 latency 净收益 |
+| Plugin engine Nsight attribution | [`results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md`](results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md) | 证明 Plugin 替换后目标边界 kernel time / launch 数下降，并定位 Plugin 内部两个 kernel 的占比 |
 
 ---
 
@@ -66,8 +68,8 @@ Phase 3 暂不做：
 - [x] Step 5：实现 `relu_linear_att` CUDA kernel / enqueue 路径，并在 toy/plugin 单层层面与 PyTorch reference 做数值对齐。产物：[`results/metrics/relu_linear_attention_plugin_validation.json`](results/metrics/relu_linear_attention_plugin_validation.json)。本步不做完整 EfficientViT graph surgery。
 - [x] Step 5.5：补充 Plugin 单层 microbenchmark + Nsight kernel summary，确认当前 kernel 在 MX250 `sm_61` / FP32 约束下的真实性能边界。产物：[`results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md)。本步仍不做完整 EfficientViT graph surgery。
 - [x] Step 6：将 Plugin 集成进真实 EfficientViT TensorRT graph，优先评估 ONNX graph surgery，若不稳定再评估 TensorRT Network API 局部重建。产物：[`results/metrics/relu_linear_attention_plugin_onnx_integration.json`](results/metrics/relu_linear_attention_plugin_onnx_integration.json)、[`results/metrics/relu_linear_attention_plugin_engine_build.json`](results/metrics/relu_linear_attention_plugin_engine_build.json)。本步只证明 parser/build 闭环，不证明 correctness / latency。
-- [ ] Step 7：复用 Phase 2 benchmark，比较 TensorRT FP32 baseline vs Plugin engine latency。
-- [ ] Step 8：采集 Plugin engine Nsight trace，更新 attribution summary。
+- [x] Step 7：复用 Phase 2 benchmark，比较 TensorRT FP32 baseline vs Plugin engine latency。产物：[`design_notes/plugin_engine_benchmark_design.md`](design_notes/plugin_engine_benchmark_design.md)、[`scripts/benchmark_plugin_engine.py`](scripts/benchmark_plugin_engine.py)、[`results/metrics/relu_linear_attention_plugin_engine_benchmark.json`](results/metrics/relu_linear_attention_plugin_engine_benchmark.json)、[`results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md)。正式 20/100 结果：baseline p50 54.404ms，Plugin p50 53.864ms，p50 speedup 1.010x；Plugin vs baseline TRT `allclose=True`，Plugin vs PyTorch relaxed allclose 通过、argmax pixel agreement 100%。这说明 Step 7 通过，但当前 Plugin 第一版只是轻微端到端收益，不应夸大为显著加速。
+- [x] Step 8：采集 Plugin engine Nsight trace，更新 attribution summary。产物：[`design_notes/plugin_nsys_attribution_design.md`](design_notes/plugin_nsys_attribution_design.md)、[`scripts/analyze_plugin_nsys_attribution.py`](scripts/analyze_plugin_nsys_attribution.py)、[`results/metrics/relu_linear_attention_plugin_engine_benchmark_nsys.json`](results/metrics/relu_linear_attention_plugin_engine_benchmark_nsys.json)、[`results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md`](results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md)。结果：Plugin layer 合计 3.147ms / 4 launches，对比 Phase 2 baseline `attention_core` proxy 的 3.689ms / 12 launches，目标边界 kernel time 约 1.172x 改善；`aggregation + plugin` proxy 为 4.894ms / 30 launches，对比 baseline `aggregation + attention_core` 的 5.443ms / 38 launches，约 1.112x 改善。Nsight 采集需脱离 Codex 沙盒执行；普通权限下 CPU sampling / context switch trace 仍会被禁用，但 CUDA/NVTX trace 可用。
 - [ ] Step 9：撰写 `integration_validation_report.md`。
 
 ---
@@ -81,6 +83,8 @@ phase3/
 |   |-- plugin_api_cmake_design.md
 |   |-- plugin_fusion_design.md
 |   |-- plugin_graph_integration_design.md
+|   |-- plugin_engine_benchmark_design.md
+|   |-- plugin_nsys_attribution_design.md
 |   `-- stage2_context_tensor_contract.md
 |-- plugin/
 |   |-- CMakeLists.txt
@@ -91,10 +95,12 @@ phase3/
 |       `-- relu_linear_attention_kernel.cu
 |-- scripts/
 |   |-- .gitkeep
+|   |-- benchmark_plugin_engine.py
 |   |-- benchmark_relu_linear_attention_plugin.py
 |   |-- build_plugin_engine.py
 |   |-- build_plugin_toy_engine.py
 |   |-- integrate_relu_linear_attention_plugin_onnx.py
+|   |-- analyze_plugin_nsys_attribution.py
 |   `-- validate_relu_linear_attention_plugin.py
 |-- results/
 |   |-- engines/
@@ -102,6 +108,11 @@ phase3/
 |   |-- metrics/
 |   |   |-- .gitkeep
 |   |   |-- relu_linear_attention_plugin_engine_build.json
+|   |   |-- relu_linear_attention_plugin_engine_benchmark.json
+|   |   |-- relu_linear_attention_plugin_engine_benchmark_nsys.json
+|   |   |-- relu_linear_attention_plugin_engine_benchmark_summary.md
+|   |   |-- relu_linear_attention_plugin_nsys_attribution_summary.md
+|   |   |-- relu_linear_attention_plugin_nsys_attribution_summary.json
 |   |   |-- relu_linear_attention_plugin_microbenchmark.json
 |   |   |-- relu_linear_attention_plugin_microbenchmark_kernel_stats_cuda_gpu_kern_sum.csv
 |   |   |-- relu_linear_attention_plugin_microbenchmark_nsys.json
