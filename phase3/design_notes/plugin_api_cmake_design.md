@@ -1,6 +1,6 @@
 # Plugin API 与 CMake 构建设计
 
-> **状态**：v0.4，已吸收 Phase 3 Step 4 skeleton、Step 5 单层 CUDA 数学验证与 Step 5.5 单层 microbenchmark / Nsight 记录。
+> **状态**：v0.5，已吸收 Phase 3 Step 4 skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录，以及 Step 6 真实 EfficientViT Plugin engine build 结果。
 >
 > **目的**：在开始写 C++/CUDA/TensorRT Plugin 代码前，先固定第一版 `relu_linear_att-only` Plugin 的 API、序列化字段、构建目标、DLL 加载方式和验证路径。本文不实现 kernel。
 
@@ -351,7 +351,27 @@ Step 5.5 已完成 P1a `relu_linear_att-only` 的单层 toy Plugin microbenchmar
 
 ---
 
-## 11. Step 3/4/5/5.5 结论
+## 10.3 Step 6 真实 graph 集成结果
+
+Step 6 已完成真实 EfficientViT ONNX graph replacement 与 Plugin engine build：
+
+| 项 | 结果 |
+|---|---|
+| Graph integration design | [`plugin_graph_integration_design.md`](plugin_graph_integration_design.md) |
+| ONNX surgery script | [`../scripts/integrate_relu_linear_attention_plugin_onnx.py`](../scripts/integrate_relu_linear_attention_plugin_onnx.py) |
+| Engine build script | [`../scripts/build_plugin_engine.py`](../scripts/build_plugin_engine.py) |
+| ONNX metadata | [`../results/metrics/relu_linear_attention_plugin_onnx_integration.json`](../results/metrics/relu_linear_attention_plugin_onnx_integration.json) |
+| Engine metadata | [`../results/metrics/relu_linear_attention_plugin_engine_build.json`](../results/metrics/relu_linear_attention_plugin_engine_build.json) |
+| patched ONNX nodes | `393 -> 262` |
+| Plugin node count | `2` |
+| TensorRT parser errors | `[]` |
+| TensorRT network layers | `241` |
+
+该结果证明 P1a Plugin 能进入真实 EfficientViT TensorRT parser/build 链路。Step 7 仍需验证端到端输出对齐与 latency。
+
+---
+
+## 11. Step 3/4/5/5.5/6 结论
 
 1. 第一版 Plugin API 采用 `IPluginV2DynamicExt`。
 2. 第一版只支持 FP32、NCHW、fixed shape `[1,384,64,128] -> [1,128,64,128]`。
@@ -360,4 +380,5 @@ Step 5.5 已完成 P1a `relu_linear_att-only` 的单层 toy Plugin microbenchmar
 5. Step 4 已证明 Plugin skeleton 可编译、Creator 可注册、toy engine 可构建。
 6. Step 5 已证明真实 `relu_linear_att` CUDA kernel 在单层 toy/plugin 口径下与 PyTorch reference 对齐。
 7. Step 5.5 已证明单层 toy Plugin 可用 CUDA Events / Nsight 观测，但尚未形成稳定加速结论。
-8. 后续 Step 6 再做真实 EfficientViT graph 集成，不直接把 graph surgery 与数学实现混在一次改动里。
+8. Step 6 已证明真实 EfficientViT ONNX graph surgery + TensorRT Plugin engine build 可行。
+9. 后续 Step 7 再做端到端 correctness / latency，不直接把 build 成功当成性能或数值结论。

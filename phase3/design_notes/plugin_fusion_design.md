@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase3/README.md`](../README.md)
 >
-> **状态**：v0.5，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证，以及 Step 5.5 单层 microbenchmark / Nsight kernel summary。后续流程继续保持拆分：Step 6 完整 EfficientViT graph 集成，Step 7/8 端到端性能与 Nsight 验证。
+> **状态**：v0.6，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight kernel summary，以及 Step 6 真实 EfficientViT Plugin engine build 结果。后续流程继续保持拆分：Step 7/8 端到端性能与 Nsight 验证。
 
 ---
 
@@ -91,6 +91,18 @@ Step 5.5 已补充 P1a `relu_linear_att-only` 的单层 toy Plugin latency 与 N
 - Kernel summary 显示 Plugin 分支主要由 `computeVkKernel` 与 `computeOutputKernel` 两个自定义 kernel 组成；PyTorch reference 分支仍包含 SGEMM、clamp、div、copy/fill 等多个 kernel。
 
 解释：当前 Plugin 已经证明了单层数学正确与 Nsight 可观察性，但单层 p50 对运行环境有波动，尚不能作为稳定加速结论。这个结果支持继续进入 Step 6 做真实 graph 集成；若 Step 7 端到端无收益，再回到单层 kernel 优化，而不是直接扩大到 P1b。
+
+### 2.8 Step 6 真实 graph 集成
+
+Step 6 已完成真实 EfficientViT graph replacement：
+
+- Graph integration 设计见 [`plugin_graph_integration_design.md`](plugin_graph_integration_design.md)。
+- ONNX surgery 脚本为 [`../scripts/integrate_relu_linear_attention_plugin_onnx.py`](../scripts/integrate_relu_linear_attention_plugin_onnx.py)。
+- Engine build 脚本为 [`../scripts/build_plugin_engine.py`](../scripts/build_plugin_engine.py)。
+- 两个 `backbone.stages.2` context attention 子图均已替换为 `EdgesegReluLinearAttention_TRT` Plugin node。
+- patched ONNX node 数从 `393` 降到 `262`，Plugin node 数为 `2`。
+- TensorRT parser 能找到并创建 `edgeseg` namespace 下的 Plugin Creator，parser errors 为 `[]`。
+- 真实 Plugin engine 已生成；本结果只证明 parser/build 闭环，不证明端到端 correctness / latency。
 
 ---
 
@@ -234,10 +246,10 @@ Step 3 已确认第一版 Plugin API 与 CMake 构建口径，详见 [`plugin_ap
 | 构建产物 | Windows DLL：`edgeseg_relu_linear_attention_plugin.dll` |
 | DLL 加载 | Python 侧用 `ctypes.CDLL`，C++ 侧用 `LoadLibraryA`，均需早于 engine build / deserialize |
 | C++ runtime smoke | 复用 Phase 2 C++ demo 的 TensorRT Runtime 链路 |
-| 真实 EfficientViT graph 替换 | Step 6 再做；优先 ONNX graph surgery，若不稳定再评估 TensorRT Network API 手动替换 |
-| Plugin skeleton | Step 4 已完成 toy engine build；Step 5 已实现真实 `relu_linear_att` 数学并完成单层验证 |
+| 真实 EfficientViT graph 替换 | Step 6 已通过 ONNX graph surgery 跑通，TensorRT parser/build 成功 |
+| Plugin skeleton / kernel | Step 4 已完成 toy engine build；Step 5 已实现真实 `relu_linear_att` 数学并完成单层验证 |
 
-在 Step 4 中只实现 Plugin skeleton 与 toy network build；Step 5 专注真实 CUDA kernel 与单层数值对齐；Step 5.5 补单层 microbenchmark / Nsight 记录；Step 6 再做真实 EfficientViT graph surgery。这几类工作不应混在同一次改动里。
+在 Step 4 中只实现 Plugin skeleton 与 toy network build；Step 5 专注真实 CUDA kernel 与单层数值对齐；Step 5.5 补单层 microbenchmark / Nsight 记录；Step 6 做真实 EfficientViT graph surgery 和 parser/build 验证。这几类工作不应混在同一次改动里。
 
 ---
 

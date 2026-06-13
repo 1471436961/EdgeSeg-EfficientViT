@@ -1,0 +1,1020 @@
+{
+  "status": "ok",
+  "purpose": "phase3_step6_relu_linear_attention_plugin_onnx_integration",
+  "input_onnx": {
+    "path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase2\\results\\onnx\\efficientvit_seg_b0_cityscapes_1024x2048.onnx",
+    "sha256": "64906019bab42dc3b88858af5d6f10db0fda1c9396043c4dbccea835ef0fe3f5",
+    "size_bytes": 2920648
+  },
+  "output_onnx": {
+    "path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\onnx\\efficientvit_seg_b0_cityscapes_1024x2048_relu_linear_att_plugin.onnx",
+    "sha256": "69b8b986b4674fc0b7ce1f6eff2c70c4a09e36c4c5c5d868d1672d6c120de21d",
+    "size_bytes": 2890641
+  },
+  "plugin": {
+    "op_type": "EdgesegReluLinearAttention_TRT",
+    "plugin_version": "1",
+    "plugin_namespace": "edgeseg",
+    "dim": 16,
+    "eps": 1e-15,
+    "input_c": 384,
+    "height": 64,
+    "width": 128
+  },
+  "graph": {
+    "original_node_count": 393,
+    "patched_node_count": 262,
+    "plugin_node_count": 2,
+    "target_block_count": 2,
+    "removed_value_info": 0
+  },
+  "blocks": [
+    {
+      "block_prefix": "/backbone/stages.2/op_list.1/context_module/main",
+      "plugin_input": "/backbone/stages.2/op_list.1/context_module/main/Concat_output_0",
+      "plugin_output": "/backbone/stages.2/op_list.1/context_module/main/Cast_1_output_0",
+      "insert_index": 37,
+      "removed_node_count": 55,
+      "removed_nodes": [
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Reshape_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_1",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_2",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_3",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_4",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_4_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Slice",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Slice_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_5",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_5_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_6",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_6_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_7",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_7_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_8",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_8_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_1",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Slice_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_9",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_9_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_10",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_10_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_11",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_11_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_12",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_12_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_2",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Slice_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu",
+          "op_type": "Relu",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/kernel_func/Relu_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu",
+          "op_type": "Relu",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/kernel_func_1/Relu_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Transpose",
+          "op_type": "Transpose",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Transpose_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_13",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_13_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_14",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_14_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/ConstantOfShape",
+          "op_type": "ConstantOfShape",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/ConstantOfShape_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Concat_1",
+          "op_type": "Concat",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Concat_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_15",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_15_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_1",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Reshape_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_16",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_16_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_17",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_17_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_18",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_18_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_19",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_19_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_3",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Slice_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Transpose_1",
+          "op_type": "Transpose",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Transpose_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_20",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_20_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_2",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Reshape_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Cast",
+          "op_type": "Cast",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Cast_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_21",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_21_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Pad",
+          "op_type": "Pad",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Pad_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul",
+          "op_type": "MatMul",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/MatMul_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/MatMul_1",
+          "op_type": "MatMul",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/MatMul_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_22",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_22_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_23",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_23_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_24",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_24_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_25",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_25_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_4",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Slice_4_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_26",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_26_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_27",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_27_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_28",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_28_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_29",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_29_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Slice_5",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Slice_5_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_30",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_30_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Add",
+          "op_type": "Add",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Add_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Div",
+          "op_type": "Div",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Div_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Constant_31",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Constant_31_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Reshape_3",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Reshape_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.1/context_module/main/Cast_1",
+          "op_type": "Cast",
+          "outputs": [
+            "/backbone/stages.2/op_list.1/context_module/main/Cast_1_output_0"
+          ]
+        }
+      ],
+      "plugin_node": {
+        "name": "/backbone/stages.2/op_list.1/context_module/main/EdgesegReluLinearAttention_TRT",
+        "op_type": "EdgesegReluLinearAttention_TRT",
+        "inputs": [
+          "/backbone/stages.2/op_list.1/context_module/main/Concat_output_0"
+        ],
+        "outputs": [
+          "/backbone/stages.2/op_list.1/context_module/main/Cast_1_output_0"
+        ]
+      }
+    },
+    {
+      "block_prefix": "/backbone/stages.2/op_list.2/context_module/main",
+      "plugin_input": "/backbone/stages.2/op_list.2/context_module/main/Concat_output_0",
+      "plugin_output": "/backbone/stages.2/op_list.2/context_module/main/Cast_1_output_0",
+      "insert_index": 104,
+      "removed_node_count": 78,
+      "removed_nodes": [
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Shape",
+          "op_type": "Shape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Shape_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Gather",
+          "op_type": "Gather",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Gather_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Shape_1",
+          "op_type": "Shape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Shape_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_1",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Gather_1",
+          "op_type": "Gather",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Gather_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Shape_2",
+          "op_type": "Shape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Shape_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_2",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Gather_2",
+          "op_type": "Gather",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Gather_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Mul",
+          "op_type": "Mul",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Mul_output_0"
+          ]
+        },
+        {
+          "name": "Constant_271",
+          "op_type": "Constant",
+          "outputs": [
+            "onnx::Unsqueeze_418"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze",
+          "op_type": "Unsqueeze",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_3",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_4",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_4_output_0"
+          ]
+        },
+        {
+          "name": "Constant_275",
+          "op_type": "Constant",
+          "outputs": [
+            "onnx::Unsqueeze_424"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_1",
+          "op_type": "Unsqueeze",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Concat_1",
+          "op_type": "Concat",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Concat_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Reshape_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_5",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_5_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_6",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_6_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_7",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_7_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_8",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_8_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Slice",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Slice_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_9",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_9_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_10",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_10_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_11",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_11_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_12",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_12_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_1",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Slice_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_13",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_13_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_14",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_14_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_15",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_15_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_16",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_16_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_2",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Slice_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu",
+          "op_type": "Relu",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/kernel_func/Relu_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu",
+          "op_type": "Relu",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/kernel_func_1/Relu_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Transpose",
+          "op_type": "Transpose",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Transpose_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_17",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_17_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_18",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_18_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/ConstantOfShape",
+          "op_type": "ConstantOfShape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/ConstantOfShape_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Concat_2",
+          "op_type": "Concat",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Concat_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_19",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_19_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_1",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Reshape_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_20",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_20_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_21",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_21_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_22",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_22_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_23",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_23_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_3",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Slice_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Transpose_1",
+          "op_type": "Transpose",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Transpose_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_24",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_24_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_2",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Reshape_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Cast",
+          "op_type": "Cast",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Cast_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_25",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_25_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Pad",
+          "op_type": "Pad",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Pad_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul",
+          "op_type": "MatMul",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/MatMul_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/MatMul_1",
+          "op_type": "MatMul",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/MatMul_1_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_26",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_26_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_27",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_27_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_28",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_28_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_29",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_29_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_4",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Slice_4_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_30",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_30_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_31",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_31_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_32",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_32_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_33",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_33_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Slice_5",
+          "op_type": "Slice",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Slice_5_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_34",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_34_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Add",
+          "op_type": "Add",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Add_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Div",
+          "op_type": "Div",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Div_output_0"
+          ]
+        },
+        {
+          "name": "Constant_329",
+          "op_type": "Constant",
+          "outputs": [
+            "onnx::Unsqueeze_504"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_2",
+          "op_type": "Unsqueeze",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_2_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Constant_35",
+          "op_type": "Constant",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Constant_35_output_0"
+          ]
+        },
+        {
+          "name": "Constant_332",
+          "op_type": "Constant",
+          "outputs": [
+            "onnx::Unsqueeze_508"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_3",
+          "op_type": "Unsqueeze",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_3_output_0"
+          ]
+        },
+        {
+          "name": "Constant_334",
+          "op_type": "Constant",
+          "outputs": [
+            "onnx::Unsqueeze_510"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_4",
+          "op_type": "Unsqueeze",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Unsqueeze_4_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Concat_3",
+          "op_type": "Concat",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Concat_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Reshape_3",
+          "op_type": "Reshape",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Reshape_3_output_0"
+          ]
+        },
+        {
+          "name": "/backbone/stages.2/op_list.2/context_module/main/Cast_1",
+          "op_type": "Cast",
+          "outputs": [
+            "/backbone/stages.2/op_list.2/context_module/main/Cast_1_output_0"
+          ]
+        }
+      ],
+      "plugin_node": {
+        "name": "/backbone/stages.2/op_list.2/context_module/main/EdgesegReluLinearAttention_TRT",
+        "op_type": "EdgesegReluLinearAttention_TRT",
+        "inputs": [
+          "/backbone/stages.2/op_list.2/context_module/main/Concat_output_0"
+        ],
+        "outputs": [
+          "/backbone/stages.2/op_list.2/context_module/main/Cast_1_output_0"
+        ]
+      }
+    }
+  ],
+  "checker": {
+    "status": "warning",
+    "error_type": "ValidationError",
+    "error": "No Op registered for EdgesegReluLinearAttention_TRT with domain_version of 17\n\n==> Context: Bad node spec for node. Name: /backbone/stages.2/op_list.1/context_module/main/EdgesegReluLinearAttention_TRT OpType: EdgesegReluLinearAttention_TRT",
+    "note": "ONNX checker may not know TensorRT custom Plugin ops; parser build is the authoritative Step 6 check."
+  },
+  "versions": {
+    "python": "3.10.20",
+    "onnx": "1.21.0",
+    "numpy": "1.26.4"
+  },
+  "notes": [
+    "This is P1a relu_linear_att-only graph surgery.",
+    "It preserves qkv, aggregation, concat, proj, and residual add.",
+    "Numerical correctness and latency are Step 7 responsibilities."
+  ],
+  "timestamp_utc": "2026-06-13T13:57:26.574135+00:00",
+  "script_version": "integrate_relu_linear_attention_plugin_onnx.py@69ae4bc"
+}
