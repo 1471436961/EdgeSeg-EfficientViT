@@ -1,6 +1,6 @@
 # Plugin API 与 CMake 构建设计
 
-> **状态**：v0.2，已吸收 Phase 3 Step 4 skeleton 实测结果。
+> **状态**：v0.3，已吸收 Phase 3 Step 4 skeleton 实测结果与 Step 5 单层 CUDA 数学验证结果。
 >
 > **目的**：在开始写 C++/CUDA/TensorRT Plugin 代码前，先固定第一版 `relu_linear_att-only` Plugin 的 API、序列化字段、构建目标、DLL 加载方式和验证路径。本文不实现 kernel。
 
@@ -301,7 +301,28 @@ Step 4 已完成 skeleton 实现与 toy engine build：
 | Toy engine | `phase3/results/engines/relu_linear_attention_toy_fp32.engine` |
 | Metadata | [`../results/metrics/relu_linear_attention_toy_build.json`](../results/metrics/relu_linear_attention_toy_build.json) |
 
-注意：Step 4 skeleton 的 CUDA enqueue 当前只做 zero-fill，用于验证 Plugin 调用链路；真实 `relu_linear_att` 数学在 Step 5 实现。
+注意：Step 4 skeleton 的 CUDA enqueue 最初只做 zero-fill，用于验证 Plugin 调用链路；Step 5 已替换为真实 `relu_linear_att` CUDA 数学。
+
+---
+
+## 10.1 Step 5 单层验证结果
+
+Step 5 已完成真实 `relu_linear_att` CUDA kernel 与 toy/plugin 单层 PyTorch reference 对齐：
+
+| 项 | 结果 |
+|---|---|
+| Validation script | [`../scripts/validate_relu_linear_attention_plugin.py`](../scripts/validate_relu_linear_attention_plugin.py) |
+| Metadata | [`../results/metrics/relu_linear_attention_plugin_validation.json`](../results/metrics/relu_linear_attention_plugin_validation.json) |
+| 输入 | `[1,384,64,128]` FP32，固定 seed 42 |
+| 输出 | `[1,128,64,128]` FP32 |
+| MX250 约束 | `sm_61`、FP32、无 Tensor Core、约 2.1KB workspace |
+| `max_abs_diff` | `1.4156e-07` |
+| `mean_abs_diff` | `8.4468e-09` |
+| cosine similarity | `0.9999999999995786` |
+| relaxed allclose | `true` (`atol=1e-3`, `rtol=1e-3`) |
+| argmax pixel agreement | `1.0` |
+
+该结果只证明 P1a 单层 Plugin 数学正确；完整 EfficientViT graph 替换仍属于 Step 6。
 
 ---
 
@@ -312,4 +333,5 @@ Step 4 已完成 skeleton 实现与 toy engine build：
 3. 第一版 Plugin 不带权重，只序列化 `dim/eps/input_c/height/width`。
 4. 构建目标是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
 5. Step 4 已证明 Plugin skeleton 可编译、Creator 可注册、toy engine 可构建。
-6. 后续 Step 5 只实现真实 CUDA kernel 与单层对齐；Step 6 再做真实 EfficientViT graph 集成，不直接把 graph surgery 与数学实现混在一次改动里。
+6. Step 5 已证明真实 `relu_linear_att` CUDA kernel 在单层 toy/plugin 口径下与 PyTorch reference 对齐。
+7. 后续 Step 6 再做真实 EfficientViT graph 集成，不直接把 graph surgery 与数学实现混在一次改动里。

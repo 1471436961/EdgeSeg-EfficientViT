@@ -151,7 +151,12 @@ size_t EdgesegReluLinearAttentionPlugin::getWorkspaceSize(
     (void) nbInputs;
     (void) outputs;
     (void) nbOutputs;
-    return 0;
+    if (!validConfig(config_)) {
+        return 0;
+    }
+    const int32_t heads = config_.inputC / (3 * config_.dim);
+    const int64_t elements = static_cast<int64_t>(heads) * (config_.dim + 1) * config_.dim;
+    return static_cast<size_t>(elements) * sizeof(float);
 }
 
 int32_t EdgesegReluLinearAttentionPlugin::enqueue(
@@ -161,16 +166,20 @@ int32_t EdgesegReluLinearAttentionPlugin::enqueue(
     void* const* outputs,
     void* workspace,
     cudaStream_t stream) noexcept {
-    (void) inputDesc;
-    (void) workspace;
-    if (outputDesc == nullptr || inputs == nullptr || outputs == nullptr || inputs[0] == nullptr || outputs[0] == nullptr) {
+    if (inputDesc == nullptr || outputDesc == nullptr || inputs == nullptr || outputs == nullptr || inputs[0] == nullptr
+        || outputs[0] == nullptr || !validConfig(config_)) {
         return 1;
     }
-    const int32_t outputElements = volume(outputDesc[0].dims);
-    return launchReluLinearAttentionSkeleton(
+    if (!dimsEqual(inputDesc[0].dims, 1, config_.inputC, config_.height, config_.width)
+        || !dimsEqual(outputDesc[0].dims, 1, config_.outputC(), config_.height, config_.width)) {
+        return 1;
+    }
+    return launchReluLinearAttention(
         static_cast<float const*>(inputs[0]),
         static_cast<float*>(outputs[0]),
-        outputElements,
+        workspace,
+        getWorkspaceSize(inputDesc, 1, outputDesc, 1),
+        config_,
         stream);
 }
 

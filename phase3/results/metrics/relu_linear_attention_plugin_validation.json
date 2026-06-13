@@ -1,0 +1,117 @@
+{
+  "status": "ok",
+  "purpose": "phase3_step5_relu_linear_attention_plugin_single_layer_validation",
+  "mx250_constraints": {
+    "target_sm": "sm_61",
+    "precision": "fp32",
+    "tensor_cores": "not_available_on_mx250_pascal",
+    "workspace_policy": "small_workspace_only_vk_8x17x16_float32"
+  },
+  "plugin": {
+    "name": "EdgesegReluLinearAttention_TRT",
+    "version": "1",
+    "namespace": "edgeseg",
+    "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
+    "dll_sha256": "a7cfa5af222af7f47931a629716fd82c559885e6473bfd0edd3ea02c583bc946"
+  },
+  "engine": {
+    "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\relu_linear_attention_toy_fp32.engine",
+    "engine_sha256": "774627b2b2834d568ecb971ebcfd5d50c8a328932407d3090845b3258302536c",
+    "engine_size_bytes": 2684
+  },
+  "input": {
+    "shape": [
+      1,
+      384,
+      64,
+      128
+    ],
+    "dtype": "torch.float32",
+    "seed": 42,
+    "sha256": "3e6af685ca9803b34eddf9cd513cfe20c1c1f5cfefe22fa24124e8c5ecdeb393"
+  },
+  "reference": {
+    "name": "pytorch_relu_linear_attention_reference",
+    "dim": 16,
+    "eps": 1e-15
+  },
+  "bindings": [
+    {
+      "index": 0,
+      "name": "qkv_cat",
+      "is_input": true,
+      "shape": [
+        1,
+        384,
+        64,
+        128
+      ],
+      "dtype": "DataType.FLOAT"
+    },
+    {
+      "index": 1,
+      "name": "attention_out",
+      "is_input": false,
+      "shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "dtype": "DataType.FLOAT"
+    }
+  ],
+  "comparison": {
+    "comparison_target": "pytorch_relu_linear_att_reference",
+    "output_shape": [
+      1,
+      128,
+      64,
+      128
+    ],
+    "max_abs_diff": 1.4156103134155273e-07,
+    "mean_abs_diff": 8.446814050851183e-09,
+    "max_rel_diff": 1.3929423265228995,
+    "cosine_similarity": 0.9999999999995786,
+    "allclose_pass": true,
+    "allclose_pass_atol_1e_2_rtol_1e_2": true,
+    "argmax_pixel_agreement": 1.0,
+    "argmax_mismatch_pixels": 0,
+    "argmax_total_pixels": 8192,
+    "atol": 0.001,
+    "rtol": 0.001
+  },
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "phase3_extra_dll_dirs_added": [
+      "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4\\bin"
+    ],
+    "phase3_extra_dll_dirs_missing": []
+  },
+  "versions": {
+    "python": "3.10.20",
+    "torch": "2.4.1+cu124",
+    "tensorrt": "8.6.1",
+    "numpy": "1.26.4"
+  },
+  "notes": [
+    "This validates only the single Plugin layer contract; it does not replace the full EfficientViT graph.",
+    "The CUDA implementation uses two kernels: compute vk workspace, then compute normalized output.",
+    "Numerical differences are expected to be nonzero because reduction order differs from torch.matmul/cuBLAS."
+  ],
+  "_dll_handle_alive": true,
+  "timestamp_utc": "2026-06-13T08:56:57.182671+00:00",
+  "script_version": "validate_relu_linear_attention_plugin.py@42408be"
+}

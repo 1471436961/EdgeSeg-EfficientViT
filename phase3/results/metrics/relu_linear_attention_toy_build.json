@@ -1,19 +1,19 @@
 {
   "status": "ok",
-  "purpose": "phase3_step4_plugin_skeleton_toy_engine",
+  "purpose": "phase3_plugin_toy_engine_build",
   "plugin": {
     "name": "EdgesegReluLinearAttention_TRT",
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "4c6f1850560d95f7f7dcbd1bd375f291938ea781de47f0e154d0e428300b23c9",
+    "dll_sha256": "a7cfa5af222af7f47931a629716fd82c559885e6473bfd0edd3ea02c583bc946",
     "creator_found": true,
     "registered_creator_count": 65
   },
   "engine": {
     "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\relu_linear_attention_toy_fp32.engine",
-    "engine_sha256": "25c87653ee825ce2c54d5beb0ebd08a768af7bff0dbb62aaaa2a3d33b4d11e63",
-    "engine_size_bytes": 2628
+    "engine_sha256": "774627b2b2834d568ecb971ebcfd5d50c8a328932407d3090845b3258302536c",
+    "engine_size_bytes": 2684
   },
   "toy_network": {
     "input": {
@@ -70,10 +70,10 @@
     "numpy": "1.26.4"
   },
   "notes": [
-    "Step 4 validates Plugin registration and toy engine build only.",
-    "The skeleton Plugin currently zero-fills its output; real LiteMLA math is Step 5.",
-    "This toy engine is not a performance or correctness artifact."
+    "This validates Plugin registration and toy engine build only.",
+    "Step 5 numerical correctness is validated by relu_linear_attention_plugin_validation.json.",
+    "This toy engine is not a performance artifact."
   ],
-  "timestamp_utc": "2026-06-13T07:30:23.122770+00:00",
-  "script_version": "build_plugin_toy_engine.py@27d81b0"
+  "timestamp_utc": "2026-06-13T08:56:56.681308+00:00",
+  "script_version": "build_plugin_toy_engine.py@42408be-dirty"
 }

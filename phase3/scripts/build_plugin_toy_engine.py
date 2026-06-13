@@ -1,4 +1,4 @@
-"""Build a minimal TensorRT engine containing the Phase 3 Plugin skeleton.
+"""Build a minimal TensorRT engine containing the Phase 3 Plugin.
 
 This script validates only the Plugin integration path:
 
@@ -7,8 +7,8 @@ This script validates only the Plugin integration path:
 3. The Plugin creator is registered under the expected namespace.
 4. A toy explicit-batch network can be built with the Plugin layer.
 
-It does not validate real LiteMLA math. The Step 4 skeleton Plugin currently
-fills its output with zero; Step 5 will replace that with the real kernel.
+It does not validate real LiteMLA math by itself. Step 5 single-layer numerical
+validation is handled by validate_relu_linear_attention_plugin.py.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def default_metadata_path() -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build a toy TensorRT engine with the Phase 3 Plugin skeleton.")
+    parser = argparse.ArgumentParser(description="Build a toy TensorRT engine with the Phase 3 Plugin.")
     parser.add_argument("--plugin-dll", type=Path, default=default_plugin_dll(), help="Plugin DLL path.")
     parser.add_argument("--engine", type=Path, default=default_engine_path(), help="Output toy engine path.")
     parser.add_argument("--metadata", type=Path, default=default_metadata_path(), help="Output metadata JSON path.")
@@ -185,7 +185,7 @@ def build_toy_engine(args: argparse.Namespace) -> Dict[str, Any]:
 
     metadata = {
         "status": "ok",
-        "purpose": "phase3_step4_plugin_skeleton_toy_engine",
+        "purpose": "phase3_plugin_toy_engine_build",
         "plugin": {
             "name": PLUGIN_NAME,
             "version": PLUGIN_VERSION,
@@ -219,9 +219,9 @@ def build_toy_engine(args: argparse.Namespace) -> Dict[str, Any]:
             "numpy": version_of("numpy"),
         },
         "notes": [
-            "Step 4 validates Plugin registration and toy engine build only.",
-            "The skeleton Plugin currently zero-fills its output; real LiteMLA math is Step 5.",
-            "This toy engine is not a performance or correctness artifact.",
+            "This validates Plugin registration and toy engine build only.",
+            "Step 5 numerical correctness is validated by relu_linear_attention_plugin_validation.json.",
+            "This toy engine is not a performance artifact.",
         ],
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "script_version": resolve_script_version(SCRIPT_NAME, Path(__file__)),
@@ -238,7 +238,7 @@ def build_toy_engine(args: argparse.Namespace) -> Dict[str, Any]:
 def save_failure_metadata(args: argparse.Namespace, error: Exception) -> None:
     payload = {
         "status": "failed",
-        "purpose": "phase3_step4_plugin_skeleton_toy_engine",
+        "purpose": "phase3_plugin_toy_engine_build",
         "plugin_dll": str(args.plugin_dll.expanduser().resolve()),
         "engine_path": str(args.engine.expanduser().resolve()),
         "trt_root": str(args.trt_root.expanduser().resolve()),

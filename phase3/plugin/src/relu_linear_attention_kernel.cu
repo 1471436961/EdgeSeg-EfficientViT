@@ -2,10 +2,76 @@
 
 namespace {
 
-__global__ void zeroFillKernel(float* output, int32_t n) {
-    const int32_t idx = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    if (idx < n) {
-        output[idx] = 0.0F;
+constexpr int32_t kThreads = 256;
+constexpr int32_t kMaxDim = 32;
+
+__device__ __forceinline__ float relu(float value) {
+    return value > 0.0F ? value : 0.0F;
+}
+
+__global__ void computeVkKernel(
+    float const* input, float* vkWorkspace, int32_t heads, int32_t dim, int32_t spatialSize) {
+    const int32_t d = static_cast<int32_t>(blockIdx.x % dim);
+    const int32_t row = static_cast<int32_t>((blockIdx.x / dim) % (dim + 1));
+    const int32_t head = static_cast<int32_t>(blockIdx.x / (dim * (dim + 1)));
+
+    float sum = 0.0F;
+    const int32_t kChannel = head * 3 * dim + dim + d;
+    for (int32_t n = static_cast<int32_t>(threadIdx.x); n < spatialSize; n += static_cast<int32_t>(blockDim.x)) {
+        const float k = relu(input[kChannel * spatialSize + n]);
+        const float v = row == dim ? 1.0F : input[(head * 3 * dim + 2 * dim + row) * spatialSize + n];
+        sum += v * k;
+    }
+
+    __shared__ float partial[kThreads];
+    partial[threadIdx.x] = sum;
+    __syncthreads();
+
+    for (int32_t stride = kThreads / 2; stride > 0; stride >>= 1) {
+        if (threadIdx.x < static_cast<uint32_t>(stride)) {
+            partial[threadIdx.x] += partial[threadIdx.x + stride];
+        }
+        __syncthreads();
+    }
+
+    if (threadIdx.x == 0) {
+        vkWorkspace[(head * (dim + 1) + row) * dim + d] = partial[0];
+    }
+}
+
+__global__ void computeOutputKernel(
+    float const* input,
+    float const* vkWorkspace,
+    float* output,
+    int32_t heads,
+    int32_t dim,
+    int32_t spatialSize,
+    float eps) {
+    const int32_t linear = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
+    const int32_t total = heads * spatialSize;
+    if (linear >= total) {
+        return;
+    }
+
+    const int32_t n = linear % spatialSize;
+    const int32_t head = linear / spatialSize;
+    const int32_t qBase = head * 3 * dim * spatialSize;
+    const int32_t vkBase = head * (dim + 1) * dim;
+
+    float q[kMaxDim];
+    float denominator = 0.0F;
+    for (int32_t d = 0; d < dim; ++d) {
+        q[d] = relu(input[qBase + d * spatialSize + n]);
+        denominator += vkWorkspace[vkBase + dim * dim + d] * q[d];
+    }
+    denominator += eps;
+
+    for (int32_t row = 0; row < dim; ++row) {
+        float numerator = 0.0F;
+        for (int32_t d = 0; d < dim; ++d) {
+            numerator += vkWorkspace[vkBase + row * dim + d] * q[d];
+        }
+        output[(head * dim + row) * spatialSize + n] = numerator / denominator;
     }
 }
 
@@ -13,20 +79,39 @@ __global__ void zeroFillKernel(float* output, int32_t n) {
 
 namespace edgeseg {
 
-int launchReluLinearAttentionSkeleton(
-    float const* input, float* output, int32_t outputElements, cudaStream_t stream) noexcept {
-    (void) input;
-    if (output == nullptr || outputElements < 0) {
+int launchReluLinearAttention(
+    float const* input,
+    float* output,
+    void* workspace,
+    size_t workspaceBytes,
+    ReluLinearAttentionPluginConfig const& config,
+    cudaStream_t stream) noexcept {
+    if (input == nullptr || output == nullptr || workspace == nullptr || config.dim <= 0 || config.dim > kMaxDim
+        || config.inputC <= 0 || config.height <= 0 || config.width <= 0 || config.inputC % (3 * config.dim) != 0) {
         return 1;
     }
-    if (outputElements == 0) {
-        return 0;
+
+    const int32_t heads = config.inputC / (3 * config.dim);
+    const int32_t spatialSize = config.height * config.width;
+    const size_t expectedWorkspaceBytes =
+        static_cast<size_t>(heads) * static_cast<size_t>(config.dim + 1) * static_cast<size_t>(config.dim) * sizeof(float);
+    if (workspaceBytes < expectedWorkspaceBytes) {
+        return 1;
     }
 
-    constexpr int32_t threads = 256;
-    const int32_t blocks = (outputElements + threads - 1) / threads;
-    zeroFillKernel<<<blocks, threads, 0, stream>>>(output, outputElements);
-    return cudaGetLastError() == cudaSuccess ? 0 : 1;
+    auto* vkWorkspace = static_cast<float*>(workspace);
+    const int32_t vkBlocks = heads * (config.dim + 1) * config.dim;
+    computeVkKernel<<<vkBlocks, kThreads, 0, stream>>>(input, vkWorkspace, heads, config.dim, spatialSize);
+    cudaError_t status = cudaGetLastError();
+    if (status != cudaSuccess) {
+        return 1;
+    }
+
+    const int32_t outputBlocks = (heads * spatialSize + kThreads - 1) / kThreads;
+    computeOutputKernel<<<outputBlocks, kThreads, 0, stream>>>(
+        input, vkWorkspace, output, heads, config.dim, spatialSize, config.eps);
+    status = cudaGetLastError();
+    return status == cudaSuccess ? 0 : 1;
 }
 
 } // namespace edgeseg

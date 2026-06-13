@@ -26,8 +26,13 @@ struct ReluLinearAttentionPluginConfig {
     }
 };
 
-int launchReluLinearAttentionSkeleton(
-    float const* input, float* output, int32_t outputElements, cudaStream_t stream) noexcept;
+int launchReluLinearAttention(
+    float const* input,
+    float* output,
+    void* workspace,
+    size_t workspaceBytes,
+    ReluLinearAttentionPluginConfig const& config,
+    cudaStream_t stream) noexcept;
 
 class EdgesegReluLinearAttentionPlugin final : public nvinfer1::IPluginV2DynamicExt {
 public:
