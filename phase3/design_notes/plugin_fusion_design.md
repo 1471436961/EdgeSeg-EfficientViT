@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase3/README.md`](../README.md)
 >
-> **状态**：v0.2，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract。本文先定义 Plugin 候选、证据来源、融合边界和验证口径；尚未开始 CUDA / TensorRT Plugin 代码实现。
+> **状态**：v0.3，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract，并记录 Step 4 Plugin skeleton / toy engine build 结果。后续流程明确拆分为：Step 5 单层 CUDA 数学实现与对齐，Step 6 完整 EfficientViT graph 集成，Step 7/8 性能与 Nsight 验证。
 
 ---
 
@@ -58,6 +58,16 @@ Step 3 已落盘 [`plugin_api_cmake_design.md`](plugin_api_cmake_design.md)，�
 - 第一版仅支持 FP32、NCHW、fixed shape `[1,384,64,128] -> [1,128,64,128]`。
 - 构建产物是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
 - Step 4 先实现 Plugin skeleton 和 toy network build，不直接跳到完整 EfficientViT graph surgery。
+
+### 2.5 Step 4 Plugin skeleton
+
+Step 4 已完成 P1a Plugin skeleton：
+
+- CMake + MSVC + CUDA 编译通过，生成 `phase3/plugin/build/edgeseg_relu_linear_attention_plugin.dll`。
+- Python toy builder 成功加载 DLL，并在 TensorRT Plugin Registry 中找到 `EdgesegReluLinearAttention_TRT` Creator。
+- 最小 toy network 输入 `[1,384,64,128]`、输出 `[1,128,64,128]`，已成功 build serialized engine。
+- 实测元数据见 [`../results/metrics/relu_linear_attention_toy_build.json`](../results/metrics/relu_linear_attention_toy_build.json)。
+- 当前 skeleton 的 enqueue 只做 zero-fill；真实 `relu_linear_att` 数学留到 Step 5。
 
 ---
 
@@ -149,11 +159,17 @@ Step 3 已落盘 [`plugin_api_cmake_design.md`](plugin_api_cmake_design.md)，�
    - 先不优化 kernel，只跑通 TensorRT Plugin Creator、serialization、engine build、runtime enqueue。
    - 输出可先做 pass-through / reference-like 实现，用于验证接入链路。
 
-4. **实现 CUDA kernel**
+4. **实现 CUDA kernel 与单层对齐**
    - 在 skeleton 通过后再写真实计算。
-   - 每次只扩大一个功能边界，避免同时调 Plugin API 和 CUDA 数值。
+   - 在 toy/plugin 单层层面与 PyTorch reference 对齐，先证明 Plugin 自己算得对。
+   - 本步不做完整 EfficientViT graph surgery，避免同时调 Plugin API、CUDA 数值和图替换。
 
-5. **benchmark + Nsight**
+5. **集成完整 EfficientViT TensorRT graph**
+   - 优先用 ONNX graph surgery 把 `Concat_output_0 -> Cast_1_output_0` 子图替换为 custom op。
+   - 若 ONNX parser custom op 路线不稳定，再评估 TensorRT Network API 手动重建局部网络。
+   - 该步骤通过后，才进入完整 Plugin engine 的端到端 benchmark。
+
+6. **benchmark + Nsight**
    - 复用 Phase 2 `benchmark_trt_engine.py` 的 CUDA Events 口径。
    - 复用 TensorRT Nsight attribution 口径。
    - 对比 TensorRT FP32 baseline vs Plugin engine。
@@ -190,9 +206,10 @@ Step 3 已确认第一版 Plugin API 与 CMake 构建口径，详见 [`plugin_ap
 | 构建产物 | Windows DLL：`edgeseg_relu_linear_attention_plugin.dll` |
 | DLL 加载 | Python 侧用 `ctypes.CDLL`，C++ 侧用 `LoadLibraryA`，均需早于 engine build / deserialize |
 | C++ runtime smoke | 复用 Phase 2 C++ demo 的 TensorRT Runtime 链路 |
-| 真实 EfficientViT graph 替换 | Step 5 再做；优先 ONNX graph surgery，若不稳定再评估 TensorRT Network API 手动替换 |
+| 真实 EfficientViT graph 替换 | Step 6 再做；优先 ONNX graph surgery，若不稳定再评估 TensorRT Network API 手动替换 |
+| Plugin skeleton | Step 4 已完成 toy engine build；真实数学尚未实现 |
 
-在 Step 4 中只实现 Plugin skeleton 与 toy network build；真实 EfficientViT graph surgery 和正式 CUDA kernel 不应提前混在同一次改动里。
+在 Step 4 中只实现 Plugin skeleton 与 toy network build；Step 5 专注真实 CUDA kernel 与单层数值对齐；Step 6 再做真实 EfficientViT graph surgery。三者不应混在同一次改动里。
 
 ---
 

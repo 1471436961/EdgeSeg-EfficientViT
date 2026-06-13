@@ -1,0 +1,79 @@
+{
+  "status": "ok",
+  "purpose": "phase3_step4_plugin_skeleton_toy_engine",
+  "plugin": {
+    "name": "EdgesegReluLinearAttention_TRT",
+    "version": "1",
+    "namespace": "edgeseg",
+    "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
+    "dll_sha256": "4c6f1850560d95f7f7dcbd1bd375f291938ea781de47f0e154d0e428300b23c9",
+    "creator_found": true,
+    "registered_creator_count": 65
+  },
+  "engine": {
+    "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\relu_linear_attention_toy_fp32.engine",
+    "engine_sha256": "25c87653ee825ce2c54d5beb0ebd08a768af7bff0dbb62aaaa2a3d33b4d11e63",
+    "engine_size_bytes": 2628
+  },
+  "toy_network": {
+    "input": {
+      "name": "qkv_cat",
+      "shape": [
+        1,
+        384,
+        64,
+        128
+      ],
+      "dtype": "DataType.FLOAT"
+    },
+    "output": {
+      "name": "attention_out",
+      "shape": [
+        1,
+        128,
+        64,
+        128
+      ],
+      "dtype": "DataType.FLOAT"
+    },
+    "num_layers": 1
+  },
+  "tensorrt": {
+    "version": "8.6.1",
+    "workspace_mib": 256,
+    "workspace_bytes": 268435456,
+    "workspace_method": "set_memory_pool_limit",
+    "network_definition": "explicit_batch"
+  },
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "phase3_extra_dll_dirs_added": [
+      "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4\\bin"
+    ],
+    "phase3_extra_dll_dirs_missing": []
+  },
+  "versions": {
+    "python": "3.10.20",
+    "tensorrt": "8.6.1",
+    "numpy": "1.26.4"
+  },
+  "notes": [
+    "Step 4 validates Plugin registration and toy engine build only.",
+    "The skeleton Plugin currently zero-fills its output; real LiteMLA math is Step 5.",
+    "This toy engine is not a performance or correctness artifact."
+  ],
+  "timestamp_utc": "2026-06-13T07:30:23.122770+00:00",
+  "script_version": "build_plugin_toy_engine.py@27d81b0"
+}

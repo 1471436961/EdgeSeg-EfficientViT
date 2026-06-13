@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，设计并实现一个面向 EfficientViT `stage2/context` LiteMLA 的 TensorRT Plugin MVP，验证自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前状态**：Phase 3 已完成 `stage2/context` tensor contract 与最小 Plugin API / CMake 构建方案设计；下一步进入 P1a Plugin skeleton。
+> **当前状态**：Phase 3 已完成 P1a Plugin skeleton，DLL 可编译，TensorRT registry 能找到 Creator，并已构建通过最小 toy engine；下一步先实现真实 CUDA kernel / enqueue 数学并做单层对齐，完整 EfficientViT graph 集成放到后续独立步骤。
 
 ---
 
@@ -36,6 +36,7 @@ Phase 3 暂不做：
 | TensorRT C++ demo | [`../phase2/cpp_demo/README.md`](../phase2/cpp_demo/README.md) | 作为后续 Plugin engine runtime 验证起点 |
 | Stage2 tensor contract | [`design_notes/stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md) | 确认 P1a/P1b/P1c 的真实输入输出 shape 与替换边界 |
 | Plugin API / CMake design | [`design_notes/plugin_api_cmake_design.md`](design_notes/plugin_api_cmake_design.md) | 确认第一版 Plugin 接口、序列化字段、DLL 构建与加载策略 |
+| Plugin toy engine build | [`results/metrics/relu_linear_attention_toy_build.json`](results/metrics/relu_linear_attention_toy_build.json) | 证明 Step 4 skeleton DLL 可注册并能构建含 Plugin 的 toy engine |
 
 ---
 
@@ -57,11 +58,12 @@ Phase 3 暂不做：
 - [x] Step 1：建立 Phase 3 目录骨架与 `plugin_fusion_design.md` 第一版。
 - [x] Step 2：精读 ONNX / TensorRT engine 中 `stage2/context` 的实际 tensor 边界，确定 P1a MVP 的输入输出。产物：[`design_notes/stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md)。
 - [x] Step 3：设计最小 Plugin API 与 CMake 构建方案。产物：[`design_notes/plugin_api_cmake_design.md`](design_notes/plugin_api_cmake_design.md)。
-- [ ] Step 4：实现 P1a Plugin skeleton，先跑通 TensorRT Plugin 注册与 engine build。
-- [ ] Step 5：实现 CUDA kernel / enqueue 路径，并做 PyTorch / TensorRT baseline 输出对齐。
-- [ ] Step 6：复用 Phase 2 benchmark，比较 TensorRT baseline vs Plugin engine latency。
-- [ ] Step 7：采集 Plugin engine Nsight trace，更新 attribution summary。
-- [ ] Step 8：撰写 `integration_validation_report.md`。
+- [x] Step 4：实现 P1a Plugin skeleton，先跑通 TensorRT Plugin 注册与 engine build。产物：[`results/metrics/relu_linear_attention_toy_build.json`](results/metrics/relu_linear_attention_toy_build.json)。
+- [ ] Step 5：实现 `relu_linear_att` CUDA kernel / enqueue 路径，并在 toy/plugin 单层层面与 PyTorch reference 做数值对齐；本步不做完整 EfficientViT graph surgery。
+- [ ] Step 6：将 Plugin 集成进真实 EfficientViT TensorRT graph，优先评估 ONNX graph surgery，若不稳定再评估 TensorRT Network API 局部重建。
+- [ ] Step 7：复用 Phase 2 benchmark，比较 TensorRT FP32 baseline vs Plugin engine latency。
+- [ ] Step 8：采集 Plugin engine Nsight trace，更新 attribution summary。
+- [ ] Step 9：撰写 `integration_validation_report.md`。
 
 ---
 
@@ -75,12 +77,21 @@ phase3/
 |   |-- plugin_fusion_design.md
 |   `-- stage2_context_tensor_contract.md
 |-- plugin/
-|   `-- .gitkeep
+|   |-- CMakeLists.txt
+|   |-- include/
+|   |   `-- edgeseg_relu_linear_attention_plugin.h
+|   `-- src/
+|       |-- edgeseg_relu_linear_attention_plugin.cpp
+|       `-- relu_linear_attention_kernel.cu
 |-- scripts/
-|   `-- .gitkeep
+|   |-- .gitkeep
+|   `-- build_plugin_toy_engine.py
 |-- results/
-|   |-- metrics/
+|   |-- engines/
 |   |   `-- .gitkeep
+|   |-- metrics/
+|   |   |-- .gitkeep
+|   |   `-- relu_linear_attention_toy_build.json
 |   |-- figures/
 |   |   `-- .gitkeep
 |   `-- nsight/

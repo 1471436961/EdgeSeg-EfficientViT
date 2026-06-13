@@ -1,6 +1,6 @@
 # Plugin API 与 CMake 构建设计
 
-> **状态**：v0.1，Phase 3 Step 3 产物。
+> **状态**：v0.2，已吸收 Phase 3 Step 4 skeleton 实测结果。
 >
 > **目的**：在开始写 C++/CUDA/TensorRT Plugin 代码前，先固定第一版 `relu_linear_att-only` Plugin 的 API、序列化字段、构建目标、DLL 加载方式和验证路径。本文不实现 kernel。
 
@@ -147,13 +147,13 @@ phase3/plugin/
 第一版构建一个 Windows 动态库：
 
 ```text
-phase3/plugin/build/Release/edgeseg_relu_linear_attention_plugin.dll
+phase3/plugin/build/edgeseg_relu_linear_attention_plugin.dll
 ```
 
 对应 import library：
 
 ```text
-phase3/plugin/build/Release/edgeseg_relu_linear_attention_plugin.lib
+phase3/plugin/build/edgeseg_relu_linear_attention_plugin.lib
 ```
 
 ### 6.2 CMake 口径
@@ -198,13 +198,23 @@ cmd /c "`"E:/VSBuildTools/Common7/Tools/VsDevCmd.bat`" -arch=x64 -host_arch=x64 
 
 ### 7.1 注册
 
-Plugin DLL 内部使用：
+TensorRT 8.6.1 的 `REGISTER_TENSORRT_PLUGIN` 宏会调用内置 registrar，并默认注册到空 namespace。第一版 Plugin 需要固定 namespace 为 `edgeseg`，因此实际实现采用自定义静态 registrar：
 
 ```cpp
-REGISTER_TENSORRT_PLUGIN(EdgesegReluLinearAttentionPluginCreator);
+namespace {
+edgeseg::EdgesegReluLinearAttentionPluginCreator gCreator;
+
+struct EdgesegReluLinearAttentionRegistrar {
+    EdgesegReluLinearAttentionRegistrar() {
+        getPluginRegistry()->registerCreator(gCreator, "edgeseg");
+    }
+};
+
+EdgesegReluLinearAttentionRegistrar gRegistrar;
+} // namespace
 ```
 
-这会在 DLL 被加载时把 Creator 注册到 TensorRT Plugin Registry。
+这会在 DLL 被加载时把 Creator 注册到 TensorRT Plugin Registry 的 `edgeseg` namespace。
 
 ### 7.2 Python builder 加载
 
@@ -240,19 +250,28 @@ Step 3 只确定 Plugin API 与构建方案，不立刻做 graph surgery。后�
    - 能被 TensorRT registry 找到 Creator。
    - 能在最小 toy network 中加入 Plugin layer 并 build engine。
 
-2. **Step 5：接入真实 EfficientViT subgraph**
+2. **Step 5：实现真实 CUDA kernel 与单层对齐**
+   - 用真实 `relu_linear_att` 数学替换 skeleton zero-fill。
+   - 在 toy/plugin 单层层面与 PyTorch reference 对齐。
+   - 本步不做完整 EfficientViT graph surgery。
+
+3. **Step 6：接入真实 EfficientViT subgraph**
    - 优先用 ONNX graph surgery 把 `Concat_output_0 -> Cast_1_output_0` 子图替换为 custom op。
    - 若 ONNX parser custom op 路线不稳定，再评估 TensorRT Network API 手动重建局部网络。
 
-3. **Step 6：benchmark + correctness**
+4. **Step 7：benchmark + correctness**
    - 复用 Phase 2 `benchmark_trt_engine.py` 的 execute-only CUDA Events 口径。
    - 对比 TensorRT FP32 baseline 与 Plugin engine。
+
+5. **Step 8：Nsight attribution + report**
+   - 采集 Plugin engine Nsight trace，更新 attribution summary。
+   - 汇总到 `integration_validation_report.md`。
 
 ---
 
 ## 9. 数值与性能验收
 
-第一版 `relu_linear_att-only` Plugin 通过条件：
+第一版 `relu_linear_att-only` Plugin 分层通过条件：
 
 | 层级 | 通过条件 |
 |---|---|
@@ -268,11 +287,29 @@ Step 3 只确定 Plugin API 与构建方案，不立刻做 graph surgery。后�
 
 ---
 
-## 10. Step 3 结论
+## 10. Step 4 实测结果
+
+Step 4 已完成 skeleton 实现与 toy engine build：
+
+| 项 | 结果 |
+|---|---|
+| Plugin DLL | `phase3/plugin/build/edgeseg_relu_linear_attention_plugin.dll` |
+| Plugin Creator | `EdgesegReluLinearAttention_TRT` |
+| Namespace | `edgeseg` |
+| Toy input | `[1,384,64,128]` |
+| Toy output | `[1,128,64,128]` |
+| Toy engine | `phase3/results/engines/relu_linear_attention_toy_fp32.engine` |
+| Metadata | [`../results/metrics/relu_linear_attention_toy_build.json`](../results/metrics/relu_linear_attention_toy_build.json) |
+
+注意：Step 4 skeleton 的 CUDA enqueue 当前只做 zero-fill，用于验证 Plugin 调用链路；真实 `relu_linear_att` 数学在 Step 5 实现。
+
+---
+
+## 11. Step 3/4 结论
 
 1. 第一版 Plugin API 采用 `IPluginV2DynamicExt`。
 2. 第一版只支持 FP32、NCHW、fixed shape `[1,384,64,128] -> [1,128,64,128]`。
 3. 第一版 Plugin 不带权重，只序列化 `dim/eps/input_c/height/width`。
 4. 构建目标是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
-5. 后续 Step 4 先实现 Plugin skeleton 和最小 toy network build，不直接跳到完整 EfficientViT graph surgery。
-
+5. Step 4 已证明 Plugin skeleton 可编译、Creator 可注册、toy engine 可构建。
+6. 后续 Step 5 只实现真实 CUDA kernel 与单层对齐；Step 6 再做真实 EfficientViT graph 集成，不直接把 graph surgery 与数学实现混在一次改动里。
