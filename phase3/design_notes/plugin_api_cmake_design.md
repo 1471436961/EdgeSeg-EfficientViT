@@ -1,6 +1,6 @@
 # Plugin API 与 CMake 构建设计
 
-> **状态**：v0.3，已吸收 Phase 3 Step 4 skeleton 实测结果与 Step 5 单层 CUDA 数学验证结果。
+> **状态**：v0.4，已吸收 Phase 3 Step 4 skeleton、Step 5 单层 CUDA 数学验证与 Step 5.5 单层 microbenchmark / Nsight 记录。
 >
 > **目的**：在开始写 C++/CUDA/TensorRT Plugin 代码前，先固定第一版 `relu_linear_att-only` Plugin 的 API、序列化字段、构建目标、DLL 加载方式和验证路径。本文不实现 kernel。
 
@@ -255,15 +255,21 @@ Step 3 只确定 Plugin API 与构建方案，不立刻做 graph surgery。后�
    - 在 toy/plugin 单层层面与 PyTorch reference 对齐。
    - 本步不做完整 EfficientViT graph surgery。
 
-3. **Step 6：接入真实 EfficientViT subgraph**
+3. **Step 5.5：单层 microbenchmark + Nsight 记录**
+   - 用同一 toy engine 对比 Plugin 单层执行与 PyTorch `relu_linear_att` reference。
+   - 使用 `20 warmup + 100 measure` 与 CUDA Events 记录单层 latency。
+   - 用 Nsight Systems 采集 `cuda,nvtx` trace，并导出 kernel summary。
+   - 本步仍不做完整 EfficientViT graph surgery。
+
+4. **Step 6：接入真实 EfficientViT subgraph**
    - 优先用 ONNX graph surgery 把 `Concat_output_0 -> Cast_1_output_0` 子图替换为 custom op。
    - 若 ONNX parser custom op 路线不稳定，再评估 TensorRT Network API 手动重建局部网络。
 
-4. **Step 7：benchmark + correctness**
+5. **Step 7：benchmark + correctness**
    - 复用 Phase 2 `benchmark_trt_engine.py` 的 execute-only CUDA Events 口径。
    - 对比 TensorRT FP32 baseline 与 Plugin engine。
 
-5. **Step 8：Nsight attribution + report**
+6. **Step 8：Nsight attribution + report**
    - 采集 Plugin engine Nsight trace，更新 attribution summary。
    - 汇总到 `integration_validation_report.md`。
 
@@ -326,7 +332,26 @@ Step 5 已完成真实 `relu_linear_att` CUDA kernel 与 toy/plugin 单层 PyTor
 
 ---
 
-## 11. Step 3/4 结论
+## 10.2 Step 5.5 单层 microbenchmark 结果
+
+Step 5.5 已完成 P1a `relu_linear_att-only` 的单层 toy Plugin microbenchmark 与 Nsight kernel summary：
+
+| 项 | 结果 |
+|---|---|
+| Benchmark script | [`../scripts/benchmark_relu_linear_attention_plugin.py`](../scripts/benchmark_relu_linear_attention_plugin.py) |
+| 普通运行 metadata | [`../results/metrics/relu_linear_attention_plugin_microbenchmark.json`](../results/metrics/relu_linear_attention_plugin_microbenchmark.json) |
+| Nsight 运行 metadata | [`../results/metrics/relu_linear_attention_plugin_microbenchmark_nsys.json`](../results/metrics/relu_linear_attention_plugin_microbenchmark_nsys.json) |
+| Kernel stats CSV | [`../results/metrics/relu_linear_attention_plugin_microbenchmark_kernel_stats_cuda_gpu_kern_sum.csv`](../results/metrics/relu_linear_attention_plugin_microbenchmark_kernel_stats_cuda_gpu_kern_sum.csv) |
+| Summary | [`../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md) |
+| 普通运行 p50 | Plugin `2.1023 ms` vs PyTorch reference `1.9876 ms`，speedup `0.945x` |
+| Nsight / NVTX 运行 p50 | Plugin `1.7346 ms` vs PyTorch reference `1.9811 ms`，speedup `1.142x` |
+| Plugin 自定义 kernel | `computeVkKernel` 平均约 `0.907 ms`，`computeOutputKernel` 平均约 `0.656 ms` |
+
+解释：当前 Plugin 已经把 PyTorch `relu_linear_att` reference 的多 kernel 序列压成两个自定义 kernel，但普通运行与 Nsight 运行的 p50 方向不同，因此不能宣称稳定加速。该结果足以支持进入 Step 6 做真实 graph 集成；端到端性能结论必须等 Step 7/8。
+
+---
+
+## 11. Step 3/4/5/5.5 结论
 
 1. 第一版 Plugin API 采用 `IPluginV2DynamicExt`。
 2. 第一版只支持 FP32、NCHW、fixed shape `[1,384,64,128] -> [1,128,64,128]`。
@@ -334,4 +359,5 @@ Step 5 已完成真实 `relu_linear_att` CUDA kernel 与 toy/plugin 单层 PyTor
 4. 构建目标是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
 5. Step 4 已证明 Plugin skeleton 可编译、Creator 可注册、toy engine 可构建。
 6. Step 5 已证明真实 `relu_linear_att` CUDA kernel 在单层 toy/plugin 口径下与 PyTorch reference 对齐。
-7. 后续 Step 6 再做真实 EfficientViT graph 集成，不直接把 graph surgery 与数学实现混在一次改动里。
+7. Step 5.5 已证明单层 toy Plugin 可用 CUDA Events / Nsight 观测，但尚未形成稳定加速结论。
+8. 后续 Step 6 再做真实 EfficientViT graph 集成，不直接把 graph surgery 与数学实现混在一次改动里。

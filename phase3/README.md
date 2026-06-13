@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，设计并实现一个面向 EfficientViT `stage2/context` LiteMLA 的 TensorRT Plugin MVP，验证自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前状态**：Phase 3 已完成 P1a Plugin skeleton 与 Step 5 单层 CUDA 数学验证。Plugin DLL 可编译，TensorRT registry 能找到 Creator，toy engine 可构建；真实 `relu_linear_att` CUDA 输出已与 PyTorch reference 对齐。下一步进入完整 EfficientViT TensorRT graph 集成。
+> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证与 Step 5.5 单层 microbenchmark / Nsight 记录。Plugin DLL 可编译，TensorRT registry 能找到 Creator，toy engine 可构建；真实 `relu_linear_att` CUDA 输出已与 PyTorch reference 对齐。下一步进入完整 EfficientViT TensorRT graph 集成。
 
 ---
 
@@ -38,6 +38,7 @@ Phase 3 暂不做：
 | Plugin API / CMake design | [`design_notes/plugin_api_cmake_design.md`](design_notes/plugin_api_cmake_design.md) | 确认第一版 Plugin 接口、序列化字段、DLL 构建与加载策略 |
 | Plugin toy engine build | [`results/metrics/relu_linear_attention_toy_build.json`](results/metrics/relu_linear_attention_toy_build.json) | 证明 Step 4 skeleton DLL 可注册并能构建含 Plugin 的 toy engine |
 | Plugin 单层验证 | [`results/metrics/relu_linear_attention_plugin_validation.json`](results/metrics/relu_linear_attention_plugin_validation.json) | 证明 Step 5 CUDA kernel 在 toy/plugin 单层层面与 PyTorch `relu_linear_att` reference 对齐 |
+| Plugin 单层 microbenchmark | [`results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md) | 记录 Step 5.5 单层 latency、Nsight kernel summary 与继续 Step 6 的边界判断 |
 
 ---
 
@@ -61,6 +62,7 @@ Phase 3 暂不做：
 - [x] Step 3：设计最小 Plugin API 与 CMake 构建方案。产物：[`design_notes/plugin_api_cmake_design.md`](design_notes/plugin_api_cmake_design.md)。
 - [x] Step 4：实现 P1a Plugin skeleton，先跑通 TensorRT Plugin 注册与 engine build。产物：[`results/metrics/relu_linear_attention_toy_build.json`](results/metrics/relu_linear_attention_toy_build.json)。
 - [x] Step 5：实现 `relu_linear_att` CUDA kernel / enqueue 路径，并在 toy/plugin 单层层面与 PyTorch reference 做数值对齐。产物：[`results/metrics/relu_linear_attention_plugin_validation.json`](results/metrics/relu_linear_attention_plugin_validation.json)。本步不做完整 EfficientViT graph surgery。
+- [x] Step 5.5：补充 Plugin 单层 microbenchmark + Nsight kernel summary，确认当前 kernel 在 MX250 `sm_61` / FP32 约束下的真实性能边界。产物：[`results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md)。本步仍不做完整 EfficientViT graph surgery。
 - [ ] Step 6：将 Plugin 集成进真实 EfficientViT TensorRT graph，优先评估 ONNX graph surgery，若不稳定再评估 TensorRT Network API 局部重建。
 - [ ] Step 7：复用 Phase 2 benchmark，比较 TensorRT FP32 baseline vs Plugin engine latency。
 - [ ] Step 8：采集 Plugin engine Nsight trace，更新 attribution summary。
@@ -87,12 +89,17 @@ phase3/
 |-- scripts/
 |   |-- .gitkeep
 |   |-- build_plugin_toy_engine.py
+|   |-- benchmark_relu_linear_attention_plugin.py
 |   `-- validate_relu_linear_attention_plugin.py
 |-- results/
 |   |-- engines/
 |   |   `-- .gitkeep
 |   |-- metrics/
 |   |   |-- .gitkeep
+|   |   |-- relu_linear_attention_plugin_microbenchmark.json
+|   |   |-- relu_linear_attention_plugin_microbenchmark_kernel_stats_cuda_gpu_kern_sum.csv
+|   |   |-- relu_linear_attention_plugin_microbenchmark_nsys.json
+|   |   |-- relu_linear_attention_plugin_microbenchmark_summary.md
 |   |   |-- relu_linear_attention_plugin_validation.json
 |   |   `-- relu_linear_attention_toy_build.json
 |   |-- figures/

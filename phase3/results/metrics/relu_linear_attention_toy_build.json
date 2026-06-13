@@ -74,6 +74,6 @@
     "Step 5 numerical correctness is validated by relu_linear_attention_plugin_validation.json.",
     "This toy engine is not a performance artifact."
   ],
-  "timestamp_utc": "2026-06-13T08:56:56.681308+00:00",
-  "script_version": "build_plugin_toy_engine.py@42408be-dirty"
+  "timestamp_utc": "2026-06-13T09:13:34.913603+00:00",
+  "script_version": "build_plugin_toy_engine.py@eb6ca91"
 }

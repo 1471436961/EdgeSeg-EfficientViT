@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase3/README.md`](../README.md)
 >
-> **状态**：v0.4，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build 结果，以及 Step 5 单层 CUDA 数学验证结果。后续流程继续保持拆分：Step 6 完整 EfficientViT graph 集成，Step 7/8 性能与 Nsight 验证。
+> **状态**：v0.5，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证，以及 Step 5.5 单层 microbenchmark / Nsight kernel summary。后续流程继续保持拆分：Step 6 完整 EfficientViT graph 集成，Step 7/8 端到端性能与 Nsight 验证。
 
 ---
 
@@ -79,6 +79,18 @@ Step 5 已完成 P1a `relu_linear_att-only` 的真实 CUDA kernel 与单层对�
 - 验证脚本为 [`../scripts/validate_relu_linear_attention_plugin.py`](../scripts/validate_relu_linear_attention_plugin.py)。
 - 实测结果见 [`../results/metrics/relu_linear_attention_plugin_validation.json`](../results/metrics/relu_linear_attention_plugin_validation.json)：`max_abs_diff=1.4156e-07`、`mean_abs_diff=8.4468e-09`、`cosine_similarity≈1.0`、`allclose_pass=true`、`argmax_pixel_agreement=1.0`。
 - 本结果只证明单层 Plugin 数学正确，不代表完整 EfficientViT graph 已完成替换。
+
+### 2.7 Step 5.5 单层 microbenchmark / Nsight 记录
+
+Step 5.5 已补充 P1a `relu_linear_att-only` 的单层 toy Plugin latency 与 Nsight kernel summary：
+
+- Microbenchmark 脚本为 [`../scripts/benchmark_relu_linear_attention_plugin.py`](../scripts/benchmark_relu_linear_attention_plugin.py)。
+- 汇总结果见 [`../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md)。
+- 普通运行中，Plugin p50 `2.1023 ms`，PyTorch reference p50 `1.9876 ms`，p50 speedup `0.945x`。
+- Nsight / NVTX 运行中，Plugin p50 `1.7346 ms`，PyTorch reference p50 `1.9811 ms`，p50 speedup `1.142x`。
+- Kernel summary 显示 Plugin 分支主要由 `computeVkKernel` 与 `computeOutputKernel` 两个自定义 kernel 组成；PyTorch reference 分支仍包含 SGEMM、clamp、div、copy/fill 等多个 kernel。
+
+解释：当前 Plugin 已经证明了单层数学正确与 Nsight 可观察性，但单层 p50 对运行环境有波动，尚不能作为稳定加速结论。这个结果支持继续进入 Step 6 做真实 graph 集成；若 Step 7 端到端无收益，再回到单层 kernel 优化，而不是直接扩大到 P1b。
 
 ---
 
@@ -175,12 +187,17 @@ Step 5 已完成 P1a `relu_linear_att-only` 的真实 CUDA kernel 与单层对�
    - 在 toy/plugin 单层层面与 PyTorch reference 对齐，先证明 Plugin 自己算得对。
    - 本步不做完整 EfficientViT graph surgery，避免同时调 Plugin API、CUDA 数值和图替换。
 
-5. **集成完整 EfficientViT TensorRT graph**
+5. **单层 microbenchmark + Nsight**
+   - 在进入真实 graph replacement 前，先确认当前 kernel 在 MX250 `sm_61` / FP32 约束下的单层性能边界。
+   - 记录 CUDA Events latency 与 Nsight kernel summary。
+   - 若单层结果没有稳定加速，也不直接否定 Step 6；Step 6 的主要价值是验证 Plugin replacement 是否可完整闭环。
+
+6. **集成完整 EfficientViT TensorRT graph**
    - 优先用 ONNX graph surgery 把 `Concat_output_0 -> Cast_1_output_0` 子图替换为 custom op。
    - 若 ONNX parser custom op 路线不稳定，再评估 TensorRT Network API 手动重建局部网络。
    - 该步骤通过后，才进入完整 Plugin engine 的端到端 benchmark。
 
-6. **benchmark + Nsight**
+7. **benchmark + Nsight**
    - 复用 Phase 2 `benchmark_trt_engine.py` 的 CUDA Events 口径。
    - 复用 TensorRT Nsight attribution 口径。
    - 对比 TensorRT FP32 baseline vs Plugin engine。
@@ -220,7 +237,7 @@ Step 3 已确认第一版 Plugin API 与 CMake 构建口径，详见 [`plugin_ap
 | 真实 EfficientViT graph 替换 | Step 6 再做；优先 ONNX graph surgery，若不稳定再评估 TensorRT Network API 手动替换 |
 | Plugin skeleton | Step 4 已完成 toy engine build；Step 5 已实现真实 `relu_linear_att` 数学并完成单层验证 |
 
-在 Step 4 中只实现 Plugin skeleton 与 toy network build；Step 5 专注真实 CUDA kernel 与单层数值对齐；Step 6 再做真实 EfficientViT graph surgery。三者不应混在同一次改动里。
+在 Step 4 中只实现 Plugin skeleton 与 toy network build；Step 5 专注真实 CUDA kernel 与单层数值对齐；Step 5.5 补单层 microbenchmark / Nsight 记录；Step 6 再做真实 EfficientViT graph surgery。这几类工作不应混在同一次改动里。
 
 ---
 
