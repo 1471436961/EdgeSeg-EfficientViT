@@ -1,15 +1,17 @@
 # ReLU Linear Attention Plugin Engine Benchmark Summary
 
+- Benchmark target: `both`
+
 | Item | Value |
 |---|---:|
-| Baseline TRT p50 | 54.4036 ms |
-| Plugin TRT p50 | 53.8639 ms |
-| p50 delta (plugin - baseline) | -0.5396 ms |
-| p50 speedup (baseline / plugin) | 1.0100x |
-| Baseline TRT mean | 54.4161 ms |
-| Plugin TRT mean | 54.2751 ms |
-| mean delta (plugin - baseline) | -0.1410 ms |
-| mean speedup (baseline / plugin) | 1.0026x |
+| Baseline TRT p50 | 54.3877 ms |
+| Plugin TRT p50 | 53.2234 ms |
+| p50 delta (plugin - baseline) | -1.1643 ms |
+| p50 speedup (baseline / plugin) | 1.0219x |
+| Baseline TRT mean | 54.4337 ms |
+| Plugin TRT mean | 53.2354 ms |
+| mean delta (plugin - baseline) | -1.1983 ms |
+| mean speedup (baseline / plugin) | 1.0225x |
 
 ## Correctness
 

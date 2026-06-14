@@ -47,29 +47,34 @@ __global__ void computeOutputKernel(
     int32_t dim,
     int32_t spatialSize,
     float eps) {
-    const int32_t linear = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    const int32_t total = heads * spatialSize;
-    if (linear >= total) {
+    const int32_t head = static_cast<int32_t>(blockIdx.x);
+    const int32_t n = static_cast<int32_t>(blockIdx.y * blockDim.x + threadIdx.x);
+    if (head >= heads || n >= spatialSize) {
         return;
     }
 
-    const int32_t n = linear % spatialSize;
-    const int32_t head = linear / spatialSize;
     const int32_t qBase = head * 3 * dim * spatialSize;
     const int32_t vkBase = head * (dim + 1) * dim;
+    const int32_t vkElements = (dim + 1) * dim;
+
+    extern __shared__ float vkShared[];
+    for (int32_t idx = static_cast<int32_t>(threadIdx.x); idx < vkElements; idx += static_cast<int32_t>(blockDim.x)) {
+        vkShared[idx] = vkWorkspace[vkBase + idx];
+    }
+    __syncthreads();
 
     float q[kMaxDim];
     float denominator = 0.0F;
     for (int32_t d = 0; d < dim; ++d) {
         q[d] = relu(input[qBase + d * spatialSize + n]);
-        denominator += vkWorkspace[vkBase + dim * dim + d] * q[d];
+        denominator += vkShared[dim * dim + d] * q[d];
     }
     denominator += eps;
 
     for (int32_t row = 0; row < dim; ++row) {
         float numerator = 0.0F;
         for (int32_t d = 0; d < dim; ++d) {
-            numerator += vkWorkspace[vkBase + row * dim + d] * q[d];
+            numerator += vkShared[row * dim + d] * q[d];
         }
         output[(head * dim + row) * spatialSize + n] = numerator / denominator;
     }
@@ -107,8 +112,11 @@ int launchReluLinearAttention(
         return 1;
     }
 
-    const int32_t outputBlocks = (heads * spatialSize + kThreads - 1) / kThreads;
-    computeOutputKernel<<<outputBlocks, kThreads, 0, stream>>>(
+    const dim3 outputGrid(
+        static_cast<uint32_t>(heads), static_cast<uint32_t>((spatialSize + kThreads - 1) / kThreads), 1U);
+    const size_t outputSharedBytes =
+        static_cast<size_t>(config.dim + 1) * static_cast<size_t>(config.dim) * sizeof(float);
+    computeOutputKernel<<<outputGrid, kThreads, outputSharedBytes, stream>>>(
         input, vkWorkspace, output, heads, config.dim, spatialSize, config.eps);
     status = cudaGetLastError();
     return status == cudaSuccess ? 0 : 1;

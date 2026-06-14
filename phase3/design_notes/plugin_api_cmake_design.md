@@ -343,11 +343,11 @@ Step 5.5 已完成 P1a `relu_linear_att-only` 的单层 toy Plugin microbenchmar
 | Nsight 运行 metadata | [`../results/metrics/relu_linear_attention_plugin_microbenchmark_nsys.json`](../results/metrics/relu_linear_attention_plugin_microbenchmark_nsys.json) |
 | Kernel stats CSV | [`../results/metrics/relu_linear_attention_plugin_microbenchmark_kernel_stats_cuda_gpu_kern_sum.csv`](../results/metrics/relu_linear_attention_plugin_microbenchmark_kernel_stats_cuda_gpu_kern_sum.csv) |
 | Summary | [`../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md) |
-| 普通运行 p50 | Plugin `2.1023 ms` vs PyTorch reference `1.9876 ms`，speedup `0.945x` |
-| Nsight / NVTX 运行 p50 | Plugin `1.7346 ms` vs PyTorch reference `1.9811 ms`，speedup `1.142x` |
-| Plugin 自定义 kernel | `computeVkKernel` 平均约 `0.907 ms`，`computeOutputKernel` 平均约 `0.656 ms` |
+| 初始普通运行 p50 | Plugin `2.1023 ms` vs PyTorch reference `1.9876 ms`，speedup `0.945x` |
+| P0 shared-memory VK cache 后普通运行 p50 | Plugin `1.2877 ms` vs PyTorch reference `1.9261 ms`，speedup `1.496x` |
+| P0 后 Plugin engine Nsight 内部 kernel | `computeVkKernel` 平均约 `1.776 ms/iter`，`computeOutputKernel` 平均约 `0.672 ms/iter` |
 
-解释：当前 Plugin 已经把 PyTorch `relu_linear_att` reference 的多 kernel 序列压成两个自定义 kernel，但普通运行与 Nsight 运行的 p50 方向不同，因此不能宣称稳定加速。该结果足以支持进入 Step 6 做真实 graph 集成；端到端性能结论必须等 Step 7/8。
+解释：初始两阶段 kernel 已经把 PyTorch `relu_linear_att` reference 的多 kernel 序列压成两个自定义 kernel，但 output 阶段反复从全局显存读取小 VK 矩阵，单层普通运行并不稳定。P0 后 `computeOutputKernel` 改为每个 CTA 将 VK 缓存到 shared memory，单层 Plugin p50 明显优于 PyTorch reference；端到端收益仍必须以 Step 7/8 为准。
 
 ---
 
@@ -379,6 +379,6 @@ Step 6 已完成真实 EfficientViT ONNX graph replacement 与 Plugin engine bui
 4. 构建目标是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
 5. Step 4 已证明 Plugin skeleton 可编译、Creator 可注册、toy engine 可构建。
 6. Step 5 已证明真实 `relu_linear_att` CUDA kernel 在单层 toy/plugin 口径下与 PyTorch reference 对齐。
-7. Step 5.5 已证明单层 toy Plugin 可用 CUDA Events / Nsight 观测，但尚未形成稳定加速结论。
+7. Step 5.5 已证明单层 toy Plugin 可用 CUDA Events / Nsight 观测；P0 shared-memory VK cache 后，单层 Plugin 已形成正向加速，但端到端收益仍需 Step 7/8 验证。
 8. Step 6 已证明真实 EfficientViT ONNX graph surgery + TensorRT Plugin engine build 可行。
 9. 后续 Step 7 再做端到端 correctness / latency，不直接把 build 成功当成性能或数值结论。

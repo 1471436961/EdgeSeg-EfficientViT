@@ -135,15 +135,15 @@ Step 7 已按本设计执行，正式命令使用 `warmup=20`、`measure=100`，
 
 | 指标 | Phase 2 TensorRT FP32 baseline | Phase 3 Plugin FP32 engine |
 |---|---:|---:|
-| p50 latency | 54.4036 ms | 53.8639 ms |
-| mean latency | 54.4161 ms | 54.2751 ms |
-| p95 latency | 54.5929 ms | 55.0793 ms |
+| p50 latency | 54.3877 ms | 53.2234 ms |
+| mean latency | 54.4337 ms | 53.2354 ms |
+| p95 latency | 54.6018 ms | 53.3639 ms |
 
 结论：
 
-- p50 speedup 为 `1.0100x`，Plugin engine 比 baseline 快约 `0.5396 ms`。
-- mean speedup 为 `1.0026x`，平均收益只有 `0.1410 ms`。
+- P0 shared-memory VK cache 后，p50 speedup 为 `1.0219x`，Plugin engine 比 baseline 快约 `1.1643 ms`。
+- mean speedup 为 `1.0225x`，平均收益约 `1.1983 ms`。
 - Plugin TRT vs baseline TRT `allclose=True`，`max_abs_diff=6.48499e-05`，argmax pixel agreement 为 `1.0`。
 - Plugin TRT vs PyTorch 严格 `1e-4` allclose 未通过，但 `1e-3` relaxed allclose 通过，argmax pixel agreement 为 `1.0`，与 Phase 2 的 TensorRT 数值误差口径一致。
 
-因此 Step 7 可以判定为通过：Plugin engine 已经进入真实整网并保持输出对齐；但当前第一版 kernel 只带来轻微端到端净收益，后续 Step 8 仍需要用 Nsight attribution 判断 residual hotspot 和优化方向。
+因此 Step 7 可以判定为通过：Plugin engine 已经进入真实整网并保持输出对齐；P0 后收益比初始两阶段 kernel 更稳定，但仍属于轻微端到端净收益，后续 Step 8 仍需要用 Nsight attribution 判断 residual hotspot 和优化方向。

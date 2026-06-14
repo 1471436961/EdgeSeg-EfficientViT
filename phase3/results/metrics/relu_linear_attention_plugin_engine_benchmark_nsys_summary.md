@@ -5,11 +5,11 @@
 | Item | Value |
 |---|---:|
 | Baseline TRT p50 | skipped |
-| Plugin TRT p50 | 54.4972 ms |
+| Plugin TRT p50 | 53.8247 ms |
 | p50 delta (plugin - baseline) | skipped |
 | p50 speedup (baseline / plugin) | skipped |
 | Baseline TRT mean | skipped |
-| Plugin TRT mean | 54.5230 ms |
+| Plugin TRT mean | 53.8657 ms |
 | mean delta (plugin - baseline) | skipped |
 | mean speedup (baseline / plugin) | skipped |
 

@@ -81,16 +81,16 @@ relu_linear_att_plugin
 
 | 指标 | Phase 2 TensorRT baseline | Phase 3 Plugin engine |
 |---|---:|---:|
-| `relu_linear_att` proxy / Plugin layer | 3.689 ms, 12 launches | 3.147 ms, 4 launches |
-| `aggregation + attention` proxy | 5.443 ms, 38 launches | 4.894 ms, 30 launches |
-| stage2/context total | 6.383 ms, 42 launches | 5.928 ms, 35 launches |
+| `relu_linear_att` proxy / Plugin layer | 3.689 ms, 12 launches | 2.447 ms, 4 launches |
+| `aggregation + attention` proxy | 5.443 ms, 38 launches | 4.192 ms, 30 launches |
+| stage2/context total | 6.383 ms, 42 launches | 5.226 ms, 35 launches |
 
 Plugin 内部两个 kernel：
 
 | Kernel | Avg ms / iter | Share |
 |---|---:|---:|
-| `computeVkKernel` | 1.782 | 56.62% |
-| `computeOutputKernel` | 1.365 | 43.38% |
+| `computeVkKernel` | 1.776 | 72.56% |
+| `computeOutputKernel` | 0.672 | 27.44% |
 
 ---
 
@@ -100,5 +100,5 @@ Step 8 支持以下结论：
 
 - Plugin 替换确实减少了目标边界的 kernel time 和 launch 数。
 - 端到端收益较小的原因不是 Plugin 完全无效，而是 stage0 / stage2 / stage1 / stage3 / head 等其他标准算子热点仍占据大部分 runtime。
-- 后续优化若继续 P1a，应重点看 `computeVkKernel` 和 `computeOutputKernel` 的 memory access / occupancy / launch 开销。
+- P0 shared-memory VK cache 已显著降低 `computeOutputKernel`，后续若继续 P1a，应优先看 `computeVkKernel` 的跨 `N` 维归约并行度、memory access / occupancy / launch 开销。
 - 若追求更明显端到端收益，P1b `aggregation + cat + relu_linear_att` 仍是下一层边界候选，但 graph surgery 和数值风险更高。

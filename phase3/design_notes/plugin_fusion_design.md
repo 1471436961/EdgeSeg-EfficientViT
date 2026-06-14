@@ -86,11 +86,11 @@ Step 5.5 已补充 P1a `relu_linear_att-only` 的单层 toy Plugin latency 与 N
 
 - Microbenchmark 脚本为 [`../scripts/benchmark_relu_linear_attention_plugin.py`](../scripts/benchmark_relu_linear_attention_plugin.py)。
 - 汇总结果见 [`../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md)。
-- 普通运行中，Plugin p50 `2.1023 ms`，PyTorch reference p50 `1.9876 ms`，p50 speedup `0.945x`。
-- Nsight / NVTX 运行中，Plugin p50 `1.7346 ms`，PyTorch reference p50 `1.9811 ms`，p50 speedup `1.142x`。
-- Kernel summary 显示 Plugin 分支主要由 `computeVkKernel` 与 `computeOutputKernel` 两个自定义 kernel 组成；PyTorch reference 分支仍包含 SGEMM、clamp、div、copy/fill 等多个 kernel。
+- 初始两阶段 kernel 普通运行中，Plugin p50 `2.1023 ms`，PyTorch reference p50 `1.9876 ms`，p50 speedup `0.945x`。
+- P0 shared-memory VK cache 后，Plugin p50 `1.2877 ms`，PyTorch reference p50 `1.9261 ms`，p50 speedup `1.496x`。
+- 当前 Plugin 分支仍由 `computeVkKernel` 与 `computeOutputKernel` 两个自定义 kernel 组成；P0 主要降低了 `computeOutputKernel`，`computeVkKernel` 仍是 P1a 内部主瓶颈。
 
-解释：当前 Plugin 已经证明了单层数学正确与 Nsight 可观察性，但单层 p50 对运行环境有波动，尚不能作为稳定加速结论。这个结果支持继续进入 Step 6 做真实 graph 集成；若 Step 7 端到端无收益，再回到单层 kernel 优化，而不是直接扩大到 P1b。
+解释：当前 Plugin 已经证明了单层数学正确与 Nsight 可观察性。P0 后单层结果转为明确正收益，但它只说明 P1a 子路径有优化价值；端到端是否值得继续投入仍需要看 Step 7/8 的真实 graph 结果。若继续优化 P1a，下一步应优先处理 `computeVkKernel` 的归约并行度和访存模式，而不是继续只调 output 阶段。
 
 ### 2.8 Step 6 真实 graph 集成
 
