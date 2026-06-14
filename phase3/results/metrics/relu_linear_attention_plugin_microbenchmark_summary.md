@@ -19,8 +19,8 @@
 
 | 指标 | 结果 |
 |---|---:|
-| `max_abs_diff` | `1.4156e-07` |
-| `mean_abs_diff` | `8.4468e-09` |
+| `max_abs_diff` | `1.3784e-07` |
+| `mean_abs_diff` | `8.4648e-09` |
 | cosine similarity | `0.9999999999995786` |
 | relaxed allclose | `true` (`atol=1e-3`, `rtol=1e-3`) |
 | argmax pixel agreement | `1.0` |
@@ -31,24 +31,24 @@
 
 | 版本 / 运行 | Plugin p50 | PyTorch reference p50 | p50 speedup |
 |---|---:|---:|---:|
-| 初始两阶段 kernel | `2.1023 ms` | `1.9876 ms` | `0.945x` |
+| v0：初始两阶段 kernel | `2.1023 ms` | `1.9876 ms` | `0.945x` |
 | P0：output kernel 缓存 VK 到 shared memory | `1.2877 ms` | `1.9261 ms` | `1.496x` |
-
-P0 修改只改变 `computeOutputKernel`：每个 CTA 负责一个 head 的一个 spatial tile，先把该 head 的 `(dim+1) x dim` VK 小矩阵加载到 shared memory，再计算输出。它没有改变 `computeVkKernel` 的跨 `N` 维归约方式，也没有改变 Plugin API / ONNX graph replacement。
+| P1a-1c：computeVk warp reduction + 128 threads | `1.2175 ms` | `2.0096 ms` | `1.651x` |
 
 ## 4. Kernel Attribution 口径
 
-早期单层 Nsight CSV 仍保留为历史记录，但不再代表当前 P0 kernel 的最新结论。当前 kernel 级归因以 Step 8 的 Plugin engine Nsight 结果为准：
+当前 kernel 级归因以 Step 8 的 Plugin engine Nsight 结果为准：
 
-- `computeOutputKernel` 从旧版约 `1.365 ms/iter` 降到 `0.672 ms/iter`。
-- `computeVkKernel` 仍约 `1.776 ms/iter`，成为当前 P1a Plugin 的主要内部瓶颈。
-- Plugin layer 总耗时从旧版约 `3.147 ms/iter` 降到 `2.447 ms/iter`。
+- v0 Plugin layer：`3.147 ms/iter`
+- P0 Plugin layer：`2.447 ms/iter`
+- P1a-1c Plugin layer：`2.186 ms/iter`
+- P1a-1c 内部：`computeVkKernel = 1.512 ms/iter`，`computeOutputKernel = 0.674 ms/iter`
 
-因此，P0 证明“VK 小矩阵不应在 output 阶段反复从全局显存读取”这个判断是对的；下一轮如果继续优化 P1a，应优先处理 `computeVkKernel` 的归约并行度和访存模式，而不是继续只调 output 阶段。
+P1a-1c 保留 P0 的 output shared-memory VK cache，同时把 `computeVkKernel` 改成 warp shuffle block reduction，并将 `computeVkKernel` 的 block size 从 256 调为 128。它没有扩大 Plugin API，也没有修改 ONNX graph replacement。
 
 ## 5. 对后续步骤的影响
 
-1. **继续 Step 7/8 是必要的**：单层收益需要在真实 EfficientViT TensorRT graph 中复核。
-2. **P0 后端到端收益仍有限**：Plugin engine p50 约 `53.223 ms`，Phase 2 baseline p50 约 `54.388 ms`，speedup 约 `1.022x`。
-3. **P1a 仍是正确 MVP**：它已经证明 graph replacement、Plugin runtime、数值对齐和目标边界 kernel time 改善均成立。
-4. **下一步优化方向**：若继续 P1a，重点是 `computeVkKernel`；若追求更大端到端收益，才进入 P1b `aggregation + cat + relu_linear_att` 边界。
+1. **P1a 子路径仍在改善**：单层 p50 从 v0 `2.1023 ms` 降到 P1a-1c `1.2175 ms`。
+2. **端到端结论仍需谨慎**：同进程 `baseline -> plugin` 对小幅差异有顺序/频率偏置；当前整网差异只有 1ms 量级，不能只看一次 `both` 结果。
+3. **下一步若继续 P1a**：`computeVkKernel` 仍是内部主瓶颈，但进一步优化空间比 P0 前小；下一轮应考虑更系统的 `dim=16` 专门化或 Nsight Compute 指标，而不是盲目合并 kernel。
+4. **若追求更大端到端收益**：P1b `aggregation + cat + relu_linear_att` 仍是更高收益边界，但 graph surgery 和数值风险更高。

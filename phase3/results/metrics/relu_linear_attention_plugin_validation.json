@@ -12,7 +12,7 @@
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "8fc1af833f5383d667fdd02250133ff52e06b400c6d5a547ad752960a46f3408"
+    "dll_sha256": "8370fed153373ec8806e3ff7a4da5a2d4cae0a89764bd2d29cee0e554beac707"
   },
   "engine": {
     "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\relu_linear_attention_toy_fp32.engine",
@@ -69,10 +69,10 @@
       64,
       128
     ],
-    "max_abs_diff": 1.4156103134155273e-07,
-    "mean_abs_diff": 8.446814050851183e-09,
-    "max_rel_diff": 1.3929423265228995,
-    "cosine_similarity": 0.9999999999995786,
+    "max_abs_diff": 1.3783574104309082e-07,
+    "mean_abs_diff": 8.464816490676721e-09,
+    "max_rel_diff": 1.4430654433458654,
+    "cosine_similarity": 0.9999999999995757,
     "allclose_pass": true,
     "allclose_pass_atol_1e_2_rtol_1e_2": true,
     "argmax_pixel_agreement": 1.0,
@@ -112,6 +112,6 @@
     "Numerical differences are expected to be nonzero because reduction order differs from torch.matmul/cuBLAS."
   ],
   "_dll_handle_alive": true,
-  "timestamp_utc": "2026-06-14T05:12:33.992238+00:00",
-  "script_version": "validate_relu_linear_attention_plugin.py@190ca25"
+  "timestamp_utc": "2026-06-14T05:52:17.869896+00:00",
+  "script_version": "validate_relu_linear_attention_plugin.py@7d904cd"
 }

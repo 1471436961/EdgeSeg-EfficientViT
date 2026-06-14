@@ -2,11 +2,38 @@
 
 namespace {
 
-constexpr int32_t kThreads = 256;
+constexpr int32_t kVkThreads = 128;
+constexpr int32_t kOutputThreads = 256;
 constexpr int32_t kMaxDim = 32;
 
 __device__ __forceinline__ float relu(float value) {
     return value > 0.0F ? value : 0.0F;
+}
+
+__device__ __forceinline__ float warpReduceSum(float value) {
+    for (int32_t offset = warpSize / 2; offset > 0; offset >>= 1) {
+        value += __shfl_down_sync(0xffffffffU, value, offset);
+    }
+    return value;
+}
+
+__device__ __forceinline__ float blockReduceSum(float value) {
+    __shared__ float warpSums[32];
+    const int32_t lane = static_cast<int32_t>(threadIdx.x & 31U);
+    const int32_t warp = static_cast<int32_t>(threadIdx.x >> 5U);
+    const int32_t warpCount = (static_cast<int32_t>(blockDim.x) + warpSize - 1) / warpSize;
+
+    value = warpReduceSum(value);
+    if (lane == 0) {
+        warpSums[warp] = value;
+    }
+    __syncthreads();
+
+    value = threadIdx.x < static_cast<uint32_t>(warpCount) ? warpSums[lane] : 0.0F;
+    if (warp == 0) {
+        value = warpReduceSum(value);
+    }
+    return value;
 }
 
 __global__ void computeVkKernel(
@@ -23,19 +50,9 @@ __global__ void computeVkKernel(
         sum += v * k;
     }
 
-    __shared__ float partial[kThreads];
-    partial[threadIdx.x] = sum;
-    __syncthreads();
-
-    for (int32_t stride = kThreads / 2; stride > 0; stride >>= 1) {
-        if (threadIdx.x < static_cast<uint32_t>(stride)) {
-            partial[threadIdx.x] += partial[threadIdx.x + stride];
-        }
-        __syncthreads();
-    }
-
+    const float total = blockReduceSum(sum);
     if (threadIdx.x == 0) {
-        vkWorkspace[(head * (dim + 1) + row) * dim + d] = partial[0];
+        vkWorkspace[(head * (dim + 1) + row) * dim + d] = total;
     }
 }
 
@@ -106,17 +123,17 @@ int launchReluLinearAttention(
 
     auto* vkWorkspace = static_cast<float*>(workspace);
     const int32_t vkBlocks = heads * (config.dim + 1) * config.dim;
-    computeVkKernel<<<vkBlocks, kThreads, 0, stream>>>(input, vkWorkspace, heads, config.dim, spatialSize);
+    computeVkKernel<<<vkBlocks, kVkThreads, 0, stream>>>(input, vkWorkspace, heads, config.dim, spatialSize);
     cudaError_t status = cudaGetLastError();
     if (status != cudaSuccess) {
         return 1;
     }
 
     const dim3 outputGrid(
-        static_cast<uint32_t>(heads), static_cast<uint32_t>((spatialSize + kThreads - 1) / kThreads), 1U);
+        static_cast<uint32_t>(heads), static_cast<uint32_t>((spatialSize + kOutputThreads - 1) / kOutputThreads), 1U);
     const size_t outputSharedBytes =
         static_cast<size_t>(config.dim + 1) * static_cast<size_t>(config.dim) * sizeof(float);
-    computeOutputKernel<<<outputGrid, kThreads, outputSharedBytes, stream>>>(
+    computeOutputKernel<<<outputGrid, kOutputThreads, outputSharedBytes, stream>>>(
         input, vkWorkspace, output, heads, config.dim, spatialSize, config.eps);
     status = cudaGetLastError();
     return status == cudaSuccess ? 0 : 1;

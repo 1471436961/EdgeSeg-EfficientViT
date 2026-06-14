@@ -24,10 +24,13 @@ git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 
 ## 2. 版本对比
 
-| Version | Kernel 设计 | 单层 Plugin p50 | 端到端 Plugin p50 | Plugin layer kernel time | `computeVkKernel` | `computeOutputKernel` | 判断 |
+| Version | Kernel 设计 | 单层 Plugin p50 | 端到端 / standalone Plugin p50 | Plugin layer kernel time | `computeVkKernel` | `computeOutputKernel` | 判断 |
 |---|---|---:|---:|---:|---:|---:|---|
 | v0 | 两阶段 kernel；`computeOutputKernel` 每个输出线程直接从 global memory 读取 VK workspace | `2.1023 ms` | `53.8639 ms` | `3.147 ms/iter` | `1.782 ms/iter` | `1.365 ms/iter` | 接入链路正确，但单层普通运行不稳定，output 阶段存在重复 global load |
 | P0 | 保留两阶段结构；`computeOutputKernel` 改为每个 CTA 将当前 head 的 VK 小矩阵缓存到 shared memory | `1.2877 ms` | `53.2234 ms` | `2.447 ms/iter` | `1.776 ms/iter` | `0.672 ms/iter` | output 阶段优化有效，P1a 内部主瓶颈转移到 `computeVkKernel` |
+| P1a-1a | 每个 block 负责 `(head,row)`，同一 block 内同时计算所有 `d` | `1.4787 ms` | 未进入端到端正式记录 | 未采集 | 未采集 | 未采集 | 比 P0 慢；寄存器/共享内存压力与并行度下降抵消了减少 V 重复读取的收益 |
+| P1a-1b | 每个 block 负责 `(head,d)`，同一 block 内同时累加所有 row | `1.9722 ms` | 未进入端到端正式记录 | 未采集 | 未采集 | 未采集 | 明显退化；33 个局部累加器和 33KB shared memory 对 MX250 不友好 |
+| P1a-1c | 回到 P0 的 `(head,row,d)` 细粒度并行；`computeVkKernel` 改为 warp shuffle reduction，且 computeVk block size 从 256 降到 128 | `1.2175 ms` | standalone plugin-only `53.109 ms`；Nsight plugin-only `53.660 ms` | `2.186 ms/iter` | `1.512 ms/iter` | `0.674 ms/iter` | 有效；减少了 computeVk 归约开销，同时保留了足够细粒度并行 |
 
 端到端对比仍使用 Phase 2 TensorRT FP32 baseline 作为参照：
 
@@ -35,6 +38,10 @@ git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 |---|---:|---:|---:|---|
 | v0 | `54.4036 ms` | `53.8639 ms` | `1.0100x` | `allclose=True` |
 | P0 | `54.3877 ms` | `53.2234 ms` | `1.0219x` | `allclose=True` |
+| P1a-1c standalone probe | baseline-only `54.503 ms` | plugin-only `53.109 ms` | `~1.026x` | correctness 已由 `both` run 验证 |
+| P1a-1c same-process `baseline -> plugin` | `54.499 ms` | `55.837 ms` | `0.976x` | `allclose=True` |
+
+解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。由于端到端差异只有 1ms 量级，本项目后续解读 P1a kernel 改进时以 plugin-only Nsight attribution 和 standalone probe 为主，不把单次 `both` run 写成稳定端到端加速结论。
 
 ---
 
@@ -92,13 +99,22 @@ P0 支持以下判断：
 
 ---
 
-## 6. 下一步候选
+## 6. P1a-1 的补充结论
+
+P1a-1 尝试说明三件事：
+
+1. **不能简单合并更多 `d` 或 row 到同一个 CTA**。P1a-1a / P1a-1b 都变慢，说明在 MX250 上，寄存器、shared memory 和 occupancy 压力很快会抵消数据复用收益。
+2. **保留细粒度并行是重要的**。P1a-1c 仍使用 `(head,row,d)` 一个 block，保持了 v0/P0 的高 block 数，但降低了每个 block 的归约成本。
+3. **128 threads 比 256 threads 更适合当前 computeVk**。对 `spatialSize=8192`，128 线程每线程约 64 个元素，仍有足够内存并行度，同时减少了 block 内归约参与者和资源压力。
+
+---
+
+## 7. 下一步候选
 
 若继续优化 P1a，优先级建议如下：
 
 | Priority | 候选 | 目标 | 风险 |
 |---|---|---|---|
-| P1a-1 | 改写 `computeVkKernel` 的跨 `N` 维归约 | 提高归约并行度，减少单 CTA 长循环 | 需要重新设计 partial reduction / workspace |
 | P1a-2 | 专门化 `dim=16` / `heads=8` 的编译期常量路径 | 让编译器更好展开循环，降低寄存器和索引开销 | 泛化性降低，但当前 contract 本来固定 |
 | P1a-3 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
 | P1b | 扩大到 `aggregation + cat + relu_linear_att` | 更高端到端收益潜力 | graph surgery、数值对齐和共享内存容量风险更高 |
