@@ -7,6 +7,8 @@ constexpr int32_t kOutputThreads = 256;
 constexpr int32_t kMaxDim = 32;
 constexpr int32_t kSpecializedDim = 16;
 constexpr int32_t kSpecializedVkElements = (kSpecializedDim + 1) * kSpecializedDim;
+constexpr int32_t kSpecializedVkWarpsPerBlock = 4;
+constexpr int32_t kSpecializedVkDGroups = kSpecializedDim / kSpecializedVkWarpsPerBlock;
 
 __device__ __forceinline__ float relu(float value) {
     return value > 0.0F ? value : 0.0F;
@@ -59,14 +61,21 @@ __global__ void computeVkKernel(
     }
 }
 
-__global__ void computeVkKernelDim16(float const* input, float* vkWorkspace, int32_t spatialSize) {
-    const int32_t d = static_cast<int32_t>(blockIdx.x & (kSpecializedDim - 1));
-    const int32_t row = static_cast<int32_t>((blockIdx.x / kSpecializedDim) % (kSpecializedDim + 1));
-    const int32_t head = static_cast<int32_t>(blockIdx.x / kSpecializedVkElements);
+__global__ void computeVkKernelDim16Warp4(float const* input, float* vkWorkspace, int32_t spatialSize) {
+    const int32_t lane = static_cast<int32_t>(threadIdx.x & 31U);
+    const int32_t warp = static_cast<int32_t>(threadIdx.x >> 5U);
+    if (warp >= kSpecializedVkWarpsPerBlock) {
+        return;
+    }
+
+    const int32_t dGroup = static_cast<int32_t>(blockIdx.x % kSpecializedVkDGroups);
+    const int32_t row = static_cast<int32_t>((blockIdx.x / kSpecializedVkDGroups) % (kSpecializedDim + 1));
+    const int32_t head = static_cast<int32_t>(blockIdx.x / ((kSpecializedDim + 1) * kSpecializedVkDGroups));
+    const int32_t d = dGroup * kSpecializedVkWarpsPerBlock + warp;
 
     float sum = 0.0F;
     const int32_t kChannel = head * 3 * kSpecializedDim + kSpecializedDim + d;
-    for (int32_t n = static_cast<int32_t>(threadIdx.x); n < spatialSize; n += static_cast<int32_t>(blockDim.x)) {
+    for (int32_t n = lane; n < spatialSize; n += warpSize) {
         const float k = relu(input[kChannel * spatialSize + n]);
         const float v = row == kSpecializedDim
             ? 1.0F
@@ -74,8 +83,8 @@ __global__ void computeVkKernelDim16(float const* input, float* vkWorkspace, int
         sum += v * k;
     }
 
-    const float total = blockReduceSum(sum);
-    if (threadIdx.x == 0) {
+    const float total = warpReduceSum(sum);
+    if (lane == 0) {
         vkWorkspace[(head * (kSpecializedDim + 1) + row) * kSpecializedDim + d] = total;
     }
 }
@@ -185,8 +194,8 @@ int launchReluLinearAttention(
 
     auto* vkWorkspace = static_cast<float*>(workspace);
     if (config.dim == kSpecializedDim) {
-        const int32_t vkBlocks = heads * kSpecializedVkElements;
-        computeVkKernelDim16<<<vkBlocks, kVkThreads, 0, stream>>>(input, vkWorkspace, spatialSize);
+        const int32_t vkBlocks = heads * (kSpecializedDim + 1) * kSpecializedVkDGroups;
+        computeVkKernelDim16Warp4<<<vkBlocks, kVkThreads, 0, stream>>>(input, vkWorkspace, spatialSize);
         cudaError_t status = cudaGetLastError();
         if (status != cudaSuccess) {
             return 1;

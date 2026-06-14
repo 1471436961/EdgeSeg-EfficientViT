@@ -81,16 +81,16 @@ relu_linear_att_plugin
 
 | 指标 | Phase 2 TensorRT baseline | Phase 3 Plugin engine |
 |---|---:|---:|
-| `relu_linear_att` proxy / Plugin layer | 3.689 ms, 12 launches | 1.865 ms, 4 launches |
-| `aggregation + attention` proxy | 5.443 ms, 38 launches | 3.612 ms, 30 launches |
-| stage2/context total | 6.383 ms, 42 launches | 4.978 ms, 35 launches |
+| `relu_linear_att` proxy / Plugin layer | 3.689 ms, 12 launches | 1.550 ms, 4 launches |
+| `aggregation + attention` proxy | 5.443 ms, 38 launches | 3.343 ms, 30 launches |
+| stage2/context total | 6.383 ms, 42 launches | 4.404 ms, 35 launches |
 
 Plugin 内部两个 kernel：
 
 | Kernel | Avg ms / iter | Share |
 |---|---:|---:|
-| `computeVkKernelDim16` | 1.513 | 81.14% |
-| `computeOutputKernelDim16` | 0.352 | 18.86% |
+| `computeVkKernelDim16Warp4` | 1.198 | 77.28% |
+| `computeOutputKernelDim16` | 0.352 | 22.72% |
 
 ---
 
@@ -100,5 +100,5 @@ Step 8 支持以下结论：
 
 - Plugin 替换确实减少了目标边界的 kernel time 和 launch 数。
 - 端到端收益较小的原因不是 Plugin 完全无效，而是 stage0 / stage2 / stage1 / stage3 / head 等其他标准算子热点仍占据大部分 runtime。
-- P1a-1d 已通过 `dim=16` 专用 fast path 进一步降低 output 阶段；后续若继续 P1a，主瓶颈回到 `computeVkKernelDim16` 的跨 N 归约，应进入 Nsight Compute 指标分析或更系统的归约策略评估，而不是继续凭直觉合并 CTA 工作量。
+- P1a-3a 已通过 warp-per-output-scalar VK reduction 进一步降低 computeVk 阶段；当前内部主瓶颈仍是 `computeVkKernelDim16Warp4`，后续若继续 P1a，应只做小步 A/B，而不是直接扩大融合边界。
 - 若追求更明显端到端收益，P1b `aggregation + cat + relu_linear_att` 仍是下一层边界候选，但 graph surgery 和数值风险更高。

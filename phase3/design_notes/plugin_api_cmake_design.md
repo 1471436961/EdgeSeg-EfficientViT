@@ -348,8 +348,10 @@ Step 5.5 已完成 P1a `relu_linear_att-only` 的单层 toy Plugin microbenchmar
 | P1a-1c 普通运行 p50 | Plugin `1.2175 ms` vs PyTorch reference `2.0096 ms`，speedup `1.651x` |
 | P1a-1d 普通运行 p50 | Plugin `0.9938 ms` vs PyTorch reference `1.8985 ms`，speedup `1.910x` |
 | P1a-1d 后 Plugin engine Nsight 内部 kernel | `computeVkKernelDim16` 平均约 `1.513 ms/iter`，`computeOutputKernelDim16` 平均约 `0.352 ms/iter` |
+| P1a-3a 普通运行 p50 | Plugin `0.8335 ms` vs PyTorch reference `1.9497 ms`，speedup `2.339x` |
+| P1a-3a 后 Plugin engine Nsight 内部 kernel | `computeVkKernelDim16Warp4` 平均约 `1.198 ms/iter`，`computeOutputKernelDim16` 平均约 `0.352 ms/iter` |
 
-解释：初始两阶段 kernel 已经把 PyTorch `relu_linear_att` reference 的多 kernel 序列压成两个自定义 kernel，但 output 阶段反复从全局显存读取小 VK 矩阵，单层普通运行并不稳定。P0 后 `computeOutputKernel` 改为每个 CTA 将 VK 缓存到 shared memory；P1a-1c 进一步把 `computeVkKernel` 改为 warp shuffle reduction，并将 computeVk block size 从 256 调为 128；P1a-1d 为真实 contract 的 `dim=16` 增加编译期专用 fast path。单层和 Plugin-only Nsight 结果均显示目标边界继续改善；端到端收益仍必须谨慎看待同进程顺序偏置。
+解释：初始两阶段 kernel 已经把 PyTorch `relu_linear_att` reference 的多 kernel 序列压成两个自定义 kernel，但 output 阶段反复从全局显存读取小 VK 矩阵，单层普通运行并不稳定。P0 后 `computeOutputKernel` 改为每个 CTA 将 VK 缓存到 shared memory；P1a-1c 进一步把 `computeVkKernel` 改为 warp shuffle reduction，并将 computeVk block size 从 256 调为 128；P1a-1d 为真实 contract 的 `dim=16` 增加编译期专用 fast path；P1a-3a 则让一个 CTA 内 4 个 warp 分别计算同一 row 下 4 个 `d` 标量，继续降低 VK 归约。单层和 Plugin-only Nsight 结果均显示目标边界继续改善；端到端收益仍必须谨慎看待同进程顺序偏置。
 
 ---
 
@@ -381,6 +383,6 @@ Step 6 已完成真实 EfficientViT ONNX graph replacement 与 Plugin engine bui
 4. 构建目标是 Windows DLL：`edgeseg_relu_linear_attention_plugin.dll`。
 5. Step 4 已证明 Plugin skeleton 可编译、Creator 可注册、toy engine 可构建。
 6. Step 5 已证明真实 `relu_linear_att` CUDA kernel 在单层 toy/plugin 口径下与 PyTorch reference 对齐。
-7. Step 5.5 已证明单层 toy Plugin 可用 CUDA Events / Nsight 观测；P0 shared-memory VK cache、P1a-1c warp reduction 与 P1a-1d `dim=16` fast path 后，单层 Plugin 已形成正向加速，但端到端收益仍需 Step 7/8 验证，并且需要警惕同进程 `baseline -> plugin` 顺序/频率偏置。
+7. Step 5.5 已证明单层 toy Plugin 可用 CUDA Events / Nsight 观测；P0 shared-memory VK cache、P1a-1c warp reduction、P1a-1d `dim=16` fast path 与 P1a-3a warp-per-output-scalar VK reduction 后，单层 Plugin 已形成正向加速，但端到端收益仍需 Step 7/8 验证，并且需要警惕同进程 `baseline -> plugin` 顺序/频率偏置。
 8. Step 6 已证明真实 EfficientViT ONNX graph surgery + TensorRT Plugin engine build 可行。
 9. 后续 Step 7 再做端到端 correctness / latency，不直接把 build 成功当成性能或数值结论。

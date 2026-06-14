@@ -11,6 +11,7 @@
 - v0 raw 结果保存在 git 历史 commit `190ca25` 中。
 - P0 raw 结果保存在 git 历史 commit `7d904cd` 中。
 - P1a-1c raw 结果保存在 git 历史 commit `97e45cb` 中。
+- P1a-1d / P1a-3a raw 结果记录在当前 `phase3/results/metrics/` 的 microbenchmark、engine benchmark 与 Nsight attribution 文件中。
 - 若后续继续 P1a kernel 优化，应在本文件继续追加 P1 / P2，而不是只覆盖现有结果。
 
 旧版 raw 数据可用以下方式查看：
@@ -35,6 +36,7 @@ git show 97e45cb:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 | P1a-1b | 每个 block 负责 `(head,d)`，同一 block 内同时累加所有 row | `1.9722 ms` | 未进入端到端正式记录 | 未采集 | 未采集 | 未采集 | 明显退化；33 个局部累加器和 33KB shared memory 对 MX250 不友好 |
 | P1a-1c | 回到 P0 的 `(head,row,d)` 细粒度并行；`computeVkKernel` 改为 warp shuffle reduction，且 computeVk block size 从 256 降到 128 | `1.2175 ms` | standalone plugin-only `53.109 ms`；Nsight plugin-only `53.660 ms` | `2.186 ms/iter` | `1.512 ms/iter` | `0.674 ms/iter` | 有效；减少了 computeVk 归约开销，同时保留了足够细粒度并行 |
 | P1a-1d | 保留 P1a-1c；为真实 contract 的 `dim=16` 增加编译期专用 fast path | `0.9938 ms` | `both` Plugin `53.7754 ms`；Nsight plugin-only `53.269 ms` | `1.865 ms/iter` | `1.513 ms/iter` | `0.352 ms/iter` | 有效；output 阶段继续下降，内部主瓶颈回到 computeVk 跨 N 归约 |
+| P1a-3a | 保留 P1a-1d；把 `dim=16` 的 VK 归约改为一个 CTA 内 4 个 warp 分别计算同一 row 下 4 个 `d` 标量 | `0.8335 ms` | `both` Plugin `53.7288 ms`；Nsight plugin-only `53.215 ms` | `1.550 ms/iter` | `1.198 ms/iter` | `0.352 ms/iter` | 有效；computeVk 继续下降，output 不变，内部主瓶颈仍是 VK 归约 |
 
 端到端对比仍使用 Phase 2 TensorRT FP32 baseline 作为参照：
 
@@ -45,8 +47,9 @@ git show 97e45cb:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 | P1a-1c standalone probe | baseline-only `54.503 ms` | plugin-only `53.109 ms` | `~1.026x` | correctness 已由 `both` run 验证 |
 | P1a-1c same-process `baseline -> plugin` | `54.499 ms` | `55.837 ms` | `0.976x` | `allclose=True` |
 | P1a-1d same-process `baseline -> plugin` | `54.390 ms` | `53.775 ms` | `1.011x` | `allclose=True` |
+| P1a-3a same-process `baseline -> plugin` | `54.406 ms` | `53.729 ms` | `1.013x` | `allclose=True` |
 
-解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。P1a-1d 后 `both` 和 plugin-only Nsight 均回到正向，但由于端到端差异仍只有 1ms 量级，本项目后续解读 P1a kernel 改进时仍以 plugin-only Nsight attribution 与重复 benchmark 为主，不把单次 `both` run 写成稳定端到端加速结论。
+解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。P1a-1d / P1a-3a 后 `both` 和 plugin-only Nsight 均回到正向，但由于端到端差异仍只有 1ms 量级，本项目后续解读 P1a kernel 改进时仍以 plugin-only Nsight attribution 与重复 benchmark 为主，不把单次 `both` run 写成稳定端到端加速结论。
 
 ---
 
@@ -115,15 +118,60 @@ P1a-1 尝试说明三件事：
 
 ---
 
-## 7. 下一步候选
+## 7. P1a-3a 的补充结论
+
+P1a-3a 是在 Nsight Compute 无法支持 MX250 后，按“小步 kernel 变体 A/B 实测”继续推进的 VK 归约优化：
+
+1. **一个 CTA 内 4 个 warp 分别计算 4 个 `d` 标量是有效的**。它把 `dim=16` VK 归约的 CTA 数从 `heads * 17 * 16` 降为 `heads * 17 * 4`，但仍保留 warp 内跨 `N` 归约的并行度。
+2. **computeVk 阶段继续下降**。Plugin-only Nsight 中 `computeVkKernelDim16Warp4` 为 `1.198 ms/iter`，低于 P1a-1d 的 `1.513 ms/iter`；`computeOutputKernelDim16` 仍为 `0.352 ms/iter`，说明 P1a-3a 的收益主要来自 VK 归约。
+3. **端到端收益仍是小幅正向**。`both` 口径 p50 从 baseline `54.406 ms` 到 Plugin `53.729 ms`，约 `1.013x`；Plugin-only Nsight p50 为 `53.215 ms`。
+4. **内部主瓶颈仍未消失**。当前 Plugin layer 为 `1.550 ms/iter`，其中 computeVk 仍占约 `77.28%`。如果继续 P1a，只应做更小步的 VK 归约变体，而不是直接扩大到复杂融合。
+
+---
+
+## 8. 下一步候选
 
 若继续优化 P1a，优先级建议如下：
 
 | Priority | 候选 | 目标 | 风险 |
 |---|---|---|---|
-| P1a-2 | Nsight Compute / occupancy / memory throughput 指标采集 | 判断 `computeVkKernelDim16` 是 memory-bound、occupancy-bound 还是归约开销主导 | 需要额外工具和指标解读 |
-| P1a-3 | 改进 computeVk 跨 N 归约策略 | 降低当前 P1a 内部主瓶颈 | 容易因 occupancy / register pressure 在 MX250 上退化，需小步验证 |
+| P1a-2 (blocked on MX250) | Nsight Compute / occupancy / memory throughput 指标采集 | 判断 VK 归约 kernel 是 memory-bound、occupancy-bound 还是归约开销主导 | 已验证 Nsight Compute 2024.1.1 不支持当前 MX250 `sm_61`，只能换旧工具或换 GPU |
+| P1a-3b | 继续改进 computeVk 跨 N 归约策略 | 在 P1a-3a 基础上进一步降低 `computeVkKernelDim16Warp4` | 收益递减明显，容易因 occupancy / register pressure 在 MX250 上退化，需小步验证 |
 | P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
 | P1b | 扩大到 `aggregation + cat + relu_linear_att` | 更高端到端收益潜力 | graph surgery、数值对齐和共享内存容量风险更高 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。
+
+---
+
+## 9. P1a-2 Nsight Compute 尝试记录
+
+2026-06-14 尝试使用 Nsight Compute 2024.1.1 采集 `computeVkKernelDim16` 的 `basic` set：
+
+```powershell
+ncu --target-processes all `
+  --kernel-name regex:computeVkKernelDim16 `
+  --launch-skip 20 `
+  --launch-count 4 `
+  --set basic `
+  ...
+```
+
+结果：
+
+- 放开 GPU performance counters 前，失败原因是 `ERR_NVGPUCTRPERM`。
+- 按 NVIDIA Control Panel 的 Developer 设置放开 performance counters 后，权限错误消失。
+- 随后 Nsight Compute 报告：`Profiling is not supported on device 0.`
+- `ncu --list-chips` 只列出 `gv100 / tu* / ga* / ad* / gh100` 等 Volta 及更新架构，未包含 Pascal `sm_61`。
+
+结论：当前 MX250 (`sm_61`) 与 Nsight Compute 2024.1.1 的组合无法采集 Nsight Compute 硬件 counter。因此 P1a-2 不能依赖 Nsight Compute 的 occupancy / memory throughput / SM throughput 指标继续推进。后续如果需要这些指标，有两条路：
+
+1. 换用支持 Pascal 的旧版 profiling 工具或旧版 Nsight Compute（需要单独验证可用性）。
+2. 在支持 Nsight Compute 的 Turing/Ampere/Ada GPU 上复现实验。
+
+在当前 MX250 上继续优化时，只能依赖：
+
+- Nsight Systems 的 kernel time / launch count / NVTX attribution；
+- CUDA Event 单层 microbenchmark；
+- 静态 launch 配置、寄存器/共享内存估算；
+- 小步 kernel 变体 A/B 实测。
