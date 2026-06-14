@@ -11,7 +11,7 @@
 - v0 raw 结果保存在 git 历史 commit `190ca25` 中。
 - P0 raw 结果保存在 git 历史 commit `7d904cd` 中。
 - P1a-1c raw 结果保存在 git 历史 commit `97e45cb` 中。
-- P1a-1d / P1a-3a raw 结果记录在当前 `phase3/results/metrics/` 的 microbenchmark、engine benchmark 与 Nsight attribution 文件中。
+- P1a-1d / P1a-3a / P1a-3b raw 结果记录在当前 `phase3/results/metrics/` 的 microbenchmark、engine benchmark 与 Nsight attribution 文件中。
 - 若后续继续 P1a kernel 优化，应在本文件继续追加 P1 / P2，而不是只覆盖现有结果。
 
 旧版 raw 数据可用以下方式查看：
@@ -37,6 +37,7 @@ git show 97e45cb:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 | P1a-1c | 回到 P0 的 `(head,row,d)` 细粒度并行；`computeVkKernel` 改为 warp shuffle reduction，且 computeVk block size 从 256 降到 128 | `1.2175 ms` | standalone plugin-only `53.109 ms`；Nsight plugin-only `53.660 ms` | `2.186 ms/iter` | `1.512 ms/iter` | `0.674 ms/iter` | 有效；减少了 computeVk 归约开销，同时保留了足够细粒度并行 |
 | P1a-1d | 保留 P1a-1c；为真实 contract 的 `dim=16` 增加编译期专用 fast path | `0.9938 ms` | `both` Plugin `53.7754 ms`；Nsight plugin-only `53.269 ms` | `1.865 ms/iter` | `1.513 ms/iter` | `0.352 ms/iter` | 有效；output 阶段继续下降，内部主瓶颈回到 computeVk 跨 N 归约 |
 | P1a-3a | 保留 P1a-1d；把 `dim=16` 的 VK 归约改为一个 CTA 内 4 个 warp 分别计算同一 row 下 4 个 `d` 标量 | `0.8335 ms` | `both` Plugin `53.7288 ms`；Nsight plugin-only `53.215 ms` | `1.550 ms/iter` | `1.198 ms/iter` | `0.352 ms/iter` | 有效；computeVk 继续下降，output 不变，内部主瓶颈仍是 VK 归约 |
+| P1a-3b | 保留 P1a-3a 的两阶段边界；改为单个 warp 同时累加 4 个连续 `d`，复用 `V[row,n]` load | `0.7485 ms` | `both` Plugin `52.1682 ms`；Nsight plugin-only `52.783 ms` | `1.310 ms/iter` | `0.959 ms/iter` | `0.351 ms/iter` | 冷机重测后单层、Plugin layer 与端到端均为正收益；此前热机/并行污染 run 不作为结论 |
 
 端到端对比仍使用 Phase 2 TensorRT FP32 baseline 作为参照：
 
@@ -48,8 +49,9 @@ git show 97e45cb:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 | P1a-1c same-process `baseline -> plugin` | `54.499 ms` | `55.837 ms` | `0.976x` | `allclose=True` |
 | P1a-1d same-process `baseline -> plugin` | `54.390 ms` | `53.775 ms` | `1.011x` | `allclose=True` |
 | P1a-3a same-process `baseline -> plugin` | `54.406 ms` | `53.729 ms` | `1.013x` | `allclose=True` |
+| P1a-3b same-process `baseline -> plugin` cold rerun | `54.394 ms` | `52.168 ms` | `1.043x` | `allclose=True` |
 
-解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。P1a-1d / P1a-3a 后 `both` 和 plugin-only Nsight 均回到正向，但由于端到端差异仍只有 1ms 量级，本项目后续解读 P1a kernel 改进时仍以 plugin-only Nsight attribution 与重复 benchmark 为主，不把单次 `both` run 写成稳定端到端加速结论。
+解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现过顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。P1a-3b 首次热机/并行污染 run 曾显示负收益，但在 GPU 冷却并严格顺序运行后，`both` 口径转为 baseline p50 `54.394 ms`、Plugin p50 `52.168 ms`。因此本项目后续解读 P1a kernel 改进时仍以 plugin-only Nsight attribution、单层 microbenchmark 与冷机重复 benchmark 共同判断，不把单次 `both` run 写成稳定端到端加速结论。
 
 ---
 
@@ -129,14 +131,28 @@ P1a-3a 是在 Nsight Compute 无法支持 MX250 后，按“小步 kernel 变体
 
 ---
 
-## 8. 下一步候选
+## 8. P1a-3b 的补充结论
+
+P1a-3b 直接吸收 P1a-2 的 nvprof 结论：当前 VK 归约不是 occupancy-bound，也不是同步等待主导，而是 memory-dependency / load-latency 主导。因此它让单个 warp 同时累加 4 个连续 `d`，用寄存器保存 4 个 partial sum，从而把同一 `V[row,n]` load 复用于 4 个 `K[d,n]`。
+
+实测结果：
+
+1. **单层继续改善**：Plugin p50 从 P1a-3a 的 `0.8335 ms` 降到 P1a-3b 冷机重测的 `0.7485 ms`。
+2. **Plugin layer 继续改善**：Nsight plugin-only attribution 中 Plugin layer 从 `1.550 ms/iter` 降到 `1.310 ms/iter`。
+3. **computeVk 继续改善**：`computeVkKernelDim16Warp4 = 1.198 ms/iter` 下降到 `computeVkKernelDim16WarpD4 = 0.959 ms/iter`。
+4. **output 阶段基本不变**：`computeOutputKernelDim16` 约 `0.351 ms/iter`，符合预期。
+5. **冷机端到端 both run 为正**：当前有效 `both` 口径 baseline p50 `54.394 ms`，Plugin p50 `52.168 ms`，p50 speedup `1.043x`。此前热机/并行污染 run 显示负收益，说明整网端到端口径受温度、频率、执行顺序和系统状态影响很大，不能用单次 `both` run 作为唯一结论。
+
+---
+
+## 9. 下一步候选
 
 若继续优化 P1a，优先级建议如下：
 
 | Priority | 候选 | 目标 | 风险 |
 |---|---|---|---|
 | P1a-2 | VK 归约 kernel 硬件指标采集 | 判断 VK 归约 kernel 是 memory-bound、occupancy-bound 还是归约开销主导 | Nsight Compute 2024.1.1 不支持 MX250；已改用 `nvprof` 完成定性判断 |
-| P1a-3b | 继续改进 computeVk 跨 N 归约策略 | 在 P1a-3a 基础上进一步降低 `computeVkKernelDim16Warp4` | 收益递减明显，容易因 occupancy / register pressure 在 MX250 上退化，需小步验证 |
+| P1a-3c | 继续改进 computeVk 跨 N 归约策略 | 在 P1a-3b 基础上进一步降低 `computeVkKernelDim16WarpD4` 或验证更稳定端到端表现 | 收益递减明显，且端到端 1ms 级差异高度受温度/频率影响；优先级应低于 P1b 评估 |
 | P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
 | P1b | 扩大到 `aggregation + cat + relu_linear_att` | 更高端到端收益潜力 | graph surgery、数值对齐和共享内存容量风险更高 |
 
@@ -144,7 +160,7 @@ P1a-3a 是在 Nsight Compute 无法支持 MX250 后，按“小步 kernel 变体
 
 ---
 
-## 9. P1a-2 硬件指标采集记录
+## 10. P1a-2 硬件指标采集记录
 
 2026-06-14 尝试使用 Nsight Compute 2024.1.1 采集 `computeVkKernelDim16` 的 `basic` set：
 
@@ -177,7 +193,7 @@ ncu --target-processes all `
 - 静态 launch 配置、寄存器/共享内存估算；
 - 小步 kernel 变体 A/B 实测。
 
-### 9.1 nvprof 采集结果
+### 10.1 nvprof 采集结果
 
 `nvprof` 本身仍可对 MX250 采集 Pascal 指标，但 CUDA 12.4 的 `nvprof.exe` 启动前必须把 CUPTI DLL 路径加入 `PATH`：
 

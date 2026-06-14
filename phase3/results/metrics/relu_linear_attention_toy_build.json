@@ -6,7 +6,7 @@
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "2152c3cfd34ad4a0d28650b2453c97fd5a73548208b11efb04bef1bfce04f0d5",
+    "dll_sha256": "5af640a3f7c83428a5d76ccb3b97089da02beabeaccaf520db1adf5c0c807187",
     "creator_found": true,
     "registered_creator_count": 65
   },
@@ -74,6 +74,6 @@
     "Step 5 numerical correctness is validated by relu_linear_attention_plugin_validation.json.",
     "This toy engine is not a performance artifact."
   ],
-  "timestamp_utc": "2026-06-14T11:08:45.506488+00:00",
-  "script_version": "build_plugin_toy_engine.py@ebbead5"
+  "timestamp_utc": "2026-06-14T15:20:12.735442+00:00",
+  "script_version": "build_plugin_toy_engine.py@b251bc1"
 }

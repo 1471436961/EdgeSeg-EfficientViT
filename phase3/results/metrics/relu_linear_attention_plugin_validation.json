@@ -12,7 +12,7 @@
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "2152c3cfd34ad4a0d28650b2453c97fd5a73548208b11efb04bef1bfce04f0d5"
+    "dll_sha256": "5af640a3f7c83428a5d76ccb3b97089da02beabeaccaf520db1adf5c0c807187"
   },
   "engine": {
     "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\relu_linear_attention_toy_fp32.engine",
@@ -112,6 +112,6 @@
     "Numerical differences are expected to be nonzero because reduction order differs from torch.matmul/cuBLAS."
   ],
   "_dll_handle_alive": true,
-  "timestamp_utc": "2026-06-14T11:08:45.932786+00:00",
-  "script_version": "validate_relu_linear_attention_plugin.py@ebbead5"
+  "timestamp_utc": "2026-06-14T11:46:19.976304+00:00",
+  "script_version": "validate_relu_linear_attention_plugin.py@b251bc1"
 }

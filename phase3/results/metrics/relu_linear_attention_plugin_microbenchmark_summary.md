@@ -36,6 +36,7 @@
 | P1a-1c：computeVk warp reduction + 128 threads | `1.2175 ms` | `2.0096 ms` | `1.651x` |
 | P1a-1d：`dim=16` specialized fast path | `0.9938 ms` | `1.8985 ms` | `1.910x` |
 | P1a-3a：warp-per-output-scalar VK reduction | `0.8335 ms` | `1.9497 ms` | `2.339x` |
+| P1a-3b：single-warp 4-d accumulation | `0.7485 ms` | `1.9313 ms` | `2.580x` |
 
 ## 4. Kernel Attribution 口径
 
@@ -49,12 +50,14 @@
 - P1a-1d 内部：`computeVkKernelDim16 = 1.513 ms/iter`，`computeOutputKernelDim16 = 0.352 ms/iter`
 - P1a-3a Plugin layer：`1.550 ms/iter`
 - P1a-3a 内部：`computeVkKernelDim16Warp4 = 1.198 ms/iter`，`computeOutputKernelDim16 = 0.352 ms/iter`
+- P1a-3b Plugin layer：`1.310 ms/iter`
+- P1a-3b 内部：`computeVkKernelDim16WarpD4 = 0.959 ms/iter`，`computeOutputKernelDim16 = 0.351 ms/iter`
 
-P1a-3a 保留 P0 的 output shared-memory VK cache 与 P1a-1d 的 `dim=16` output fast path，同时把 VK 归约改成 warp-per-output-scalar：一个 CTA 内 4 个 warp 分别计算同一 row 下 4 个 `d` 标量。它没有扩大 Plugin API，也没有修改 ONNX graph replacement；其他 `dim` 仍走通用 fallback。
+P1a-3b 保留 P0 的 output shared-memory VK cache 与 P1a-1d 的 `dim=16` output fast path，同时让单个 warp 同时累加 4 个连续 `d`，用更少的 `V[row,n]` global load 换取少量寄存器累加器。它没有扩大 Plugin API，也没有修改 ONNX graph replacement；其他 `dim` 仍走通用 fallback。
 
 ## 5. 对后续步骤的影响
 
-1. **P1a 子路径仍在改善**：单层 p50 从 v0 `2.1023 ms` 降到 P1a-3a `0.8335 ms`。
-2. **端到端结论仍需谨慎**：同进程 `baseline -> plugin` 对小幅差异有顺序/频率偏置；当前整网差异只有 1ms 量级，不能只看一次 `both` 结果。
-3. **下一步若继续 P1a**：`computeVkKernelDim16Warp4` 仍是内部主瓶颈；下一轮应继续做小步 A/B，而不是盲目合并 kernel。
+1. **P1a 子路径仍在改善**：单层 p50 从 v0 `2.1023 ms` 降到 P1a-3b 冷机重测的 `0.7485 ms`。
+2. **端到端结论仍需谨慎**：同进程 `baseline -> plugin` 对小幅差异有顺序/频率偏置；P1a-3b 冷机 `both` run 为正，但此前热机/并行污染 run 为负，不能只看一次整网结果来判断 kernel 方向。
+3. **下一步若继续 P1a**：`computeVkKernelDim16WarpD4` 仍是内部主瓶颈；下一轮应继续做小步 A/B，而不是盲目合并 kernel。
 4. **若追求更大端到端收益**：P1b `aggregation + cat + relu_linear_att` 仍是更高收益边界，但 graph surgery 和数值风险更高。

@@ -4,14 +4,14 @@
 
 | Item | Value |
 |---|---:|
-| Baseline TRT p50 | 54.4061 ms |
-| Plugin TRT p50 | 53.7288 ms |
-| p50 delta (plugin - baseline) | -0.6774 ms |
-| p50 speedup (baseline / plugin) | 1.0126x |
-| Baseline TRT mean | 54.4357 ms |
-| Plugin TRT mean | 53.5173 ms |
-| mean delta (plugin - baseline) | -0.9184 ms |
-| mean speedup (baseline / plugin) | 1.0172x |
+| Baseline TRT p50 | 54.3944 ms |
+| Plugin TRT p50 | 52.1682 ms |
+| p50 delta (plugin - baseline) | -2.2262 ms |
+| p50 speedup (baseline / plugin) | 1.0427x |
+| Baseline TRT mean | 54.4078 ms |
+| Plugin TRT mean | 52.3320 ms |
+| mean delta (plugin - baseline) | -2.0758 ms |
+| mean speedup (baseline / plugin) | 1.0397x |
 
 ## Correctness
 
@@ -25,4 +25,4 @@
 - `>1.0x` means the Plugin engine is faster than the Phase 2 TensorRT FP32 baseline.
 - `<1.0x` means the first Plugin kernel is slower end-to-end and should be treated as an integration/correctness milestone, not a performance win.
 - This benchmark excludes preprocessing, H2D/D2H, and output postprocess, matching the Phase 2 execute-only latency protocol.
-- This run uses the P1a-3a warp-per-output-scalar VK reduction. The same-process `both` run is positive, but the end-to-end delta is still sub-millisecond to ~1 ms, so it should be interpreted together with the plugin-only Nsight attribution summary.
+- This file records the cold sequential rerun after the GPU cooled down. An earlier hot/parallel-contaminated P1a-3b run showed negative end-to-end speedup and is not used as the performance conclusion.

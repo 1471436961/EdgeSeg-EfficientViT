@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase3/README.md`](../README.md)
 >
-> **状态**：v0.7，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight kernel summary、Step 6 真实 EfficientViT Plugin engine build，以及 P1a-3a VK 归约优化结果。后续流程继续保持拆分：端到端性能与 Nsight 验证不混用单层结论。
+> **状态**：v0.8，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight kernel summary、Step 6 真实 EfficientViT Plugin engine build，以及 P1a-3b VK 归约优化结果。后续流程继续保持拆分：端到端性能与 Nsight 验证不混用单层结论。
 
 ---
 
@@ -91,9 +91,10 @@ Step 5.5 已补充 P1a `relu_linear_att-only` 的单层 toy Plugin latency 与 N
 - P1a-1c 后，Plugin p50 `1.2175 ms`，PyTorch reference p50 `2.0096 ms`，p50 speedup `1.651x`。
 - P1a-1d 后，Plugin p50 `0.9938 ms`，PyTorch reference p50 `1.8985 ms`，p50 speedup `1.910x`。
 - P1a-3a 后，Plugin p50 `0.8335 ms`，PyTorch reference p50 `1.9497 ms`，p50 speedup `2.339x`。
-- 当前 Plugin 分支仍由两阶段自定义 kernel 组成；P0 主要降低了 output kernel，P1a-1c 降低了 VK 归约开销，P1a-1d 通过 `dim=16` 专用 fast path 进一步降低 output 阶段，P1a-3a 用 warp-per-output-scalar 策略继续降低 VK 归约。
+- P1a-3b 冷机重测后，Plugin p50 `0.7485 ms`，PyTorch reference p50 `1.9313 ms`，p50 speedup `2.580x`。
+- 当前 Plugin 分支仍由两阶段自定义 kernel 组成；P0 主要降低了 output kernel，P1a-1c 降低了 VK 归约开销，P1a-1d 通过 `dim=16` 专用 fast path 进一步降低 output 阶段，P1a-3a/P1a-3b 继续优化 VK 归约。
 
-解释：当前 Plugin 已经证明了单层数学正确与 Nsight 可观察性。P0/P1a-1c/P1a-1d/P1a-3a 后单层结果转为明确正收益，但它只说明 P1a 子路径有优化价值；端到端是否值得继续投入仍需要看真实 graph 结果，并注意同进程 `baseline -> plugin` 顺序对 1ms 级差异的影响。P1a-3a 不改变 `relu_linear_att-only` 的候选边界，只是让该边界内部的 VK 归约更适合 MX250。
+解释：当前 Plugin 已经证明了单层数学正确与 Nsight 可观察性。P0/P1a-1c/P1a-1d/P1a-3a/P1a-3b 后单层结果转为明确正收益，但它只说明 P1a 子路径有优化价值；端到端是否值得继续投入仍需要看真实 graph 结果，并注意同进程 `baseline -> plugin` 顺序对 1ms 级差异的影响。P1a-3b 不改变 `relu_linear_att-only` 的候选边界，只是让该边界内部的 VK 归约更适合 MX250。
 
 ### 2.8 Step 6 真实 graph 集成
 

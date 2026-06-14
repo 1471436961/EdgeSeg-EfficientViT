@@ -5,11 +5,11 @@
 | Item | Value |
 |---|---:|
 | Baseline TRT p50 | skipped |
-| Plugin TRT p50 | 53.2149 ms |
+| Plugin TRT p50 | 52.7832 ms |
 | p50 delta (plugin - baseline) | skipped |
 | p50 speedup (baseline / plugin) | skipped |
 | Baseline TRT mean | skipped |
-| Plugin TRT mean | 53.7710 ms |
+| Plugin TRT mean | 52.7967 ms |
 | mean delta (plugin - baseline) | skipped |
 | mean speedup (baseline / plugin) | skipped |
 
@@ -25,4 +25,4 @@
 - `>1.0x` means the Plugin engine is faster than the Phase 2 TensorRT FP32 baseline.
 - `<1.0x` means the first Plugin kernel is slower end-to-end and should be treated as an integration/correctness milestone, not a performance win.
 - This benchmark excludes preprocessing, H2D/D2H, and output postprocess, matching the Phase 2 execute-only latency protocol.
-- This plugin-only Nsight run uses the P1a-3a kernel variant. Use `relu_linear_attention_plugin_nsys_attribution_summary.md` for component-level attribution because this file only records execute-level latency.
+- This plugin-only Nsight run was collected after the GPU cooled down and is the attribution source for the current P1a-3b result.
