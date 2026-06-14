@@ -9,7 +9,8 @@
 本文件只记录关键对比指标和设计判断，不复制每一版完整 raw JSON。
 
 - v0 raw 结果保存在 git 历史 commit `190ca25` 中。
-- P0 raw 结果保存在当前工作区的 metrics JSON 中，并会随本轮提交进入 git。
+- P0 raw 结果保存在 git 历史 commit `7d904cd` 中。
+- P1a-1c raw 结果保存在 git 历史 commit `97e45cb` 中。
 - 若后续继续 P1a kernel 优化，应在本文件继续追加 P1 / P2，而不是只覆盖现有结果。
 
 旧版 raw 数据可用以下方式查看：
@@ -18,6 +19,8 @@
 git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_microbenchmark.json
 git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_engine_benchmark.json
 git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md
+git show 7d904cd:phase3/results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md
+git show 97e45cb:phase3/results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md
 ```
 
 ---
@@ -31,6 +34,7 @@ git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 | P1a-1a | 每个 block 负责 `(head,row)`，同一 block 内同时计算所有 `d` | `1.4787 ms` | 未进入端到端正式记录 | 未采集 | 未采集 | 未采集 | 比 P0 慢；寄存器/共享内存压力与并行度下降抵消了减少 V 重复读取的收益 |
 | P1a-1b | 每个 block 负责 `(head,d)`，同一 block 内同时累加所有 row | `1.9722 ms` | 未进入端到端正式记录 | 未采集 | 未采集 | 未采集 | 明显退化；33 个局部累加器和 33KB shared memory 对 MX250 不友好 |
 | P1a-1c | 回到 P0 的 `(head,row,d)` 细粒度并行；`computeVkKernel` 改为 warp shuffle reduction，且 computeVk block size 从 256 降到 128 | `1.2175 ms` | standalone plugin-only `53.109 ms`；Nsight plugin-only `53.660 ms` | `2.186 ms/iter` | `1.512 ms/iter` | `0.674 ms/iter` | 有效；减少了 computeVk 归约开销，同时保留了足够细粒度并行 |
+| P1a-1d | 保留 P1a-1c；为真实 contract 的 `dim=16` 增加编译期专用 fast path | `0.9938 ms` | `both` Plugin `53.7754 ms`；Nsight plugin-only `53.269 ms` | `1.865 ms/iter` | `1.513 ms/iter` | `0.352 ms/iter` | 有效；output 阶段继续下降，内部主瓶颈回到 computeVk 跨 N 归约 |
 
 端到端对比仍使用 Phase 2 TensorRT FP32 baseline 作为参照：
 
@@ -40,8 +44,9 @@ git show 190ca25:phase3/results/metrics/relu_linear_attention_plugin_nsys_attrib
 | P0 | `54.3877 ms` | `53.2234 ms` | `1.0219x` | `allclose=True` |
 | P1a-1c standalone probe | baseline-only `54.503 ms` | plugin-only `53.109 ms` | `~1.026x` | correctness 已由 `both` run 验证 |
 | P1a-1c same-process `baseline -> plugin` | `54.499 ms` | `55.837 ms` | `0.976x` | `allclose=True` |
+| P1a-1d same-process `baseline -> plugin` | `54.390 ms` | `53.775 ms` | `1.011x` | `allclose=True` |
 
-解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。由于端到端差异只有 1ms 量级，本项目后续解读 P1a kernel 改进时以 plugin-only Nsight attribution 和 standalone probe 为主，不把单次 `both` run 写成稳定端到端加速结论。
+解释：P1a-1c 后，同进程 `baseline -> plugin` 的 `both` 结果出现顺序/频率偏置，Plugin 在第二段运行时更容易吃到温度或频率下行。P1a-1d 后 `both` 和 plugin-only Nsight 均回到正向，但由于端到端差异仍只有 1ms 量级，本项目后续解读 P1a kernel 改进时仍以 plugin-only Nsight attribution 与重复 benchmark 为主，不把单次 `both` run 写成稳定端到端加速结论。
 
 ---
 
@@ -106,6 +111,7 @@ P1a-1 尝试说明三件事：
 1. **不能简单合并更多 `d` 或 row 到同一个 CTA**。P1a-1a / P1a-1b 都变慢，说明在 MX250 上，寄存器、shared memory 和 occupancy 压力很快会抵消数据复用收益。
 2. **保留细粒度并行是重要的**。P1a-1c 仍使用 `(head,row,d)` 一个 block，保持了 v0/P0 的高 block 数，但降低了每个 block 的归约成本。
 3. **128 threads 比 256 threads 更适合当前 computeVk**。对 `spatialSize=8192`，128 线程每线程约 64 个元素，仍有足够内存并行度，同时减少了 block 内归约参与者和资源压力。
+4. **`dim=16` 专用 fast path 是有效的**。P1a-1d 让 output 阶段固定小循环可被编译器展开，`computeOutputKernel` 从 P1a-1c 的约 `0.674 ms/iter` 降到 `0.352 ms/iter`；但 `computeVkKernelDim16` 仍约 `1.513 ms/iter`，成为新的内部主瓶颈。
 
 ---
 
@@ -115,8 +121,9 @@ P1a-1 尝试说明三件事：
 
 | Priority | 候选 | 目标 | 风险 |
 |---|---|---|---|
-| P1a-2 | 专门化 `dim=16` / `heads=8` 的编译期常量路径 | 让编译器更好展开循环，降低寄存器和索引开销 | 泛化性降低，但当前 contract 本来固定 |
-| P1a-3 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
+| P1a-2 | Nsight Compute / occupancy / memory throughput 指标采集 | 判断 `computeVkKernelDim16` 是 memory-bound、occupancy-bound 还是归约开销主导 | 需要额外工具和指标解读 |
+| P1a-3 | 改进 computeVk 跨 N 归约策略 | 降低当前 P1a 内部主瓶颈 | 容易因 occupancy / register pressure 在 MX250 上退化，需小步验证 |
+| P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
 | P1b | 扩大到 `aggregation + cat + relu_linear_att` | 更高端到端收益潜力 | graph surgery、数值对齐和共享内存容量风险更高 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。

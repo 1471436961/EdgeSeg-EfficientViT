@@ -139,12 +139,15 @@ Step 7 已按本设计执行，正式命令使用 `warmup=20`、`measure=100`，
 | P0 mean latency (`both`) | 54.4337 ms | 53.2354 ms |
 | P1a-1c p50 latency (`both`, baseline -> plugin) | 54.4988 ms | 55.8372 ms |
 | P1a-1c p50 latency (standalone probe) | 54.503 ms | 53.109 ms |
+| P1a-1d p50 latency (`both`, baseline -> plugin) | 54.3903 ms | 53.7754 ms |
+| P1a-1d mean latency (`both`, baseline -> plugin) | 54.4060 ms | 54.2403 ms |
 
 结论：
 
 - P0 shared-memory VK cache 后，`both` 口径 p50 speedup 为 `1.0219x`，Plugin engine 比 baseline 快约 `1.1643 ms`。
 - P1a-1c 后，单独进程 probe 显示 baseline-only p50 `54.503 ms`、plugin-only p50 `53.109 ms`，但同进程 `baseline -> plugin` 的 `both` 口径显示 speedup `0.9760x`。
-- Plugin TRT vs baseline TRT `allclose=True`，P1a-1c `both` run 中 `max_abs_diff=7.24792e-05`，argmax pixel agreement 为 `1.0`。
+- P1a-1d 后，`both` 口径 baseline p50 `54.3903 ms`、Plugin p50 `53.7754 ms`，p50 speedup `1.0114x`；Plugin-only Nsight p50 `53.269 ms`。
+- Plugin TRT vs baseline TRT `allclose=True`，P1a-1d `both` run 中 `max_abs_diff=7.24792e-05`，argmax pixel agreement 为 `1.0`。
 - Plugin TRT vs PyTorch 严格 `1e-4` allclose 未通过，但 `1e-3` relaxed allclose 通过，argmax pixel agreement 为 `1.0`，与 Phase 2 的 TensorRT 数值误差口径一致。
 
-因此 Step 7 可以判定为通过：Plugin engine 已经进入真实整网并保持输出对齐；但 1ms 量级端到端差异对执行顺序和 GPU 频率状态敏感，不能只用单次 `both` run 宣称稳定整网加速。P1a-1c 的性能判断主要依赖 Step 8 plugin-only Nsight attribution。
+因此 Step 7 可以判定为通过：Plugin engine 已经进入真实整网并保持输出对齐；P1a-1d 后 `both` 与 plugin-only Nsight 都显示正向结果。但 1ms 量级端到端差异仍对执行顺序和 GPU 频率状态敏感，不能只用单次 `both` run 宣称稳定整网加速；P1a-1d 的性能判断仍应同时参考 Step 8 plugin-only Nsight attribution。
