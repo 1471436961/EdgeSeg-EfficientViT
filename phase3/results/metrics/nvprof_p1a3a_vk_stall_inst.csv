@@ -1,0 +1,17 @@
+==43148== NVPROF is profiling process 43148, command: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_stall_tmp.json
+==43148== Some kernel(s) will be replayed on device 0 in order to collect all events/metrics.
+==43148== Profiling application: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_stall_tmp.json
+==43148== Profiling result:
+==43148== Metric result:
+"Device","Kernel","Invocations","Metric Name","Metric Description","Min","Max","Avg"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"stall_exec_dependency","Issue Stall Reasons (Execution Dependency)",4.581173%,4.838763%,4.638881%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"stall_memory_dependency","Issue Stall Reasons (Data Request)",69.295572%,69.609456%,69.475035%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"stall_memory_throttle","Issue Stall Reasons (Memory Throttle)",0.180799%,0.195176%,0.186906%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"stall_pipe_busy","Issue Stall Reasons (Pipe Busy)",0.647294%,0.689247%,0.658406%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"stall_not_selected","Issue Stall Reasons (Not Selected)",0.412408%,0.451490%,0.421233%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"stall_sync","Issue Stall Reasons (Synchronization)",0.000000%,0.000000%,0.000000%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"inst_executed","Instructions Executed",4227200,4227200,4227200
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"inst_fp_32","FP Instructions(Single)",36069376,36069376,36069376
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"inst_integer","Integer Instructions",48174080,48174080,48174080
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"inst_compute_ld_st","Load/Store Instructions",34605184,34605184,34605184
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"inst_inter_thread_communication","Inter-Thread Instructions",348160,348160,348160

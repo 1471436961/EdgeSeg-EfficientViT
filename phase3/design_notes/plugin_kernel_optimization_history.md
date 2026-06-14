@@ -135,7 +135,7 @@ P1a-3a 是在 Nsight Compute 无法支持 MX250 后，按“小步 kernel 变体
 
 | Priority | 候选 | 目标 | 风险 |
 |---|---|---|---|
-| P1a-2 (blocked on MX250) | Nsight Compute / occupancy / memory throughput 指标采集 | 判断 VK 归约 kernel 是 memory-bound、occupancy-bound 还是归约开销主导 | 已验证 Nsight Compute 2024.1.1 不支持当前 MX250 `sm_61`，只能换旧工具或换 GPU |
+| P1a-2 | VK 归约 kernel 硬件指标采集 | 判断 VK 归约 kernel 是 memory-bound、occupancy-bound 还是归约开销主导 | Nsight Compute 2024.1.1 不支持 MX250；已改用 `nvprof` 完成定性判断 |
 | P1a-3b | 继续改进 computeVk 跨 N 归约策略 | 在 P1a-3a 基础上进一步降低 `computeVkKernelDim16Warp4` | 收益递减明显，容易因 occupancy / register pressure 在 MX250 上退化，需小步验证 |
 | P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
 | P1b | 扩大到 `aggregation + cat + relu_linear_att` | 更高端到端收益潜力 | graph surgery、数值对齐和共享内存容量风险更高 |
@@ -144,7 +144,7 @@ P1a-3a 是在 Nsight Compute 无法支持 MX250 后，按“小步 kernel 变体
 
 ---
 
-## 9. P1a-2 Nsight Compute 尝试记录
+## 9. P1a-2 硬件指标采集记录
 
 2026-06-14 尝试使用 Nsight Compute 2024.1.1 采集 `computeVkKernelDim16` 的 `basic` set：
 
@@ -164,7 +164,7 @@ ncu --target-processes all `
 - 随后 Nsight Compute 报告：`Profiling is not supported on device 0.`
 - `ncu --list-chips` 只列出 `gv100 / tu* / ga* / ad* / gh100` 等 Volta 及更新架构，未包含 Pascal `sm_61`。
 
-结论：当前 MX250 (`sm_61`) 与 Nsight Compute 2024.1.1 的组合无法采集 Nsight Compute 硬件 counter。因此 P1a-2 不能依赖 Nsight Compute 的 occupancy / memory throughput / SM throughput 指标继续推进。后续如果需要这些指标，有两条路：
+结论：当前 MX250 (`sm_61`) 与 Nsight Compute 2024.1.1 的组合无法采集 Nsight Compute 硬件 counter。因此 Nsight Compute 路线在当前机器上 blocked。后续如果需要 Nsight Compute 级别的完整指标，有两条路：
 
 1. 换用支持 Pascal 的旧版 profiling 工具或旧版 Nsight Compute（需要单独验证可用性）。
 2. 在支持 Nsight Compute 的 Turing/Ampere/Ada GPU 上复现实验。
@@ -173,5 +173,42 @@ ncu --target-processes all `
 
 - Nsight Systems 的 kernel time / launch count / NVTX attribution；
 - CUDA Event 单层 microbenchmark；
+- CUDA 12.4 `nvprof` 的 Pascal metric 采集；
 - 静态 launch 配置、寄存器/共享内存估算；
 - 小步 kernel 变体 A/B 实测。
+
+### 9.1 nvprof 采集结果
+
+`nvprof` 本身仍可对 MX250 采集 Pascal 指标，但 CUDA 12.4 的 `nvprof.exe` 启动前必须把 CUPTI DLL 路径加入 `PATH`：
+
+```powershell
+$env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\extras\CUPTI\lib64;" + $env:PATH
+```
+
+否则 `nvprof.exe` 会因找不到 CUPTI DLL 以 `0xC0000135` 静默失败。
+
+本轮采集对象是 P1a-3a 的 `computeVkKernelDim16Warp4`，raw CSV 与摘要记录在：
+
+- [`../results/metrics/nvprof_p1a3a_vk_occupancy.csv`](../results/metrics/nvprof_p1a3a_vk_occupancy.csv)
+- [`../results/metrics/nvprof_p1a3a_vk_memory.csv`](../results/metrics/nvprof_p1a3a_vk_memory.csv)
+- [`../results/metrics/nvprof_p1a3a_vk_stall_inst.csv`](../results/metrics/nvprof_p1a3a_vk_stall_inst.csv)
+- [`../results/metrics/nvprof_p1a3a_vk_transactions.csv`](../results/metrics/nvprof_p1a3a_vk_transactions.csv)
+- [`../results/metrics/nvprof_p1a3a_vk_summary.md`](../results/metrics/nvprof_p1a3a_vk_summary.md)
+
+关键指标：
+
+| 指标 | Avg | 判断 |
+|---|---:|---|
+| `achieved_occupancy` | `0.969826` | occupancy 很高，不像 occupancy-bound |
+| `sm_efficiency` | `99.13%` | SM 基本持续活跃 |
+| `issue_slot_utilization` | `29.87%` | issue 槽利用率偏低，存在等待 |
+| `dram_read_throughput` | `22.33 GB/s` | DRAM 读吞吐中等，不像带宽打满 |
+| `l2_read_throughput` | `218.69 GB/s` | L2 读压力明显 |
+| `gld_efficiency` | `100%` | global load 合并效率好 |
+| `stall_memory_dependency` | `69.48%` | 主导 stall |
+| `stall_sync` | `0%` | 不是同步等待主导 |
+| `local_memory_overhead` | `0%` | 无明显 register spill |
+
+因此当前 `computeVkKernelDim16Warp4` 更接近 **memory-dependency / load-latency dominated**，而不是 pure DRAM bandwidth-bound、occupancy-bound、sync/reduction-barrier-bound 或 compute-pipe-bound。
+
+设计影响：下一轮如果继续 P1a，应优先考虑减少或隐藏 K/V 读取依赖，例如小步尝试“单个 warp 同时累加 4 个 `d`”来复用 `V[row,n]` load；但这会改变并行粒度，必须用 microbenchmark + Nsight Systems/nvprof 再验证。

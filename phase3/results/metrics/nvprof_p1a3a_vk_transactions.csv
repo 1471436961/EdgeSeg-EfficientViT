@@ -1,0 +1,17 @@
+==49532== NVPROF is profiling process 49532, command: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_tx_tmp.json
+==49532== Some kernel(s) will be replayed on device 0 in order to collect all events/metrics.
+==49532== Profiling application: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_tx_tmp.json
+==49532== Profiling result:
+==49532== Metric result:
+"Device","Kernel","Invocations","Metric Name","Metric Description","Min","Max","Avg"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"global_load_requests","Total number of global load requests from Multiprocessor",4325376,4325376,4325376
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"gld_transactions","Global Load Transactions",17301506,17301506,17301506
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"gld_transactions_per_request","Global Load Transactions Per Request",16.000002,16.000002,16.000002
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"global_store_requests","Total number of global store requests from Multiprocessor",2176,2176,2176
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"gst_transactions","Global Store Transactions",2176,2176,2176
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"gst_transactions_per_request","Global Store Transactions Per Request",1.000000,1.000000,1.000000
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"local_load_transactions","Local Load Transactions",0,0,0
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"local_store_transactions","Local Store Transactions",0,0,0
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"local_memory_overhead","Local Memory Overhead",0.000000%,0.000000%,0.000000%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"shared_load_transactions","Shared Load Transactions",0,0,0
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"shared_store_transactions","Shared Store Transactions",0,0,0

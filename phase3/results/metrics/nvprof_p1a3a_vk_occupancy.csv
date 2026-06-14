@@ -1,0 +1,11 @@
+==26472== NVPROF is profiling process 26472, command: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_occ_tmp.json
+==26472== Profiling application: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_occ_tmp.json
+==26472== Profiling result:
+==26472== Metric result:
+"Device","Kernel","Invocations","Metric Name","Metric Description","Min","Max","Avg"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"achieved_occupancy","Achieved Occupancy",0.968503,0.970769,0.969826
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"sm_efficiency","Multiprocessor Activity",98.835796%,99.395927%,99.128840%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"eligible_warps_per_cycle","Eligible Warps Per Active Cycle",1.443887,1.462832,1.457535
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"issue_slot_utilization","Issue Slot Utilization",29.610711%,29.997442%,29.873161%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"ipc","Executed IPC",1.470383,1.489583,1.483413
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"issued_ipc","Issued IPC",1.470674,1.489883,1.483708

@@ -1,0 +1,16 @@
+==49324== NVPROF is profiling process 49324, command: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_mem_tmp.json
+==49324== Some kernel(s) will be replayed on device 0 in order to collect all events/metrics.
+==49324== Profiling application: D:\software\anaconda3\envs\efficientvit\python.exe phase3\scripts\benchmark_relu_linear_attention_plugin.py --warmup 1 --measure 3 --metadata phase3\results\metrics\_nvprof_vk_mem_tmp.json
+==49324== Profiling result:
+==49324== Metric result:
+"Device","Kernel","Invocations","Metric Name","Metric Description","Min","Max","Avg"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"dram_read_throughput","Device Memory Read Throughput",21.003090GB/s,23.001318GB/s,22.334728GB/s
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"dram_write_throughput","Device Memory Write Throughput",15.069370MB/s,209.399366MB/s,56.454305MB/s
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"dram_utilization","Device Memory Utilization","Mid (5)","Mid (5)","Mid (5)"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"l2_read_throughput","L2 Throughput (Reads)",205.919310GB/s,224.680834GB/s,218.692335GB/s
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"l2_write_throughput","L2 Throughput (Writes)",106.634132MB/s,116.351293MB/s,113.250070MB/s
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"l2_utilization","L2 Cache Utilization","Mid (6)","Mid (6)","Mid (6)"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"gld_efficiency","Global Memory Load Efficiency",100.000000%,100.000000%,100.000000%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"gst_efficiency","Global Memory Store Efficiency",12.500000%,12.500000%,12.500000%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"tex_cache_hit_rate","Unified Cache Hit Rate",49.987426%,49.987426%,49.987426%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__2f6f4102_31_relu_linear_attention_kernel_cu_0b3c829d::computeVkKernelDim16Warp4(float const *, float*, int)",5,"l2_tex_read_hit_rate","L2 Hit Rate (Texture Reads)",89.777906%,89.814065%,89.796383%
