@@ -15,10 +15,27 @@ __global__ void fusedAggregationCatKernel(
     float* attentionInput,
     int32_t height,
     int32_t width) {
+    __shared__ float pointwiseTile[kChannelsPerAggregationGroup * kChannelsPerAggregationGroup];
+
+    const int32_t group = static_cast<int32_t>(blockIdx.y);
+    if (group >= kAggregationGroups) {
+        return;
+    }
+
+#pragma unroll
+    for (int32_t idx = static_cast<int32_t>(threadIdx.x);
+         idx < kChannelsPerAggregationGroup * kChannelsPerAggregationGroup;
+         idx += static_cast<int32_t>(blockDim.x)) {
+        const int32_t outputInGroup = idx / kChannelsPerAggregationGroup;
+        const int32_t inputInGroup = idx - outputInGroup * kChannelsPerAggregationGroup;
+        const int32_t outChannel = group * kChannelsPerAggregationGroup + outputInGroup;
+        pointwiseTile[idx] = pointwiseWeight[outChannel * kChannelsPerAggregationGroup + inputInGroup];
+    }
+    __syncthreads();
+
     const int32_t spatialSize = height * width;
     const int32_t n = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    const int32_t group = static_cast<int32_t>(blockIdx.y);
-    if (n >= spatialSize || group >= kAggregationGroups) {
+    if (n >= spatialSize) {
         return;
     }
 
@@ -56,11 +73,10 @@ __global__ void fusedAggregationCatKernel(
 #pragma unroll
     for (int32_t outputInGroup = 0; outputInGroup < kChannelsPerAggregationGroup; ++outputInGroup) {
         const int32_t outChannel = group * kChannelsPerAggregationGroup + outputInGroup;
-        const int32_t weightBase = outChannel * kChannelsPerAggregationGroup;
         float sum = 0.0F;
 #pragma unroll
         for (int32_t i = 0; i < kChannelsPerAggregationGroup; ++i) {
-            sum += depthwise[i] * pointwiseWeight[weightBase + i];
+            sum += depthwise[i] * pointwiseTile[outputInGroup * kChannelsPerAggregationGroup + i];
         }
         attentionInput[(192 + outChannel) * spatialSize + n] = sum;
     }

@@ -7,7 +7,7 @@
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "38587a866abdc1229fa13eadfb0cabf2c5dc9fe33335d12d7cefb43f56a5b513",
+    "dll_sha256": "e7f42d58d8420f4245268673c99da8c1114749931700b63aa01e20724f5a441c",
     "creator_found": true,
     "registered_creator_count": 66
   },
@@ -18,8 +18,8 @@
   },
   "engine": {
     "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_p1b_aggregation_attention_plugin_fp32.engine",
-    "engine_sha256": "dcba4c1d10e692f4922c9b1332cadcadfc0055371e4e945a1216e567a1d2e945",
-    "engine_size_bytes": 3578580
+    "engine_sha256": "4ec3ff25e55c5cc401754e9eca6165d39bd671f9eb38fb7bfa266b4ead2415ec",
+    "engine_size_bytes": 3605116
   },
   "tensorrt": {
     "version": "8.6.1",
@@ -88,6 +88,6 @@
     "Engine is specific to the current TensorRT version and GPU."
   ],
   "_dll_handle_alive": true,
-  "timestamp_utc": "2026-06-15T09:04:13.989411+00:00",
-  "script_version": "build_p1b_plugin_engine.py@d950778"
+  "timestamp_utc": "2026-06-15T09:49:15.853745+00:00",
+  "script_version": "build_p1b_plugin_engine.py@a71dffc"
 }

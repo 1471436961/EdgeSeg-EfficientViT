@@ -492,3 +492,64 @@ Nsight attribution：
 - P1b-1 已经证明“扩大边界”本身有性能价值：它打赢了 Phase 2 TensorRT baseline 的 `aggregation + attention_core` 中段 proxy。
 - 但 P1b-1 仍未达到 P1a 路径的 `aggregation + plugin` proxy 约 `3.062ms/iter`。当前 `fusedAggregationCatKernel` 仍有 `3.536ms/iter`，是后续 P1b 优化的主要对象。
 - 本轮已用真实 rebuild 后的 P1b fused engine 复测确认，engine sha256 为 `dcba4c1d10e692f4922c9b1332cadcadfc0055371e4e945a1216e567a1d2e945`。真实 engine rebuild 耗时约 `342s`；此前 `180s` timeout 不足导致误判为卡住。
+
+---
+
+## 15. P1b-2：Grouped Pointwise 权重 Shared Cache
+
+P1b-2 保留 P1b-1 的 fused aggregation+cat 边界，只修改 `fusedAggregationCatKernel` 内部的 grouped pointwise 权重读取方式。
+
+### 15.1 改动
+
+P1b-1 中，每个空间线程在计算当前 group 的 16 个 grouped pointwise 输出时，会反复从 global memory 读取同一组 `16x16` pointwise 权重。P1b-2 改为：
+
+```text
+每个 CTA 对应一个 aggregation group 和一段 spatial tile
+  -> CTA 内线程协作加载当前 group 的 16x16 pointwise weight 到 shared memory
+  -> __syncthreads()
+  -> 每个空间线程复用 shared-memory weight 计算 grouped pointwise 输出
+```
+
+该改动不改变 tensor contract、Plugin op type、workspace contract 或数学公式。
+
+### 15.2 验证结果
+
+| 项 | 结果 |
+|---|---:|
+| Block-level validation | [`../results/metrics/p1b_aggregation_attention_plugin_validation.json`](../results/metrics/p1b_aggregation_attention_plugin_validation.json) |
+| Overall pass | `true` |
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md) |
+| Nsight attribution | [`../results/metrics/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md) |
+| Baseline TRT p50 | `54.306 ms` |
+| P1b-2 Plugin TRT p50 | `53.530 ms` |
+| p50 speedup | `1.0145x` |
+| Plugin TRT vs baseline TRT | `allclose=True`、argmax agreement `1.0` |
+
+Nsight attribution：
+
+| 项 | P1b-1 | P1b-2 | 变化 |
+|---|---:|---:|---:|
+| P1b Plugin layer | `4.848 ms/iter` | `4.347 ms/iter` | `-0.501 ms` |
+| `fusedAggregationCatKernel` | `3.536 ms/iter` | `3.038 ms/iter` | `-0.498 ms` |
+| `computeVkKernelDim16WarpD4` | `0.960 ms/iter` | `0.958 ms/iter` | 基本不变 |
+| `computeOutputKernelDim16` | `0.352 ms/iter` | `0.352 ms/iter` | 基本不变 |
+| stage2/context total | `5.792 ms/iter` | `5.302 ms/iter` | `-0.490 ms` |
+
+与 Phase 2 TensorRT baseline 对比：
+
+| Boundary | Phase 2 baseline | P1b-2 | Speedup |
+|---|---:|---:|---:|
+| `aggregation + attention_core` / `p1b_weight_shared_plugin_boundary` | `5.443 ms / 38 launches` | `4.347 ms / 6 launches` | `1.252x` |
+| `stage2_context_total` | `6.383 ms / 42 launches` | `5.302 ms / 10 launches` | `1.204x` |
+
+### 15.3 判断
+
+P1b-2 是有效的小步优化：它证明当前 `fusedAggregationCatKernel` 内部确实存在可消除的 pointwise weight 重复读取。与此同时，它没有改变 P1b 的大结论：
+
+- P1b 中段边界已经可以打赢 Phase 2 TensorRT baseline 的 `aggregation + attention_core` proxy。
+- P1b 仍未明显优于 P1a `aggregation + plugin` proxy，因此不能简单替代 P1a 主线。
+- 如果继续 P1b，下一步仍应聚焦 `fusedAggregationCatKernel`，例如 depthwise 5x5 tile/halo、interior/border 拆分或更细线程映射。
+
+测量纪律：P1b-2 第一次热机 benchmark 曾显示 baseline p50 `54.585 ms`、Plugin p50 `59.144 ms`，冷机重测后转为正收益。因此该热机样本只作为温度/频率敏感性的证据，不作为性能结论。
+
+完整 P1a/P1b 优化演进统一记录在 [`plugin_kernel_optimization_history.md`](plugin_kernel_optimization_history.md)。

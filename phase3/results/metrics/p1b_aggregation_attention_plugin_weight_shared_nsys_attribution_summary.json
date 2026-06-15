@@ -1,0 +1,2056 @@
+{
+  "warmup": 20,
+  "measure": 100,
+  "precision": "fp32",
+  "latency_mean_ms": 54.170431747436524,
+  "latency_p50_ms": 54.15943908691406,
+  "execute_count": 100,
+  "execute_kernel_avg_ms": 53.469636730000005,
+  "execute_launches_per_iter": 155.0,
+  "layer_attributed_avg_ms": 53.46963673000002,
+  "layer_attribution_vs_execute_pct": 100.00000000000003,
+  "groups": [
+    {
+      "group": "stage0",
+      "layer_count": 12,
+      "avg_kernel_ms": 14.64753299,
+      "launches_per_iter": 10.0,
+      "share_of_layer_attributed_pct": 27.394113530196776,
+      "share_of_execute_kernel_pct": 27.394113530196783,
+      "share_of_latency_mean_pct": 27.03971985730602
+    },
+    {
+      "group": "stage2",
+      "layer_count": 25,
+      "avg_kernel_ms": 11.143445329999997,
+      "launches_per_iter": 25.0,
+      "share_of_layer_attributed_pct": 20.84069765850454,
+      "share_of_execute_kernel_pct": 20.840697658504546,
+      "share_of_latency_mean_pct": 20.571084576093178
+    },
+    {
+      "group": "stage3",
+      "layer_count": 61,
+      "avg_kernel_ms": 7.582740099999999,
+      "launches_per_iter": 88.0,
+      "share_of_layer_attributed_pct": 14.181394458110425,
+      "share_of_execute_kernel_pct": 14.181394458110429,
+      "share_of_latency_mean_pct": 13.997931815189625
+    },
+    {
+      "group": "stage1",
+      "layer_count": 14,
+      "avg_kernel_ms": 7.44240798,
+      "launches_per_iter": 10.0,
+      "share_of_layer_attributed_pct": 13.918942478665306,
+      "share_of_execute_kernel_pct": 13.91894247866531,
+      "share_of_latency_mean_pct": 13.738875138930736
+    },
+    {
+      "group": "head",
+      "layer_count": 21,
+      "avg_kernel_ms": 6.612828759999999,
+      "launches_per_iter": 15.0,
+      "share_of_layer_attributed_pct": 12.36744658167794,
+      "share_of_execute_kernel_pct": 12.367446581677944,
+      "share_of_latency_mean_pct": 12.207450719299343
+    },
+    {
+      "group": "stem",
+      "layer_count": 5,
+      "avg_kernel_ms": 6.040681569999999,
+      "launches_per_iter": 5.0,
+      "share_of_layer_attributed_pct": 11.297405292844967,
+      "share_of_execute_kernel_pct": 11.29740529284497,
+      "share_of_latency_mean_pct": 11.151252399397498
+    },
+    {
+      "group": "constant/unnamed",
+      "layer_count": 2,
+      "avg_kernel_ms": 0.0,
+      "launches_per_iter": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    }
+  ],
+  "layers": [
+    {
+      "name": "PWN(PWN(/backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/inverted_conv/act/HardSwish_2)",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 2.7184067900000004,
+      "share_of_layer_attributed_pct": 5.084019559973545,
+      "share_of_execute_kernel_pct": 5.084019559973547,
+      "share_of_latency_mean_pct": 5.018248336425049
+    },
+    {
+      "name": "/backbone/stages.0/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 2.29983409,
+      "share_of_layer_attributed_pct": 4.301196399768394,
+      "share_of_execute_kernel_pct": 4.301196399768395,
+      "share_of_latency_mean_pct": 4.24555244588545
+    },
+    {
+      "name": "/backbone/input_stem/op_list.0/conv/Conv",
+      "group": "stem",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 2.19960019,
+      "share_of_layer_attributed_pct": 4.11373692532659,
+      "share_of_execute_kernel_pct": 4.113736925326592,
+      "share_of_latency_mean_pct": 4.060518107471222
+    },
+    {
+      "name": "/backbone/stages.2/op_list.2/context_module/main/EdgesegAggregationReluLinearAttention_TRT",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 3.0,
+      "matched_launches_per_iter": 3.0,
+      "avg_kernel_ms": 2.17468321,
+      "share_of_layer_attributed_pct": 4.067136683537366,
+      "share_of_execute_kernel_pct": 4.067136683537367,
+      "share_of_latency_mean_pct": 4.014520726250094
+    },
+    {
+      "name": "/backbone/stages.2/op_list.1/context_module/main/EdgesegAggregationReluLinearAttention_TRT",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 3.0,
+      "matched_launches_per_iter": 3.0,
+      "avg_kernel_ms": 2.1723625699999998,
+      "share_of_layer_attributed_pct": 4.0627965755023725,
+      "share_of_execute_kernel_pct": 4.062796575502374,
+      "share_of_latency_mean_pct": 4.010236765563164
+    },
+    {
+      "name": "/backbone/stages.0/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.83934087,
+      "share_of_layer_attributed_pct": 3.439972632108809,
+      "share_of_execute_kernel_pct": 3.4399726321088098,
+      "share_of_latency_mean_pct": 3.395470205177093
+    },
+    {
+      "name": "/backbone/stages.0/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.7518112199999998,
+      "share_of_layer_attributed_pct": 3.2762729039023326,
+      "share_of_execute_kernel_pct": 3.2762729039023335,
+      "share_of_latency_mean_pct": 3.233888236607787
+    },
+    {
+      "name": "/backbone/input_stem/op_list.1/main/point_conv/conv/Conv + /backbone/input_stem/op_list.1/Add",
+      "group": "stem",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.55133546,
+      "share_of_layer_attributed_pct": 2.901339068065143,
+      "share_of_execute_kernel_pct": 2.901339068065144,
+      "share_of_latency_mean_pct": 2.8638048654161095
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.0/op_list.1/main/inverted_conv/act/HardSwish_4)",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.36044261,
+      "share_of_layer_attributed_pct": 2.5443273850347694,
+      "share_of_execute_kernel_pct": 2.54432738503477,
+      "share_of_latency_mean_pct": 2.5114117907402123
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/inverted_conv/act/HardSwish_6)",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.36031081,
+      "share_of_layer_attributed_pct": 2.544080889999343,
+      "share_of_execute_kernel_pct": 2.5440808899993437,
+      "share_of_latency_mean_pct": 2.5111684845753017
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.1/main/depth_conv/act/HardSwish_5)",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.3589926600000002,
+      "share_of_layer_attributed_pct": 2.541615659112034,
+      "share_of_execute_kernel_pct": 2.5416156591120345,
+      "share_of_latency_mean_pct": 2.5087351460223704
+    },
+    {
+      "name": "/backbone/stages.1/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.1411581,
+      "share_of_layer_attributed_pct": 2.134217043146161,
+      "share_of_execute_kernel_pct": 2.1342170431461613,
+      "share_of_latency_mean_pct": 2.1066069868531225
+    },
+    {
+      "name": "/backbone/stages.0/op_list.1/main/point_conv/conv/Conv + /backbone/stages.0/op_list.1/Add",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 1.0889747300000001,
+      "share_of_layer_attributed_pct": 2.036622645294713,
+      "share_of_execute_kernel_pct": 2.036622645294714,
+      "share_of_latency_mean_pct": 2.0102751535694248
+    },
+    {
+      "name": "/backbone/stages.0/op_list.1/main/inverted_conv/conv/Conv",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.96597277,
+      "share_of_layer_attributed_pct": 1.8065818828689089,
+      "share_of_execute_kernel_pct": 1.8065818828689093,
+      "share_of_latency_mean_pct": 1.783210395116912
+    },
+    {
+      "name": "/backbone/stages.1/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.96414747,
+      "share_of_layer_attributed_pct": 1.8031681697568918,
+      "share_of_execute_kernel_pct": 1.8031681697568922,
+      "share_of_latency_mean_pct": 1.7798408447162244
+    },
+    {
+      "name": "/backbone/input_stem/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stem",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.92944661,
+      "share_of_layer_attributed_pct": 1.7382699169873332,
+      "share_of_execute_kernel_pct": 1.7382699169873337,
+      "share_of_latency_mean_pct": 1.7157821712284647
+    },
+    {
+      "name": "/backbone/stages.1/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.9112692099999999,
+      "share_of_layer_attributed_pct": 1.7042741745217755,
+      "share_of_execute_kernel_pct": 1.704274174521776,
+      "share_of_latency_mean_pct": 1.682226226751688
+    },
+    {
+      "name": "/head/middle/op_list.0/main/depth_conv/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.9104593099999999,
+      "share_of_layer_attributed_pct": 1.7027594831015034,
+      "share_of_execute_kernel_pct": 1.7027594831015038,
+      "share_of_latency_mean_pct": 1.6807311306745956
+    },
+    {
+      "name": "PWN(PWN(/head/middle/op_list.0/main/inverted_conv/act/HardSwish), /head/middle/op_list.0/main/inverted_conv/act/HardSwish_109)",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.6810427699999999,
+      "share_of_layer_attributed_pct": 1.2737000130354164,
+      "share_of_execute_kernel_pct": 1.2737000130354166,
+      "share_of_latency_mean_pct": 1.2572223407324579
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.68100014,
+      "share_of_layer_attributed_pct": 1.2736202855440641,
+      "share_of_execute_kernel_pct": 1.2736202855440644,
+      "share_of_latency_mean_pct": 1.257143644664096
+    },
+    {
+      "name": "PWN(PWN(/head/output_ops.0/op_list.0/act/HardSwish), /head/output_ops.0/op_list.0/act/HardSwish_111)",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.68095827,
+      "share_of_layer_attributed_pct": 1.273541979420139,
+      "share_of_execute_kernel_pct": 1.2735419794201395,
+      "share_of_latency_mean_pct": 1.257066351575137
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8)",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.6807413099999999,
+      "share_of_layer_attributed_pct": 1.273136216424038,
+      "share_of_execute_kernel_pct": 1.2731362164240383,
+      "share_of_latency_mean_pct": 1.2566658378760553
+    },
+    {
+      "name": "PWN(PWN(/backbone/input_stem/op_list.0/act/HardSwish), /backbone/input_stem/op_list.0/act/HardSwish_0)",
+      "group": "stem",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.6803884600000001,
+      "share_of_layer_attributed_pct": 1.2724763091914872,
+      "share_of_execute_kernel_pct": 1.2724763091914875,
+      "share_of_latency_mean_pct": 1.2560144677676446
+    },
+    {
+      "name": "PWN(PWN(/backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish), /backbone/input_stem/op_list.1/main/depth_conv/act/HardSwish_1)",
+      "group": "stem",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.67991085,
+      "share_of_layer_attributed_pct": 1.2715830732744156,
+      "share_of_execute_kernel_pct": 1.271583073274416,
+      "share_of_latency_mean_pct": 1.2551327875140574
+    },
+    {
+      "name": "PWN(PWN(/head/middle/op_list.0/main/depth_conv/act/HardSwish), /head/middle/op_list.0/main/depth_conv/act/HardSwish_110)",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.6796206499999999,
+      "share_of_layer_attributed_pct": 1.2710403353436055,
+      "share_of_execute_kernel_pct": 1.271040335343606,
+      "share_of_latency_mean_pct": 1.2545970709051275
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.6796024900000001,
+      "share_of_layer_attributed_pct": 1.2710063721429734,
+      "share_of_execute_kernel_pct": 1.2710063721429739,
+      "share_of_latency_mean_pct": 1.2545635470814953
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish_3)",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.67753767,
+      "share_of_layer_attributed_pct": 1.2671447038649064,
+      "share_of_execute_kernel_pct": 1.2671447038649066,
+      "share_of_latency_mean_pct": 1.2507518366457595
+    },
+    {
+      "name": "/backbone/stages.2/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.59865966,
+      "share_of_layer_attributed_pct": 1.119625448407268,
+      "share_of_execute_kernel_pct": 1.1196254484072683,
+      "share_of_latency_mean_pct": 1.1051410163965143
+    },
+    {
+      "name": "/backbone/stages.0/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.58621958,
+      "share_of_layer_attributed_pct": 1.0963597582683628,
+      "share_of_execute_kernel_pct": 1.0963597582683633,
+      "share_of_latency_mean_pct": 1.0821763111159648
+    },
+    {
+      "name": "/head/middle/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.54924578,
+      "share_of_layer_attributed_pct": 1.0272106069720812,
+      "share_of_execute_kernel_pct": 1.0272106069720814,
+      "share_of_latency_mean_pct": 1.0139217323590775
+    },
+    {
+      "name": "/backbone/stages.1/op_list.1/main/inverted_conv/conv/Conv",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.5489373599999999,
+      "share_of_layer_attributed_pct": 1.0266337936274206,
+      "share_of_execute_kernel_pct": 1.0266337936274208,
+      "share_of_latency_mean_pct": 1.013352381164983
+    },
+    {
+      "name": "/backbone/stages.2/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.5486056,
+      "share_of_layer_attributed_pct": 1.0260133293409788,
+      "share_of_execute_kernel_pct": 1.026013329340979,
+      "share_of_latency_mean_pct": 1.0127399437350089
+    },
+    {
+      "name": "/head/output_ops.0/op_list.0/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.54835401,
+      "share_of_layer_attributed_pct": 1.0255428006159184,
+      "share_of_execute_kernel_pct": 1.0255428006159186,
+      "share_of_latency_mean_pct": 1.0122755021718086
+    },
+    {
+      "name": "/head/middle/op_list.0/main/point_conv/conv/Conv + /head/middle/op_list.0/Add",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.5319666399999999,
+      "share_of_layer_attributed_pct": 0.9948948085924273,
+      "share_of_execute_kernel_pct": 0.9948948085924276,
+      "share_of_latency_mean_pct": 0.9820239987752615
+    },
+    {
+      "name": "/backbone/stages.1/op_list.1/main/point_conv/conv/Conv + /backbone/stages.1/op_list.1/Add",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.53171984,
+      "share_of_layer_attributed_pct": 0.9944332382226003,
+      "share_of_execute_kernel_pct": 0.9944332382226005,
+      "share_of_latency_mean_pct": 0.9815683996743525
+    },
+    {
+      "name": "/backbone/stages.2/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.4728113,
+      "share_of_layer_attributed_pct": 0.8842612909219961,
+      "share_of_execute_kernel_pct": 0.8842612909219963,
+      "share_of_latency_mean_pct": 0.8728217308741951
+    },
+    {
+      "name": "/backbone/stages.2/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.47273927,
+      "share_of_layer_attributed_pct": 0.8841265789538493,
+      "share_of_execute_kernel_pct": 0.8841265789538495,
+      "share_of_latency_mean_pct": 0.8726887616552386
+    },
+    {
+      "name": "/head/input_ops.1/op_list.1/Resize",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.46537379,
+      "share_of_layer_attributed_pct": 0.8703515087449517,
+      "share_of_execute_kernel_pct": 0.8703515087449519,
+      "share_of_latency_mean_pct": 0.859091897531392
+    },
+    {
+      "name": "/head/input_ops.0/op_list.1/Resize",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.46427546,
+      "share_of_layer_attributed_pct": 0.868297389683799,
+      "share_of_execute_kernel_pct": 0.8682973896837992,
+      "share_of_latency_mean_pct": 0.8570643523105584
+    },
+    {
+      "name": "/head/output_ops.0/op_list.1/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.44588303,
+      "share_of_layer_attributed_pct": 0.8338994937473178,
+      "share_of_execute_kernel_pct": 0.833899493747318,
+      "share_of_latency_mean_pct": 0.8231114569639743
+    },
+    {
+      "name": "/backbone/stages.2/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.36919921,
+      "share_of_layer_attributed_pct": 0.6904838569678458,
+      "share_of_execute_kernel_pct": 0.6904838569678459,
+      "share_of_latency_mean_pct": 0.6815511674733356
+    },
+    {
+      "name": "/backbone/stages.2/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.36917486,
+      "share_of_layer_attributed_pct": 0.6904383171035616,
+      "share_of_execute_kernel_pct": 0.6904383171035617,
+      "share_of_latency_mean_pct": 0.6815062167516696
+    },
+    {
+      "name": "/backbone/stages.3/op_list.0/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.368412,
+      "share_of_layer_attributed_pct": 0.689011600846161,
+      "share_of_execute_kernel_pct": 0.6890116008461612,
+      "share_of_latency_mean_pct": 0.6800979577155284
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/inverted_conv/act/HardSwish_16)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.34139513,
+      "share_of_layer_attributed_pct": 0.6384841021529788,
+      "share_of_execute_kernel_pct": 0.638484102152979,
+      "share_of_latency_mean_pct": 0.6302241259433116
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.2/local_module/main/inverted_conv/act/HardSwish_14)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.34135998,
+      "share_of_layer_attributed_pct": 0.6384183639094642,
+      "share_of_execute_kernel_pct": 0.6384183639094643,
+      "share_of_latency_mean_pct": 0.6301592381459171
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.1/local_module/main/inverted_conv/act/HardSwish_12)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.3413209,
+      "share_of_layer_attributed_pct": 0.6383452757001737,
+      "share_of_execute_kernel_pct": 0.6383452757001739,
+      "share_of_latency_mean_pct": 0.630087095468188
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.1/local_module/main/depth_conv/act/HardSwish_13)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.34009017,
+      "share_of_layer_attributed_pct": 0.6360435394714152,
+      "share_of_execute_kernel_pct": 0.6360435394714153,
+      "share_of_latency_mean_pct": 0.6278151364671261
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.2/local_module/main/depth_conv/act/HardSwish_15)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.34006904,
+      "share_of_layer_attributed_pct": 0.6360040217164944,
+      "share_of_execute_kernel_pct": 0.6360040217164946,
+      "share_of_latency_mean_pct": 0.6277761299476682
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.0/main/depth_conv/act/HardSwish_7)",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.33775297000000004,
+      "share_of_layer_attributed_pct": 0.6316724605882691,
+      "share_of_execute_kernel_pct": 0.6316724605882692,
+      "share_of_latency_mean_pct": 0.623500605597413
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/MatMul",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.33695256,
+      "share_of_layer_attributed_pct": 0.6301755175586358,
+      "share_of_execute_kernel_pct": 0.6301755175586359,
+      "share_of_latency_mean_pct": 0.6220230283026043
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/MatMul",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.33668470999999994,
+      "share_of_layer_attributed_pct": 0.6296745790515115,
+      "share_of_execute_kernel_pct": 0.6296745790515116,
+      "share_of_latency_mean_pct": 0.6215285703642794
+    },
+    {
+      "name": "/backbone/stages.3/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.33170644000000005,
+      "share_of_layer_attributed_pct": 0.6203641174429201,
+      "share_of_execute_kernel_pct": 0.6203641174429202,
+      "share_of_latency_mean_pct": 0.6123385568469226
+    },
+    {
+      "name": "/backbone/stages.2/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.2/op_list.2/local_module/Add",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.31117243,
+      "share_of_layer_attributed_pct": 0.5819609951182099,
+      "share_of_execute_kernel_pct": 0.5819609951182101,
+      "share_of_latency_mean_pct": 0.5744322501448872
+    },
+    {
+      "name": "/backbone/stages.2/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.2/op_list.1/local_module/Add",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.31095648,
+      "share_of_layer_attributed_pct": 0.581557121044611,
+      "share_of_execute_kernel_pct": 0.5815571210446111,
+      "share_of_latency_mean_pct": 0.5740336009315916
+    },
+    {
+      "name": "/backbone/stages.1/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.28676842,
+      "share_of_layer_attributed_pct": 0.5363201202358344,
+      "share_of_execute_kernel_pct": 0.5363201202358346,
+      "share_of_latency_mean_pct": 0.529381824640101
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.28525677,
+      "share_of_layer_attributed_pct": 0.533493001720642,
+      "share_of_execute_kernel_pct": 0.5334930017206421,
+      "share_of_latency_mean_pct": 0.5265912801470315
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.28472328999999996,
+      "share_of_layer_attributed_pct": 0.5324952765954575,
+      "share_of_execute_kernel_pct": 0.5324952765954577,
+      "share_of_latency_mean_pct": 0.5256064624470594
+    },
+    {
+      "name": "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.28164678,
+      "share_of_layer_attributed_pct": 0.5267415251429555,
+      "share_of_execute_kernel_pct": 0.5267415251429556,
+      "share_of_latency_mean_pct": 0.5199271464424468
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.27658976,
+      "share_of_layer_attributed_pct": 0.5172837836858069,
+      "share_of_execute_kernel_pct": 0.517283783685807,
+      "share_of_latency_mean_pct": 0.5105917584145689
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.2/local_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.27632001,
+      "share_of_layer_attributed_pct": 0.5167792917601142,
+      "share_of_execute_kernel_pct": 0.5167792917601144,
+      "share_of_latency_mean_pct": 0.5100937930277363
+    },
+    {
+      "name": "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.27454664,
+      "share_of_layer_attributed_pct": 0.5134626991882313,
+      "share_of_execute_kernel_pct": 0.5134626991882314,
+      "share_of_latency_mean_pct": 0.5068201067328436
+    },
+    {
+      "name": "/head/input_ops.2/conv/Conv + /head/Add",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.27116318,
+      "share_of_layer_attributed_pct": 0.5071348836149085,
+      "share_of_execute_kernel_pct": 0.5071348836149087,
+      "share_of_latency_mean_pct": 0.5005741531916664
+    },
+    {
+      "name": "/head/Add_1",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.2541913,
+      "share_of_layer_attributed_pct": 0.4753937291243683,
+      "share_of_execute_kernel_pct": 0.4753937291243684,
+      "share_of_latency_mean_pct": 0.46924362941232967
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.25247668,
+      "share_of_layer_attributed_pct": 0.47218701199505964,
+      "share_of_execute_kernel_pct": 0.47218701199505975,
+      "share_of_latency_mean_pct": 0.46607839711734955
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.0/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.25219894,
+      "share_of_layer_attributed_pct": 0.4716675770091769,
+      "share_of_execute_kernel_pct": 0.471667577009177,
+      "share_of_latency_mean_pct": 0.4655656819865288
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 24.0,
+      "matched_launches_per_iter": 24.0,
+      "avg_kernel_ms": 0.23165115,
+      "share_of_layer_attributed_pct": 0.4332386830487448,
+      "share_of_execute_kernel_pct": 0.4332386830487449,
+      "share_of_latency_mean_pct": 0.42763393705268427
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/aggreg.0/aggreg.0.1/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 24.0,
+      "matched_launches_per_iter": 24.0,
+      "avg_kernel_ms": 0.23139764,
+      "share_of_layer_attributed_pct": 0.4327645635007102,
+      "share_of_execute_kernel_pct": 0.4327645635007103,
+      "share_of_latency_mean_pct": 0.4271659511204658
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/local_module/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.22552626,
+      "share_of_layer_attributed_pct": 0.42178378944075523,
+      "share_of_execute_kernel_pct": 0.42178378944075534,
+      "share_of_latency_mean_pct": 0.4163272337416296
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/local_module/main/depth_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.22501119,
+      "share_of_layer_attributed_pct": 0.420820495071278,
+      "share_of_execute_kernel_pct": 0.4208204950712781,
+      "share_of_latency_mean_pct": 0.41537640137167275
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.21595023000000002,
+      "share_of_layer_attributed_pct": 0.4038745037495974,
+      "share_of_execute_kernel_pct": 0.40387450374959744,
+      "share_of_latency_mean_pct": 0.39864963788149854
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.21520527,
+      "share_of_layer_attributed_pct": 0.40248126443555127,
+      "share_of_execute_kernel_pct": 0.4024812644355514,
+      "share_of_latency_mean_pct": 0.3972744227023519
+    },
+    {
+      "name": "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.1/context_module/Add",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.20011617,
+      "share_of_layer_attributed_pct": 0.37426132331982265,
+      "share_of_execute_kernel_pct": 0.37426132331982276,
+      "share_of_latency_mean_pct": 0.36941955887119177
+    },
+    {
+      "name": "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.2/context_module/Add",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.19884711,
+      "share_of_layer_attributed_pct": 0.3718879015469981,
+      "share_of_execute_kernel_pct": 0.3718879015469982,
+      "share_of_latency_mean_pct": 0.36707684171154853
+    },
+    {
+      "name": "/backbone/stages.2/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.17502607,
+      "share_of_layer_attributed_pct": 0.3273373089924113,
+      "share_of_execute_kernel_pct": 0.32733730899241137,
+      "share_of_latency_mean_pct": 0.32310259371023503
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Pad",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.17451053000000002,
+      "share_of_layer_attributed_pct": 0.3263731356193935,
+      "share_of_execute_kernel_pct": 0.32637313561939363,
+      "share_of_latency_mean_pct": 0.32215089370827893
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Pad",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.17450126000000002,
+      "share_of_layer_attributed_pct": 0.3263557986772205,
+      "share_of_execute_kernel_pct": 0.3263557986772206,
+      "share_of_latency_mean_pct": 0.32213378105161183
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish_61)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.17179119,
+      "share_of_layer_attributed_pct": 0.3212873707511346,
+      "share_of_execute_kernel_pct": 0.32128737075113467,
+      "share_of_latency_mean_pct": 0.3171309226423686
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish_107)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.1717736,
+      "share_of_layer_attributed_pct": 0.32125447357607273,
+      "share_of_execute_kernel_pct": 0.32125447357607284,
+      "share_of_latency_mean_pct": 0.3170984510532884
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/depth_conv/act/HardSwish_62)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.16997161,
+      "share_of_layer_attributed_pct": 0.31788435529922837,
+      "share_of_execute_kernel_pct": 0.3178843552992285,
+      "share_of_latency_mean_pct": 0.31377193150771493
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/depth_conv/act/HardSwish_108)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.16993936999999998,
+      "share_of_layer_attributed_pct": 0.31782405939678415,
+      "share_of_execute_kernel_pct": 0.31782405939678426,
+      "share_of_latency_mean_pct": 0.313712415644614
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish_11)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.16905774,
+      "share_of_layer_attributed_pct": 0.31617521707445484,
+      "share_of_execute_kernel_pct": 0.31617521707445495,
+      "share_of_latency_mean_pct": 0.312084904156224
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.1/context_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.15424519,
+      "share_of_layer_attributed_pct": 0.28847248538245296,
+      "share_of_execute_kernel_pct": 0.288472485382453,
+      "share_of_latency_mean_pct": 0.2847405586855033
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.2/context_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.15403993,
+      "share_of_layer_attributed_pct": 0.28808860396385183,
+      "share_of_execute_kernel_pct": 0.2880886039638519,
+      "share_of_latency_mean_pct": 0.28436164348512794
+    },
+    {
+      "name": "/backbone/stages.3/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.14792094,
+      "share_of_layer_attributed_pct": 0.2766447446556272,
+      "share_of_execute_kernel_pct": 0.2766447446556273,
+      "share_of_latency_mean_pct": 0.27306583172470283
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.2/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.13195816000000002,
+      "share_of_layer_attributed_pct": 0.24679082946894743,
+      "share_of_execute_kernel_pct": 0.24679082946894748,
+      "share_of_latency_mean_pct": 0.24359813230811955
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.1/context_module/main/qkv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.13192781,
+      "share_of_layer_attributed_pct": 0.24673406828286853,
+      "share_of_execute_kernel_pct": 0.2467340682828686,
+      "share_of_latency_mean_pct": 0.24354210543327107
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/MatMul_1",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.13069996,
+      "share_of_layer_attributed_pct": 0.2444377182885715,
+      "share_of_execute_kernel_pct": 0.24443771828857155,
+      "share_of_latency_mean_pct": 0.24127546298573674
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/MatMul_1",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.13063755999999999,
+      "share_of_layer_attributed_pct": 0.24432101654190522,
+      "share_of_execute_kernel_pct": 0.2443210165419053,
+      "share_of_latency_mean_pct": 0.2411602709926381
+    },
+    {
+      "name": "PWN(/backbone/stages.3/op_list.2/context_module/main/Constant_34_output_0 + (Unnamed Layer* 200) [Shuffle] + /backbone/stages.3/op_list.2/context_module/main/Add, /backbone/stages.3/op_list.2/context_module/main/Div)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.09205071000000001,
+      "share_of_layer_attributed_pct": 0.1721551063920983,
+      "share_of_execute_kernel_pct": 0.17215510639209836,
+      "share_of_latency_mean_pct": 0.16992796075389607
+    },
+    {
+      "name": "PWN(/backbone/stages.3/op_list.1/context_module/main/Constant_34_output_0 + (Unnamed Layer* 130) [Shuffle] + /backbone/stages.3/op_list.1/context_module/main/Add, /backbone/stages.3/op_list.1/context_module/main/Div)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.09203917,
+      "share_of_layer_attributed_pct": 0.17213352404984625,
+      "share_of_execute_kernel_pct": 0.1721335240498463,
+      "share_of_latency_mean_pct": 0.16990665761927498
+    },
+    {
+      "name": "PWN(/backbone/stages.3/op_list.2/context_module/main/kernel_func/Relu)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.08720777,
+      "share_of_layer_attributed_pct": 0.16309774169658917,
+      "share_of_execute_kernel_pct": 0.16309774169658922,
+      "share_of_latency_mean_pct": 0.16098776987157185
+    },
+    {
+      "name": "PWN(/backbone/stages.3/op_list.1/context_module/main/kernel_func/Relu)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.08717259000000001,
+      "share_of_layer_attributed_pct": 0.16303194734646548,
+      "share_of_execute_kernel_pct": 0.16303194734646553,
+      "share_of_latency_mean_pct": 0.16092282669341143
+    },
+    {
+      "name": "PWN(/backbone/stages.3/op_list.2/context_module/main/kernel_func_1/Relu)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.08632869,
+      "share_of_layer_attributed_pct": 0.1614536684360226,
+      "share_of_execute_kernel_pct": 0.16145366843602266,
+      "share_of_latency_mean_pct": 0.1593649657482844
+    },
+    {
+      "name": "PWN(/backbone/stages.3/op_list.1/context_module/main/kernel_func_1/Relu)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.08630796,
+      "share_of_layer_attributed_pct": 0.1614148987692215,
+      "share_of_execute_kernel_pct": 0.16141489876922152,
+      "share_of_latency_mean_pct": 0.15932669763903867
+    },
+    {
+      "name": "PWN(PWN(/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish_17)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.08626434,
+      "share_of_layer_attributed_pct": 0.16133331975977305,
+      "share_of_execute_kernel_pct": 0.1613333197597731,
+      "share_of_latency_mean_pct": 0.15924617400540145
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.3/op_list.0/main/depth_conv/act/HardSwish_17)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.0861431,
+      "share_of_layer_attributed_pct": 0.16110657425070554,
+      "share_of_execute_kernel_pct": 0.16110657425070557,
+      "share_of_latency_mean_pct": 0.15902236187009253
+    },
+    {
+      "name": "/head/input_ops.1/op_list.0/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.08038081999999999,
+      "share_of_layer_attributed_pct": 0.15032984122538653,
+      "share_of_execute_kernel_pct": 0.1503298412253866,
+      "share_of_latency_mean_pct": 0.14838504587662588
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 1 to /backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.2/context_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.04522308,
+      "share_of_layer_attributed_pct": 0.08457712220555792,
+      "share_of_execute_kernel_pct": 0.08457712220555794,
+      "share_of_latency_mean_pct": 0.08348296024452503
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 1 to /backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.1/context_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.04520543,
+      "share_of_layer_attributed_pct": 0.08454411281727812,
+      "share_of_execute_kernel_pct": 0.08454411281727815,
+      "share_of_latency_mean_pct": 0.083450377893913
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.2/context_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.04371175,
+      "share_of_layer_attributed_pct": 0.08175060216086115,
+      "share_of_execute_kernel_pct": 0.08175060216086116,
+      "share_of_latency_mean_pct": 0.08069300647962538
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.3/op_list.1/context_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.043710370000000005,
+      "share_of_layer_attributed_pct": 0.08174802125684834,
+      "share_of_execute_kernel_pct": 0.08174802125684837,
+      "share_of_latency_mean_pct": 0.0806904589643934
+    },
+    {
+      "name": "/head/input_ops.0/op_list.0/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.03928833,
+      "share_of_layer_attributed_pct": 0.07347783228524656,
+      "share_of_execute_kernel_pct": 0.07347783228524657,
+      "share_of_latency_mean_pct": 0.07252726022782571
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/input_ops.0/op_list.1/Resize",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 1.0,
+      "matched_launches_per_iter": 1.0,
+      "avg_kernel_ms": 0.010625420000000002,
+      "share_of_layer_attributed_pct": 0.0198718761708707,
+      "share_of_execute_kernel_pct": 0.019871876170870707,
+      "share_of_latency_mean_pct": 0.019614796591505515
+    },
+    {
+      "name": "(Unnamed Layer* 124) [Constant]",
+      "group": "constant/unnamed",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "(Unnamed Layer* 194) [Constant]",
+      "group": "constant/unnamed",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Cast_1",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "/backbone/stages.3/op_list.1/context_module/main/Reshape_3",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Cast_1",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "/backbone/stages.3/op_list.2/context_module/main/Reshape_3",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.0/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.1/main/depth_conv/conv/Conv",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.1/op_list.1/main/point_conv/conv/Conv + /backbone/stages.1/op_list.1/Add",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.0/main/depth_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.2/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.0/main/point_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/context_module/main/Reshape_3",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.2/context_module/main/Reshape_3",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.2/local_module/main/inverted_conv/conv/Conv",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.2/local_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/middle/op_list.0/main/depth_conv/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/middle/op_list.0/main/point_conv/conv/Conv + /head/middle/op_list.0/Add",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to /head/output_ops.0/op_list.1/conv/Conv",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.0/op_list.0/main/depth_conv/act/HardSwish_3)",
+      "group": "stage0",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/depth_conv/act/HardSwish_9)",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish), /backbone/stages.1/op_list.1/main/inverted_conv/act/HardSwish_8)",
+      "group": "stage1",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/depth_conv/act/HardSwish_11)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish), /backbone/stages.2/op_list.0/main/inverted_conv/act/HardSwish_10)",
+      "group": "stage2",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.1/local_module/main/inverted_conv/act/HardSwish_61)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish), /backbone/stages.3/op_list.2/local_module/main/inverted_conv/act/HardSwish_107)",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/middle/op_list.0/main/depth_conv/act/HardSwish), /head/middle/op_list.0/main/depth_conv/act/HardSwish_110)",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/middle/op_list.0/main/inverted_conv/act/HardSwish), /head/middle/op_list.0/main/inverted_conv/act/HardSwish_109)",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 0 to PWN(PWN(/head/output_ops.0/op_list.0/act/HardSwish), /head/output_ops.0/op_list.0/act/HardSwish_111)",
+      "group": "head",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 1 to /backbone/stages.3/op_list.1/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.1/local_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Input Tensor 1 to /backbone/stages.3/op_list.2/local_module/main/point_conv/conv/Conv + /backbone/stages.3/op_list.2/local_module/Add",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.1/context_module/main/MatMul_1",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    },
+    {
+      "name": "Reformatting CopyNode for Output Tensor 0 to /backbone/stages.3/op_list.2/context_module/main/MatMul_1",
+      "group": "stage3",
+      "count": 100,
+      "launches_per_iter": 0.0,
+      "matched_launches_per_iter": 0.0,
+      "avg_kernel_ms": 0.0,
+      "share_of_layer_attributed_pct": 0.0,
+      "share_of_execute_kernel_pct": 0.0,
+      "share_of_latency_mean_pct": 0.0
+    }
+  ],
+  "kernel_types": [
+    {
+      "name": "generatedNativePointwise",
+      "count": 3100,
+      "avg_kernel_ms_per_iter": 16.43084841,
+      "total_ms": 1643.084841,
+      "share_pct": 30.72930622844723
+    },
+    {
+      "name": "trt_maxwell_scudnn_128x32_relu_interior_nn_v1",
+      "count": 800,
+      "avg_kernel_ms_per_iter": 6.44320184,
+      "total_ms": 644.320184,
+      "share_pct": 12.050206872613625
+    },
+    {
+      "name": "sm50_xmma_fprop_conv2d_c1_k1_f32f32_f32_f32_nchwkcrs_nchw_tilesize10x40x8_threadsize4x4_r3s3_u1v1_xcorr_zerobeta_execute_kernel_trt",
+      "count": 600,
+      "avg_kernel_ms_per_iter": 5.4485369200000004,
+      "total_ms": 544.853692,
+      "share_pct": 10.189964348388793
+    },
+    {
+      "name": "sm50_xmma_fprop_conv2d_c1_k1_f32f32_f32_f32_nchwkcrs_nchw_tilesize10x10x8_threadsize2x2_r3s3_u2v2_xcorr_zerobeta_execute_kernel_trt",
+      "count": 400,
+      "avg_kernel_ms_per_iter": 4.37135829,
+      "total_ms": 437.135829,
+      "share_pct": 8.175403008764745
+    },
+    {
+      "name": "trt_maxwell_scudnn_128x64_relu_interior_nn_v1",
+      "count": 800,
+      "avg_kernel_ms_per_iter": 3.25949755,
+      "total_ms": 325.949755,
+      "share_pct": 6.095978483001748
+    },
+    {
+      "name": "<unnamed>::fusedAggregationCatKernel(const float *, const float *, const float *, float *, int, int)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 3.0377025200000003,
+      "total_ms": 303.770252,
+      "share_pct": 5.681172915647747
+    },
+    {
+      "name": "trt_maxwell_scudnn_128x32_relu_medium_nn_v1",
+      "count": 100,
+      "avg_kernel_ms_per_iter": 2.19960019,
+      "total_ms": 219.960019,
+      "share_pct": 4.113736925326591
+    },
+    {
+      "name": "trt_maxwell_scudnn_128x32_relu_interior_nn_v0",
+      "count": 5100,
+      "avg_kernel_ms_per_iter": 1.91917276,
+      "total_ms": 191.917276,
+      "share_pct": 3.5892758533053892
+    },
+    {
+      "name": "trt_maxwell_scudnn_128x64_relu_small_nn_v1",
+      "count": 600,
+      "avg_kernel_ms_per_iter": 1.83800556,
+      "total_ms": 183.800556,
+      "share_pct": 3.437475308241167
+    },
+    {
+      "name": "trt_maxwell_scudnn_128x32_relu_small_nn_v1",
+      "count": 300,
+      "avg_kernel_ms_per_iter": 1.50956951,
+      "total_ms": 150.956951,
+      "share_pct": 2.823227540562346
+    },
+    {
+      "name": "<unnamed>::computeVkKernelDim16WarpD4(const float *, float *, int)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.95756342,
+      "total_ms": 95.756342,
+      "share_pct": 1.79085454579635
+    },
+    {
+      "name": "ResizeBicubicKernel",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.92964925,
+      "total_ms": 92.964925,
+      "share_pct": 1.738648898428751
+    },
+    {
+      "name": "trt_maxwell_sgemm_64x64_relu_nn_v1",
+      "count": 300,
+      "avg_kernel_ms_per_iter": 0.7008307100000001,
+      "total_ms": 70.083071,
+      "share_pct": 1.3107078201015485
+    },
+    {
+      "name": "trt_maxwell_sgemm_128x32_tn_v1",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.67363727,
+      "total_ms": 67.363727,
+      "share_pct": 1.2598500966101474
+    },
+    {
+      "name": "trt_maxwell_sgemm_128x64_relu_nn_v1",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.56998006,
+      "total_ms": 56.998006,
+      "share_pct": 1.0659882783160997
+    },
+    {
+      "name": "sm50_xmma_fprop_conv2d_c1_k1_f32f32_f32_f32_nchwkcrs_nchw_tilesize10x40x8_threadsize4x4_r5s5_u1v1_xcorr_zerobeta_execute_kernel_trt",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.50467562,
+      "total_ms": 50.467562,
+      "share_pct": 0.9438545890042367
+    },
+    {
+      "name": "sm50_xmma_convolution_trt_depthwiseFP32NHWC4_fp32nhwcx4_fp32nhwcx4_fp32kcrs_execute_kernel_trt",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.45053745,
+      "total_ms": 45.053745,
+      "share_pct": 0.8426042845120334
+    },
+    {
+      "name": "trt_maxwell_sgemm_128x64_tn_v1",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.43115549999999997,
+      "total_ms": 43.11555,
+      "share_pct": 0.8063557681851488
+    },
+    {
+      "name": "void cuInt8::nhwcToNchwKernel<float>(int, int, int, int, int, int, int, int, const T1 *, T1 *)",
+      "count": 500,
+      "avg_kernel_ms_per_iter": 0.3649399,
+      "total_ms": 36.49399,
+      "share_pct": 0.6825180089455226
+    },
+    {
+      "name": "<unnamed>::computeOutputKernelDim16(const float *, const float *, float *, int, float)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.35177984,
+      "total_ms": 35.177984,
+      "share_pct": 0.657905797595644
+    },
+    {
+      "name": "void cuSliceLayer::naiveSlice<float, (cuSliceLayer::Mode)2, (int)4>(cuSliceLayer::LaunchParams<T1>)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.34901179,
+      "total_ms": 34.901179,
+      "share_pct": 0.652728934296614
+    },
+    {
+      "name": "trt_maxwell_sgemm_128x32_nn_v1",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.26133752,
+      "total_ms": 26.133752,
+      "share_pct": 0.4887587348304768
+    },
+    {
+      "name": "void cuEltwise::eltwise<cuEltwise::SimpleAlgo<float, float>, cuEltwise::Compute<(nvinfer1::ElementWiseOperation)0>>(cuEltwise::LaunchParams)",
+      "count": 100,
+      "avg_kernel_ms_per_iter": 0.2541913,
+      "total_ms": 25.41913,
+      "share_pct": 0.47539372912436834
+    },
+    {
+      "name": "void cuInt8::nchwToNhwcKernel<float>(int, int, int, int, int, int, int, int, bool, const T1 *, T1 *)",
+      "count": 300,
+      "avg_kernel_ms_per_iter": 0.17356522,
+      "total_ms": 17.356522,
+      "share_pct": 0.324605197668415
+    },
+    {
+      "name": "trt_maxwell_sgemm_32x128_relu_nn_v1",
+      "count": 100,
+      "avg_kernel_ms_per_iter": 0.03928833,
+      "total_ms": 3.928833,
+      "share_pct": 0.07347783228524656
+    }
+  ],
+  "memory": {
+    "memcpy_count": 0,
+    "memcpy_avg_ms_per_iter": 0.0,
+    "memcpy_bytes": 0,
+    "memset_count": 0,
+    "memset_avg_ms_per_iter": 0.0,
+    "memset_bytes": 0
+  },
+  "benchmark_target": "plugin",
+  "plugin_layer_name": "EdgesegAggregationReluLinearAttention_TRT",
+  "plugin_component": "p1b_weight_shared_aggregation_attention_plugin",
+  "plugin_boundary_name": "p1b_weight_shared_plugin_only",
+  "combined_boundary_name": "p1b_weight_shared_plugin_boundary",
+  "stage2_plugin_context": {
+    "total_avg_kernel_ms": 5.30220248,
+    "total_launches_per_iter": 10.0,
+    "total_share_of_execute_kernel_pct": 9.91628670823775,
+    "total_share_of_latency_mean_pct": 9.78800114557129,
+    "components": [
+      {
+        "component": "p1b_weight_shared_aggregation_attention_plugin",
+        "layer_count": 2,
+        "avg_kernel_ms": 4.34704578,
+        "launches_per_iter": 6.0,
+        "share_of_execute_kernel_pct": 8.129933259039742,
+        "share_of_latency_mean_pct": 8.024757491813258
+      },
+      {
+        "component": "qkv",
+        "layer_count": 2,
+        "avg_kernel_ms": 0.55619342,
+        "launches_per_iter": 2.0,
+        "share_of_execute_kernel_pct": 1.040204224331187,
+        "share_of_latency_mean_pct": 1.0267472531752904
+      },
+      {
+        "component": "proj_add",
+        "layer_count": 2,
+        "avg_kernel_ms": 0.39896328000000003,
+        "launches_per_iter": 2.0,
+        "share_of_execute_kernel_pct": 0.7461492248668209,
+        "share_of_latency_mean_pct": 0.7364964005827404
+      }
+    ],
+    "candidate_boundaries": [
+      {
+        "candidate": "full_stage2_context_plugin_path",
+        "includes": [
+          "qkv",
+          "aggregation",
+          "p1b_weight_shared_aggregation_attention_plugin",
+          "proj_add"
+        ],
+        "avg_kernel_ms": 5.30220248,
+        "launches_per_iter": 10.0,
+        "share_of_execute_kernel_pct": 9.91628670823775,
+        "share_of_latency_mean_pct": 9.78800114557129
+      },
+      {
+        "candidate": "p1b_weight_shared_plugin_only",
+        "includes": [
+          "p1b_weight_shared_aggregation_attention_plugin"
+        ],
+        "avg_kernel_ms": 4.34704578,
+        "launches_per_iter": 6.0,
+        "share_of_execute_kernel_pct": 8.129933259039742,
+        "share_of_latency_mean_pct": 8.024757491813258
+      },
+      {
+        "candidate": "p1b_weight_shared_plugin_boundary",
+        "includes": [
+          "aggregation",
+          "p1b_weight_shared_aggregation_attention_plugin"
+        ],
+        "avg_kernel_ms": 4.34704578,
+        "launches_per_iter": 6.0,
+        "share_of_execute_kernel_pct": 8.129933259039742,
+        "share_of_latency_mean_pct": 8.024757491813258
+      },
+      {
+        "candidate": "qkv_proj_overhead",
+        "includes": [
+          "qkv",
+          "proj_add"
+        ],
+        "avg_kernel_ms": 0.9551567000000001,
+        "launches_per_iter": 4.0,
+        "share_of_execute_kernel_pct": 1.786353449198008,
+        "share_of_latency_mean_pct": 1.7632436537580307
+      },
+      {
+        "candidate": "aggregation_only",
+        "includes": [
+          "aggregation"
+        ],
+        "avg_kernel_ms": 0,
+        "launches_per_iter": 0,
+        "share_of_execute_kernel_pct": 0,
+        "share_of_latency_mean_pct": 0
+      }
+    ],
+    "blocks": [
+      {
+        "block": "op_list.1",
+        "layer_count": 3,
+        "avg_kernel_ms": 2.6470253799999997,
+        "launches_per_iter": 5.0,
+        "share_of_execute_kernel_pct": 4.950520598010429,
+        "share_of_latency_mean_pct": 4.886476431167199
+      },
+      {
+        "block": "op_list.2",
+        "layer_count": 3,
+        "avg_kernel_ms": 2.6551771,
+        "launches_per_iter": 5.0,
+        "share_of_execute_kernel_pct": 4.96576611022732,
+        "share_of_latency_mean_pct": 4.901524714404089
+      }
+    ],
+    "layers": [
+      {
+        "name": "/backbone/stages.2/op_list.2/context_module/main/EdgesegAggregationReluLinearAttention_TRT",
+        "group": "stage2",
+        "count": 100,
+        "launches_per_iter": 3.0,
+        "matched_launches_per_iter": 3.0,
+        "avg_kernel_ms": 2.17468321,
+        "share_of_layer_attributed_pct": 4.067136683537366,
+        "share_of_execute_kernel_pct": 4.067136683537367,
+        "share_of_latency_mean_pct": 4.014520726250094,
+        "component": "p1b_weight_shared_aggregation_attention_plugin",
+        "block": "op_list.2"
+      },
+      {
+        "name": "/backbone/stages.2/op_list.1/context_module/main/EdgesegAggregationReluLinearAttention_TRT",
+        "group": "stage2",
+        "count": 100,
+        "launches_per_iter": 3.0,
+        "matched_launches_per_iter": 3.0,
+        "avg_kernel_ms": 2.1723625699999998,
+        "share_of_layer_attributed_pct": 4.0627965755023725,
+        "share_of_execute_kernel_pct": 4.062796575502374,
+        "share_of_latency_mean_pct": 4.010236765563164,
+        "component": "p1b_weight_shared_aggregation_attention_plugin",
+        "block": "op_list.1"
+      },
+      {
+        "name": "/backbone/stages.2/op_list.2/context_module/main/qkv/conv/Conv",
+        "group": "stage2",
+        "count": 100,
+        "launches_per_iter": 1.0,
+        "matched_launches_per_iter": 1.0,
+        "avg_kernel_ms": 0.28164678,
+        "share_of_layer_attributed_pct": 0.5267415251429555,
+        "share_of_execute_kernel_pct": 0.5267415251429556,
+        "share_of_latency_mean_pct": 0.5199271464424468,
+        "component": "qkv",
+        "block": "op_list.2"
+      },
+      {
+        "name": "/backbone/stages.2/op_list.1/context_module/main/qkv/conv/Conv",
+        "group": "stage2",
+        "count": 100,
+        "launches_per_iter": 1.0,
+        "matched_launches_per_iter": 1.0,
+        "avg_kernel_ms": 0.27454664,
+        "share_of_layer_attributed_pct": 0.5134626991882313,
+        "share_of_execute_kernel_pct": 0.5134626991882314,
+        "share_of_latency_mean_pct": 0.5068201067328436,
+        "component": "qkv",
+        "block": "op_list.1"
+      },
+      {
+        "name": "/backbone/stages.2/op_list.1/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.1/context_module/Add",
+        "group": "stage2",
+        "count": 100,
+        "launches_per_iter": 1.0,
+        "matched_launches_per_iter": 1.0,
+        "avg_kernel_ms": 0.20011617,
+        "share_of_layer_attributed_pct": 0.37426132331982265,
+        "share_of_execute_kernel_pct": 0.37426132331982276,
+        "share_of_latency_mean_pct": 0.36941955887119177,
+        "component": "proj_add",
+        "block": "op_list.1"
+      },
+      {
+        "name": "/backbone/stages.2/op_list.2/context_module/main/proj/conv/Conv + /backbone/stages.2/op_list.2/context_module/Add",
+        "group": "stage2",
+        "count": 100,
+        "launches_per_iter": 1.0,
+        "matched_launches_per_iter": 1.0,
+        "avg_kernel_ms": 0.19884711,
+        "share_of_layer_attributed_pct": 0.3718879015469981,
+        "share_of_execute_kernel_pct": 0.3718879015469982,
+        "share_of_latency_mean_pct": 0.36707684171154853,
+        "component": "proj_add",
+        "block": "op_list.2"
+      }
+    ]
+  },
+  "plugin_kernel_types": [
+    {
+      "name": "<unnamed>::fusedAggregationCatKernel(const float *, const float *, const float *, float *, int, int)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 3.0377025200000003,
+      "total_ms": 303.770252,
+      "share_pct": 69.87969931156327
+    },
+    {
+      "name": "<unnamed>::computeVkKernelDim16WarpD4(const float *, float *, int)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.95756342,
+      "total_ms": 95.756342,
+      "share_pct": 22.02791202258744
+    },
+    {
+      "name": "<unnamed>::computeOutputKernelDim16(const float *, const float *, float *, int, float)",
+      "count": 200,
+      "avg_kernel_ms_per_iter": 0.35177984,
+      "total_ms": 35.177984,
+      "share_pct": 8.092388665849294
+    }
+  ],
+  "baseline_comparison": {
+    "status": "ok",
+    "baseline_summary_json": "phase2\\results\\metrics\\trt_nsys_attribution_summary.json",
+    "rows": [
+      {
+        "label": "attention_proxy: baseline attention_core -> p1b_weight_shared_plugin_only",
+        "before_ms": 3.6889331700000003,
+        "after_ms": 4.34704578,
+        "delta_ms": 0.6581126099999999,
+        "speedup_before_over_after": 0.8486069290947288,
+        "before_launches_per_iter": 12.0,
+        "after_launches_per_iter": 6.0
+      },
+      {
+        "label": "middle_boundary: baseline aggregation_plus_attention_core -> p1b_weight_shared_plugin_boundary",
+        "before_ms": 5.442800869999999,
+        "after_ms": 4.34704578,
+        "delta_ms": -1.095755089999999,
+        "speedup_before_over_after": 1.2520689096584574,
+        "before_launches_per_iter": 38.0,
+        "after_launches_per_iter": 6.0
+      },
+      {
+        "label": "aggregation_preserved",
+        "status": "missing"
+      },
+      {
+        "label": "stage2_context_total",
+        "before_ms": 6.382756229999999,
+        "after_ms": 5.30220248,
+        "delta_ms": -1.080553749999999,
+        "speedup_before_over_after": 1.2037933772004872,
+        "before_launches_per_iter": 42.0,
+        "after_launches_per_iter": 10.0
+      }
+    ]
+  }
+}
