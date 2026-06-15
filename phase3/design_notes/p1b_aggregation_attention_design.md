@@ -553,3 +553,32 @@ P1b-2 是有效的小步优化：它证明当前 `fusedAggregationCatKernel` 内
 测量纪律：P1b-2 第一次热机 benchmark 曾显示 baseline p50 `54.585 ms`、Plugin p50 `59.144 ms`，冷机重测后转为正收益。因此该热机样本只作为温度/频率敏感性的证据，不作为性能结论。
 
 完整 P1a/P1b 优化演进统一记录在 [`plugin_kernel_optimization_history.md`](plugin_kernel_optimization_history.md)。
+
+---
+
+## 16. P1b-3 Probe：Interior Fast Path（不采纳）
+
+P1b-3 probe 尝试在同一个 `fusedAggregationCatKernel` 内给非边界像素增加 depthwise 5x5 fast path：
+
+```text
+if pixel is interior:
+  depthwise 5x5 without ih/iw boundary checks
+else:
+  original safe boundary path
+```
+
+该方案不增加 kernel launch，不改变 ABI / workspace / tensor contract，风险较低。但冷机 benchmark 显示它没有收益：
+
+| 项 | 结果 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.312 ms` |
+| P1b-3 probe p50 | `54.710 ms` |
+| p50 speedup | `0.9927x` |
+| Plugin TRT vs baseline TRT | `allclose=True`、argmax agreement `1.0` |
+
+判断：
+
+- 当前 P1b aggregation kernel 的主要成本不在 depthwise 边界判断。
+- interior fast path 可能引入额外代码体积、分支分流或寄存器/指令压力，抵消了去掉越界判断的收益。
+- 因此 P1b-3 probe 记录为 `evaluated, not adopted`；主线 CUDA 代码已恢复到 P1b-2 shared weight cache 版本。

@@ -155,6 +155,7 @@ P1b 的目标边界是 `aggregation + cat + relu_linear_att`，只替换两个 `
 | P1b naive | `depthwise5x5Kernel -> groupedPointwise1x1Kernel -> cat workspace -> P1a attention launcher` | `56.3395 ms` vs baseline `54.4532 ms`，`0.9665x` | `6.189 ms/iter`，`10 launches/iter` | `depthwise5x5Kernel 2.462 ms` + `groupedPointwise1x1Kernel 2.427 ms` | 数学正确但性能退化；自写 aggregation 两个 kernel 合计占 Plugin 时间约 79%，替换掉 TensorRT/cuDNN 已优化 Conv 路径后得不偿失 |
 | P1b-1 | 融合 depthwise、grouped pointwise 和 cat 到 `fusedAggregationCatKernel`，消除 `depthwiseWorkspace` global write/read、D2D cat copy 和一次 launch | `53.610 ms` vs baseline `54.331 ms`，`1.0135x` | `4.848 ms/iter`，`6 launches/iter` | `fusedAggregationCatKernel 3.536 ms`、`computeVk 0.960 ms`、`computeOutput 0.352 ms` | 有效；中段边界从 Phase 2 baseline `5.443 ms / 38 launches` 降到 `4.848 ms / 6 launches`，证明 P1b 边界有价值 |
 | P1b-2 | 在 P1b-1 基础上，每个 CTA 将当前 aggregation group 的 `16x16` grouped pointwise 权重缓存到 shared memory，再由空间线程复用 | `53.530 ms` vs baseline `54.306 ms`，`1.0145x` | `4.347 ms/iter`，`6 launches/iter` | `fusedAggregationCatKernel 3.038 ms`、`computeVk 0.958 ms`、`computeOutput 0.352 ms` | 有效但收益有限；减少 pointwise weight 重复读取后 aggregation kernel 下降约 `0.498 ms/iter`，中段边界相对 Phase 2 baseline 达到 `1.252x` kernel-time speedup |
+| P1b-3 probe | 在 P1b-2 基础上，为非边界像素增加 depthwise 5x5 interior fast path，去掉 `ih/iw` 越界判断；边界像素保留安全路径 | `54.710 ms` vs baseline `54.312 ms`，`0.9927x` | 未采集 Nsight；冷机 benchmark 已显示退化 | 不适用 | 不采纳；去掉边界判断没有抵消代码膨胀、分支分流或寄存器/指令压力，主线代码已恢复到 P1b-2 |
 
 P1b-2 的第一次热机 benchmark 曾显示明显负收益：baseline p50 `54.585 ms`，Plugin p50 `59.144 ms`。冷机重测后转为 baseline p50 `54.306 ms`，Plugin p50 `53.530 ms`。因此该热机样本只作为测量纪律提醒，不作为性能结论。
 
@@ -164,11 +165,13 @@ P1b 当前结论：
 2. **P1b 仍未明显优于 P1a proxy**。P1a-3b 的 `aggregation + plugin` proxy 约 `3.062 ms / 30 launches`；P1b-2 虽 launch 数更少，但自写 aggregation 仍比 TensorRT/cuDNN 保留的 aggregation 路径更重。
 3. **下一步若继续 P1b，应继续盯住 `fusedAggregationCatKernel`**。P1b-2 后它仍约 `3.038 ms/iter`，占 P1b Plugin layer 约 `69.88%`。
 4. **P1b 结果要冷机/顺序复核**。整网 1ms 级收益对 MX250 温度、频率和 Windows 调度很敏感，热机样本不能直接写成结论。
+5. **P1b-3 interior fast path 不采纳**。该变体 correctness 通过，但端到端 p50 退化到 `0.9927x`，说明在当前 kernel 中，边界判断不是主要瓶颈。
 
 P1b-2 相关文件：
 
 - [`../results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md)
 - [`../results/metrics/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md)
+- [`../results/metrics/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md)
 
 ---
 
@@ -181,7 +184,8 @@ P1b-2 相关文件：
 | P1a-2 | VK 归约 kernel 硬件指标采集 | 判断 VK 归约 kernel 是 memory-bound、occupancy-bound 还是归约开销主导 | Nsight Compute 2024.1.1 不支持 MX250；已改用 `nvprof` 完成定性判断 |
 | P1a-3c | 继续改进 computeVk 跨 N 归约策略 | 在 P1a-3b 基础上进一步降低 `computeVkKernelDim16WarpD4` 或验证更稳定端到端表现 | 收益递减明显，且端到端 1ms 级差异高度受温度/频率影响；优先级应低于 P1b 评估 |
 | P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 已完成可行性评估，见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)；当前不作为主线采用 |
-| P1b-3 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | P1b-2 后仍约 `3.038 ms/iter`；可评估 depthwise 5x5 tile/halo、interior/border 拆分或更细的线程映射，但复杂度会明显上升 |
+| P1b-3 | depthwise 5x5 interior fast path | 去掉非边界像素的越界判断 | 已 probe，端到端 `0.9927x`，不采纳 |
+| P1b-4 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | P1b-2 后仍约 `3.038 ms/iter`；下一步不应继续只做边界判断优化，可考虑 depthwise tile/halo、通道并行重排或更细的线程映射，但复杂度会明显上升 |
 | P1b-cooldown-rerun | 冷机重复 benchmark | 区分真实收益和热机/频率偏置 | MX250 整网 1ms 级差异敏感；P1b-2 已出现热机负、冷机正的反例 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。
