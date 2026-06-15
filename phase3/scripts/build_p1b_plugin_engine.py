@@ -1,8 +1,8 @@
 """Build a real EfficientViT TensorRT engine from the P1b Plugin-patched ONNX.
 
-This script validates parser/build integration only. The current P1b Plugin is
-a skeleton that zero-fills its output, so the produced engine is not a
-correctness or performance artifact.
+The current P1b Plugin contains a correctness-validated first CUDA math path.
+This script only proves parser/build integration for the full EfficientViT graph;
+end-to-end correctness and latency are validated by benchmark scripts.
 """
 
 from __future__ import annotations
@@ -131,7 +131,7 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
     metadata = {
         "status": "ok",
         "purpose": "phase3_p1b_aggregation_attention_plugin_engine_build",
-        "scope": "real_efficientvit_graph_p1b_aggregation_plus_cat_plus_relu_linear_att_skeleton",
+        "scope": "real_efficientvit_graph_p1b_aggregation_plus_cat_plus_relu_linear_att",
         "plugin": {
             "name": PLUGIN_NAME,
             "version": PLUGIN_VERSION,
@@ -168,9 +168,9 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
             "numpy": version_of("numpy"),
         },
         "notes": [
-            "This validates P1b Plugin-patched ONNX parser/build integration only.",
-            "The current P1b Plugin skeleton zero-fills output.",
-            "Do not use this engine for correctness or latency conclusions.",
+            "This validates P1b Plugin-patched ONNX parser/build integration for the full EfficientViT graph.",
+            "The current P1b Plugin contains a first CUDA math path that passed block-level toy/plugin validation.",
+            "This build metadata alone does not prove end-to-end correctness or latency; use benchmark_plugin_engine.py.",
             "Engine is specific to the current TensorRT version and GPU.",
         ],
         "_dll_handle_alive": bool(dll_handle),
@@ -185,7 +185,7 @@ def save_failure_metadata(args: argparse.Namespace, error: Exception) -> None:
     payload = {
         "status": "failed",
         "purpose": "phase3_p1b_aggregation_attention_plugin_engine_build",
-        "scope": "real_efficientvit_graph_p1b_aggregation_plus_cat_plus_relu_linear_att_skeleton",
+        "scope": "real_efficientvit_graph_p1b_aggregation_plus_cat_plus_relu_linear_att",
         "plugin_dll": str(args.plugin_dll.expanduser().resolve()),
         "onnx": str(args.onnx.expanduser().resolve()),
         "engine": str(args.engine.expanduser().resolve()),

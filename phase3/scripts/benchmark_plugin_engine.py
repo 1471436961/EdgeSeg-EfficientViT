@@ -28,9 +28,11 @@ DEFAULT_PLUGIN_ENGINE = Path(
     "phase3/results/engines/efficientvit_seg_b0_cityscapes_1024x2048_relu_linear_att_plugin_fp32.engine"
 )
 DEFAULT_METADATA = Path("phase3/results/metrics/relu_linear_attention_plugin_engine_benchmark.json")
-PLUGIN_NAME = "EdgesegReluLinearAttention_TRT"
-PLUGIN_VERSION = "1"
-PLUGIN_NAMESPACE = "edgeseg"
+DEFAULT_PLUGIN_NAME = "EdgesegReluLinearAttention_TRT"
+DEFAULT_PLUGIN_VERSION = "1"
+DEFAULT_PLUGIN_NAMESPACE = "edgeseg"
+DEFAULT_PLUGIN_LABEL = "phase3_relu_linear_att_plugin_fp32"
+DEFAULT_SCOPE = "end_to_end_efficientvit_fp32_baseline_vs_stage2_relu_linear_att_plugin"
 _PLUGIN_DLL_HANDLES: List[object] = []
 
 
@@ -73,6 +75,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--plugin-engine", type=Path, default=DEFAULT_PLUGIN_ENGINE)
     parser.add_argument("--metadata", type=Path, default=DEFAULT_METADATA)
     parser.add_argument("--plugin-dll", type=Path, default=default_plugin_dll())
+    parser.add_argument("--plugin-name", default=DEFAULT_PLUGIN_NAME)
+    parser.add_argument("--plugin-version", default=DEFAULT_PLUGIN_VERSION)
+    parser.add_argument("--plugin-namespace", default=DEFAULT_PLUGIN_NAMESPACE)
+    parser.add_argument("--plugin-label", default=DEFAULT_PLUGIN_LABEL)
+    parser.add_argument("--scope", default=DEFAULT_SCOPE)
     parser.add_argument("--trt-root", type=Path, default=DEFAULT_TRT_ROOT)
     parser.add_argument("--weights", required=True, help="Path to Cityscapes B0 weights for PyTorch reference.")
     parser.add_argument("--input", "--input-image", dest="input_image", required=True, help="Fixed input image path.")
@@ -115,17 +122,18 @@ def register_plugin_runtime(args: argparse.Namespace) -> Tuple[Any, Dict[str, An
         trt.init_libnvinfer_plugins(logger, "")
 
     registry = trt.get_plugin_registry()
-    creator = registry.get_plugin_creator(PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_NAMESPACE)
+    creator = registry.get_plugin_creator(args.plugin_name, args.plugin_version, args.plugin_namespace)
     registered_creators = creator_names(registry)
     if creator is None:
         raise RuntimeError(
-            f"Plugin creator not found: name={PLUGIN_NAME}, version={PLUGIN_VERSION}, namespace={PLUGIN_NAMESPACE}"
+            "Plugin creator not found: "
+            f"name={args.plugin_name}, version={args.plugin_version}, namespace={args.plugin_namespace}"
         )
 
     plugin_meta = {
-        "name": PLUGIN_NAME,
-        "version": PLUGIN_VERSION,
-        "namespace": PLUGIN_NAMESPACE,
+        "name": args.plugin_name,
+        "version": args.plugin_version,
+        "namespace": args.plugin_namespace,
         "dll_path": str(plugin_dll),
         "dll_sha256": sha256_of_file(plugin_dll),
         "creator_found": True,
@@ -231,6 +239,9 @@ def save_failure_metadata(args: argparse.Namespace, error: Exception) -> None:
         "baseline_engine": str(args.baseline_engine.expanduser().resolve()),
         "plugin_engine": str(args.plugin_engine.expanduser().resolve()),
         "plugin_dll": str(args.plugin_dll.expanduser().resolve()),
+        "plugin_name": args.plugin_name,
+        "plugin_version": args.plugin_version,
+        "plugin_namespace": args.plugin_namespace,
         "error_type": type(error).__name__,
         "error": str(error),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -274,7 +285,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
         execution_order.append("baseline")
     if plugin_engine is not None and plugin_context is not None:
         plugin_result = benchmark_one_engine(
-            trt, "phase3_relu_linear_att_plugin_fp32", plugin_engine, plugin_context, x, args
+            trt, args.plugin_label, plugin_engine, plugin_context, x, args
         )
         plugin_np = plugin_result.pop("_output_np")
         execution_order.append("plugin")
@@ -307,7 +318,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
         plugin_mean = plugin_result["timing"]["latency_ms"]["mean"]
         speedup = {
             "baseline": "phase2_tensorrt_fp32_baseline",
-            "candidate": "phase3_relu_linear_att_plugin_fp32",
+            "candidate": args.plugin_label,
             "p50_speedup_baseline_over_plugin": safe_ratio(baseline_p50, plugin_p50),
             "mean_speedup_baseline_over_plugin": safe_ratio(baseline_mean, plugin_mean),
             "p50_delta_ms_plugin_minus_baseline": float(plugin_p50 - baseline_p50),
@@ -324,7 +335,7 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "status": "ok",
         "purpose": "phase3_step7_plugin_engine_benchmark",
-        "scope": "end_to_end_efficientvit_fp32_baseline_vs_stage2_relu_linear_att_plugin",
+        "scope": args.scope,
         "precision": "fp32",
         "benchmark_target": args.benchmark_target,
         "input": {
@@ -342,9 +353,9 @@ def build_payload(args: argparse.Namespace) -> Dict[str, Any]:
         "tensorrt": {
             "version": trt.__version__,
             "plugin_creator_required": {
-                "name": PLUGIN_NAME,
-                "version": PLUGIN_VERSION,
-                "namespace": PLUGIN_NAMESPACE,
+                "name": args.plugin_name,
+                "version": args.plugin_version,
+                "namespace": args.plugin_namespace,
             },
         },
         "benchmark": {
@@ -387,10 +398,12 @@ def write_summary(metadata_path: Path, payload: Dict[str, Any]) -> Path:
     speedup = payload["benchmark"]["speedup"]
     plugin_vs_baseline = payload["comparisons"]["plugin_vs_baseline_trt"]
     plugin_vs_pt = payload["comparisons"]["plugin_trt_vs_pytorch"]
+    plugin_name = payload.get("plugin", {}).get("name", "Plugin")
     lines = [
-        "# ReLU Linear Attention Plugin Engine Benchmark Summary",
+        f"# {plugin_name} Engine Benchmark Summary",
         "",
         f"- Benchmark target: `{payload.get('benchmark_target', 'both')}`",
+        f"- Scope: `{payload.get('scope', 'unknown')}`",
         "",
         "| Item | Value |",
         "|---|---:|",

@@ -1,13 +1,13 @@
 {
   "status": "ok",
   "purpose": "phase3_p1b_aggregation_attention_plugin_engine_build",
-  "scope": "real_efficientvit_graph_p1b_aggregation_plus_cat_plus_relu_linear_att_skeleton",
+  "scope": "real_efficientvit_graph_p1b_aggregation_plus_cat_plus_relu_linear_att",
   "plugin": {
     "name": "EdgesegAggregationReluLinearAttention_TRT",
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "2850589b99aa012dcd0423f09b05d383cbc78554aaad721623be32ca853ec000",
+    "dll_sha256": "1a6295ce5c2e3f62ec402dac723e99d5fdc3afb12feacc25fe0f13b763f724fb",
     "creator_found": true,
     "registered_creator_count": 66
   },
@@ -18,8 +18,8 @@
   },
   "engine": {
     "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_p1b_aggregation_attention_plugin_fp32.engine",
-    "engine_sha256": "c6aa994af7e67f3f970b18329f8091ea0c9bcdecd839c7474dbbc26d97abe6f1",
-    "engine_size_bytes": 3585252
+    "engine_sha256": "06b3a6567b310865d4e7f0169de3708c49698084282f38ffe0db70f2e400c3d5",
+    "engine_size_bytes": 3480188
   },
   "tensorrt": {
     "version": "8.6.1",
@@ -82,12 +82,12 @@
     "numpy": "1.26.4"
   },
   "notes": [
-    "This validates P1b Plugin-patched ONNX parser/build integration only.",
-    "The current P1b Plugin skeleton zero-fills output.",
-    "Do not use this engine for correctness or latency conclusions.",
+    "This validates P1b Plugin-patched ONNX parser/build integration for the full EfficientViT graph.",
+    "The current P1b Plugin contains a first CUDA math path that passed block-level toy/plugin validation.",
+    "This build metadata alone does not prove end-to-end correctness or latency; use benchmark_plugin_engine.py.",
     "Engine is specific to the current TensorRT version and GPU."
   ],
   "_dll_handle_alive": true,
-  "timestamp_utc": "2026-06-15T02:36:23.330604+00:00",
-  "script_version": "build_p1b_plugin_engine.py@09db327"
+  "timestamp_utc": "2026-06-15T03:58:58.033148+00:00",
+  "script_version": "build_p1b_plugin_engine.py@34957f0-dirty"
 }

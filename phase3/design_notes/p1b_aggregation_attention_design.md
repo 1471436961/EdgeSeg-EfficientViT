@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`../README.md`](../README.md)
 >
-> **状态**：v0.6，P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获与第一版 CUDA 数学 block-level correctness 均已通过。当前已证明两个真实 `stage2/context` block 的 P1b Plugin 输出与 PyTorch `attention_out` reference 对齐；尚未证明真实 P1b engine 的端到端 correctness / latency / Nsight 收益。
+> **状态**：v0.7。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency 均已完成。当前已证明 P1b 数学正确并能集成进真实 TensorRT engine；但第一版 P1b 端到端 p50 `56.3395ms` 慢于 baseline `54.4532ms`，因此只能作为 correctness milestone，不作为性能采纳版本。
 
 ---
 
@@ -33,6 +33,8 @@ Phase 2 TensorRT baseline 与 Phase 3 P1a 结果共同说明：
 - 其中 `aggregation_preserved` 仍约为 `1.752 ms / iter`、`26 launches / iter`。
 
 因此 P1a 已经证明 `relu_linear_att-only` 可以减少目标边界的 kernel time 和 launch 数，但剩余 runtime 仍有很大一部分留在 aggregation 与中间 tensor 流转上。P1b 的价值是验证：把 aggregation 与 attention 放进同一个 Plugin 边界后，是否能进一步减少中间写回、读取、concat 相关开销和 launch 数。
+
+冷机端到端结果表明：第一版 P1b 数学正确，但性能慢于 baseline。这说明 P1b 的方向仍有诊断价值，但当前 naive aggregation 实现不能直接采纳。
 
 ---
 
@@ -97,7 +99,7 @@ P1b 的风险分三层：
 2. P1b CUDA 数学是否与 PyTorch block-local reference 对齐。
 3. 真实 EfficientViT P1b engine 是否在端到端 correctness / latency / Nsight attribution 上有收益。
 
-当前已完成第 1 层和第 2 层；第 3 层还未完成。
+当前已完成第 1 层、第 2 层和端到端 correctness / latency。性能结论是不采纳第一版 P1b。
 
 ### D4：权重 initializer 作为 Plugin 输入
 
@@ -144,7 +146,7 @@ P1b 按下面顺序推进：
 3. **真实 ONNX surgery build smoke**：替换两个 stage2 context 的 P1b 边界，确认 TensorRT engine 可构建。
 4. **单 block 数值验证**：用 PyTorch LiteMLA 子模块输出作为 reference，验证 P1b Plugin 的 aggregation + attention 数学。
 5. **端到端 correctness / latency**：复用 Phase 2/3 benchmark 口径，与 TensorRT FP32 baseline 和 P1a engine 对比。
-6. **Nsight attribution**：比较 `aggregation + attention` proxy 在 P1b 后的 kernel time / launch 数变化。
+6. **Nsight attribution**：若继续投入 P1b，再比较 `aggregation + attention` proxy 在 P1b 后的 kernel time / launch 数变化。
 
 ---
 
@@ -154,7 +156,7 @@ P1b 按下面顺序推进：
 |---|---|---|
 | TensorRT parser 不接受 initializer 作为 Plugin 输入 | 3-input Plugin 是最干净的权重输入方式，但 TensorRT 8.6.1 parser 行为必须实测 | 已通过 toy parser/build 和真实 graph build smoke；若后续版本变化，fallback 到 PluginField / serialized weights |
 | aggregation 权重布局弄错 | depthwise 5x5 与 grouped 1x1 的 group 语义不同，不能按普通 dense Conv 处理 | block-level reference 验证必须覆盖 aggregation 输出与最终 attention 输出 |
-| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 先做 correctness，再做真实 engine latency 与 Nsight，不凭直觉扩大边界 |
+| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 已在冷机端到端 benchmark 中观测到退化；后续必须先做 Nsight attribution，不应直接扩大边界 |
 | 两个 block 权重不同 | block1/block2 shape 相同但数值不同 | surgery 与 toy engine 必须逐 block 绑定权重 |
 | P1b 不等于 P1c | qkv/proj/residual 仍在 Plugin 外 | 文档和报告中继续区分 P1b、整体 LiteMLA、整网端到端收益 |
 
@@ -172,13 +174,16 @@ P1b 相关产物：
 - `phase3/scripts/build_p1b_plugin_engine.py`
 - `phase3/scripts/capture_p1b_stage2_reference.py`
 - `phase3/scripts/validate_p1b_aggregation_attention_plugin.py`
+- `phase3/scripts/benchmark_plugin_engine.py`
 - `phase3/results/metrics/p1b_aggregation_attention_toy_build.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_build.json`
 - `phase3/results/metrics/p1b_stage2_reference_capture.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`
 
-当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness；它仍然不是 latency 优化结论。
+当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness 与真实 engine 端到端 cold-run benchmark。结论是：正确性通过，但第一版 P1b 性能退化。
 
 ---
 
@@ -224,14 +229,14 @@ P1b skeleton / parser toy 已通过：
 | TensorRT parser | 通过，`parser_errors=[]` |
 | TensorRT network IO | input `input [1,3,1024,2048]`，output `segout [1,19,128,256]` |
 | TensorRT layer count | `239` |
-| Engine size | `3,585,252` bytes |
+| Engine size | `3,544,244` bytes |
 
 解释：
 
 - 真实 ONNX surgery 删除了每个目标 block 中从 aggregation depthwise Conv 到 `Cast_1_output_0` 的子图，并用 P1b Plugin node 替换。
 - 两个 aggregation 权重仍作为 initializer 输入进入 Plugin node：`aggreg.0.0.weight [192,1,5,5]` 与 `aggreg.0.1.weight [192,16,1,1]`。
 - TensorRT 日志显示两个 P1b Plugin node 都被成功创建。
-- 该 engine build smoke 发生在 skeleton 阶段，只证明真实 graph parser/build 可行。当前 DLL 已有第一版 CUDA 数学路径，但真实 P1b patched engine 仍需在后续步骤重新构建并单独验证。
+- 当前 engine 已用第一版 P1b CUDA 数学路径重建；端到端结果见本文 §12。
 
 ---
 
@@ -301,3 +306,37 @@ phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json
 - 这一步证明两个真实 `stage2/context` block 的 P1b Plugin 输出与 PyTorch `attention_out` reference 对齐。
 - 这一步仍是 block-local toy/plugin correctness，不代表真实 EfficientViT P1b engine 的端到端 correctness。
 - 第一版实现以正确性优先，使用 TensorRT workspace 暂存 depthwise 输出、cat 后 attention input 与 P1a VK workspace；它不是最终性能优化版。
+
+---
+
+## 12. 真实 P1b Engine 冷机 Benchmark 结果
+
+使用第一版 P1b CUDA 数学路径重建真实 EfficientViT P1b engine 后，完成冷机端到端 benchmark：
+
+| 项 | 结果 |
+|---|---|
+| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_build.json) |
+| Benchmark metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json) |
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md) |
+| Protocol | `warmup=20`、`measure=100`、CUDA Events execute-only |
+| Baseline TRT p50 | `54.4532 ms` |
+| P1b Plugin TRT p50 | `56.3395 ms` |
+| p50 delta | `+1.8862 ms` |
+| p50 speedup | `0.9665x` |
+| Baseline TRT mean | `54.4771 ms` |
+| P1b Plugin TRT mean | `56.7579 ms` |
+| mean speedup | `0.9598x` |
+
+Correctness：
+
+| Comparison | 结果 |
+|---|---|
+| Plugin TRT vs Baseline TRT | `allclose=True`、`max_abs_diff=4.4346e-05`、argmax agreement `1.0` |
+| Plugin TRT vs PyTorch | strict `1e-4` allclose 未通过，relaxed `1e-3` allclose 通过，argmax agreement `1.0` |
+
+解释：
+
+- 冷机结果排除了上一轮 hot run 中 300ms 级 outlier 的主要干扰。
+- 第一版 P1b 在数学上正确，并且真实 engine 端到端输出保持可接受对齐。
+- 但第一版 P1b 端到端性能慢于 Phase 2 TensorRT FP32 baseline，说明“把 aggregation 也放入 Plugin”在 naive 实现下会破坏 TensorRT/cuDNN 对标准 Conv 路径的优化收益。
+- 因此 P1b 当前结论是 `correctness passed, performance rejected for first implementation`。若继续投入，必须先用 Nsight attribution 找出退化来源，而不是直接继续扩大 fusion 边界。
