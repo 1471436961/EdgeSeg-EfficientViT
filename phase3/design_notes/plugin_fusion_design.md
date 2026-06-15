@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`phase3/README.md`](../README.md)
 >
-> **状态**：v0.8，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight kernel summary、Step 6 真实 EfficientViT Plugin engine build，以及 P1a-3b VK 归约优化结果。后续流程继续保持拆分：端到端性能与 Nsight 验证不混用单层结论。
+> **状态**：v1.1，已吸收 Phase 3 Step 2 的 `stage2/context` tensor contract、Step 4 Plugin skeleton / toy engine build、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight kernel summary、Step 6 真实 EfficientViT Plugin engine build、P1a-3b VK 归约优化结果、P1a-4 单 kernel 可行性评估，以及 P1b `aggregation + cat + relu_linear_att` skeleton / parser toy / 真实图 engine build smoke。后续流程继续保持拆分：端到端性能与 Nsight 验证不混用单层结论。
 
 ---
 
@@ -152,6 +152,8 @@ Step 6 已完成真实 EfficientViT graph replacement：
 
 **Step 2 contract**：替换 `qkv/conv/Conv_output_0 -> Cast_1_output_0`，输入 `[1,192,64,128]`，输出 `[1,128,64,128]`，FP32，需要 aggregation 权重，后续输出继续喂给现有 `proj/conv/Conv`。
 
+**P1b 设计与 parser/build smoke**：详见 [`p1b_aggregation_attention_design.md`](p1b_aggregation_attention_design.md)。当前已验证带 aggregation 权重 initializer 输入的 P1b custom op 可以被 TensorRT 8.6.1 ONNX parser/build 接受；真实 EfficientViT P1b patched ONNX 也可构建 skeleton engine。该 skeleton 只 zero-fill 输出，不代表数学正确性或性能。
+
 **优势**：
 
 - Phase 1 Plan D 和 Phase 2 residual proxy 都支持该组合有较高 runtime 覆盖。
@@ -211,6 +213,10 @@ Step 6 已完成真实 EfficientViT graph replacement：
 5.5. **P1a-4 single-kernel feasibility**
    - 在继续扩大 P1a 内部优化前，先评估两阶段 kernel 是否值得合并。
    - 结论见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)：当前两阶段边界承担全局同步语义，naive single-kernel 方案风险高、收益上限有限，不作为下一主线。
+
+5.6. **P1b parser/build feasibility design**
+   - 在开始 P1b CUDA 实现前，先确定 `aggregation + cat + relu_linear_att` 的替换边界、权重输入方式和 TensorRT parser 风险。
+   - 结论见 [`p1b_aggregation_attention_design.md`](p1b_aggregation_attention_design.md)：P1b 使用独立 Plugin 类型；toy ONNX parser build 已通过，`parser_errors=[]`，TensorRT 网络只有 `qkv` 一个 runtime input，两个 aggregation 权重保持为 initializer / constant 路径。真实 EfficientViT ONNX surgery 也已通过 build smoke，patched graph 为 `393 -> 256` nodes、P1b Plugin nodes=2、engine layers=239。
 
 6. **集成完整 EfficientViT TensorRT graph**
    - 优先用 ONNX graph surgery 把 `Concat_output_0 -> Cast_1_output_0` 子图替换为 custom op。

@@ -1,0 +1,135 @@
+{
+  "status": "ok",
+  "purpose": "phase3_p1b_parser_toy_engine_build",
+  "scope": "p1b_aggregation_plus_cat_plus_relu_linear_att_skeleton",
+  "plugin": {
+    "name": "EdgesegAggregationReluLinearAttention_TRT",
+    "version": "1",
+    "namespace": "edgeseg",
+    "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
+    "dll_sha256": "2850589b99aa012dcd0423f09b05d383cbc78554aaad721623be32ca853ec000",
+    "creator_found": true,
+    "registered_creator_count": 66
+  },
+  "toy_onnx": {
+    "path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\onnx\\p1b_aggregation_attention_toy.onnx",
+    "sha256": "00c04df267e15f0b16bd3f30acf53aeb925336e0aa88080c895837a0ee8d3c1b",
+    "size_bytes": 32043,
+    "checker": {
+      "status": "warning",
+      "error_type": "ValidationError",
+      "error": "No Op registered for EdgesegAggregationReluLinearAttention_TRT with domain_version of 17\n\n==> Context: Bad node spec for node. Name: p1b_aggregation_attention_toy_plugin OpType: EdgesegAggregationReluLinearAttention_TRT",
+      "note": "ONNX checker may not know TensorRT custom Plugin ops; TensorRT parser build is authoritative."
+    },
+    "node": {
+      "op_type": "EdgesegAggregationReluLinearAttention_TRT",
+      "inputs": [
+        "qkv",
+        "aggregation_depthwise_weight",
+        "aggregation_pointwise_weight"
+      ],
+      "outputs": [
+        "attention_out"
+      ]
+    },
+    "initializers": [
+      {
+        "name": "aggregation_depthwise_weight",
+        "shape": [
+          192,
+          1,
+          5,
+          5
+        ],
+        "dtype": "float32"
+      },
+      {
+        "name": "aggregation_pointwise_weight",
+        "shape": [
+          192,
+          16,
+          1,
+          1
+        ],
+        "dtype": "float32"
+      }
+    ],
+    "versions": {
+      "onnx": "1.21.0"
+    }
+  },
+  "engine": {
+    "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\p1b_aggregation_attention_toy_fp32.engine",
+    "engine_sha256": "6fe4804aac8bb570d36b65a2da85a6fae39f7c16828ac61a5db2c051dfc79d51",
+    "engine_size_bytes": 37020
+  },
+  "tensorrt": {
+    "version": "8.6.1",
+    "workspace_mib": 256,
+    "workspace_bytes": 268435456,
+    "workspace_method": "set_memory_pool_limit",
+    "network_definition": "explicit_batch",
+    "parser_errors": [],
+    "precision": "fp32"
+  },
+  "network": {
+    "inputs": [
+      {
+        "name": "qkv",
+        "shape": [
+          1,
+          192,
+          64,
+          128
+        ],
+        "dtype": "DataType.FLOAT"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "attention_out",
+        "shape": [
+          1,
+          128,
+          64,
+          128
+        ],
+        "dtype": "DataType.FLOAT"
+      }
+    ],
+    "num_layers": 3
+  },
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "phase3_extra_dll_dirs_added": [
+      "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4\\bin"
+    ],
+    "phase3_extra_dll_dirs_missing": []
+  },
+  "versions": {
+    "python": "3.10.20",
+    "tensorrt": "8.6.1",
+    "numpy": "1.26.4",
+    "onnx": "1.21.0"
+  },
+  "notes": [
+    "This validates P1b Plugin Creator registration and TensorRT ONNX parser/build only.",
+    "The P1b Plugin skeleton zero-fills its output; this is not a correctness or latency artifact.",
+    "The key parser question is whether initializer weights can be accepted as Plugin inputs."
+  ],
+  "_dll_handle_alive": true,
+  "timestamp_utc": "2026-06-15T02:23:21.849484+00:00",
+  "script_version": "build_p1b_plugin_toy_engine.py@09db327"
+}

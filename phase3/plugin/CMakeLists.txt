@@ -18,7 +18,9 @@ set(TENSORRT_ROOT "E:/NVIDIA/TensorRT-8.6.1.6" CACHE PATH "TensorRT 8.6.1 Window
 find_package(CUDAToolkit REQUIRED)
 
 add_library(edgeseg_relu_linear_attention_plugin SHARED
+    include/edgeseg_aggregation_relu_linear_attention_plugin.h
     include/edgeseg_relu_linear_attention_plugin.h
+    src/edgeseg_aggregation_relu_linear_attention_plugin.cpp
     src/edgeseg_relu_linear_attention_plugin.cpp
     src/relu_linear_attention_kernel.cu
 )
