@@ -1,25 +1,25 @@
 # EdgesegAggregationReluLinearAttention_TRT Engine Benchmark Summary
 
-- Benchmark target: `both`
-- Scope: `p1b_aggregation_attention_plugin_fused_aggregation_cat_rebuilt_engine`
+- Benchmark target: `plugin`
+- Scope: `nsys_p1b_fused_aggregation_cat_rebuilt_engine`
 
 | Item | Value |
 |---|---:|
-| Baseline TRT p50 | 54.3314 ms |
-| Plugin TRT p50 | 53.6100 ms |
-| p50 delta (plugin - baseline) | -0.7214 ms |
-| p50 speedup (baseline / plugin) | 1.0135x |
-| Baseline TRT mean | 54.3386 ms |
-| Plugin TRT mean | 53.6366 ms |
-| mean delta (plugin - baseline) | -0.7020 ms |
-| mean speedup (baseline / plugin) | 1.0131x |
+| Baseline TRT p50 | skipped |
+| Plugin TRT p50 | 54.2643 ms |
+| p50 delta (plugin - baseline) | skipped |
+| p50 speedup (baseline / plugin) | skipped |
+| Baseline TRT mean | skipped |
+| Plugin TRT mean | 54.3658 ms |
+| mean delta (plugin - baseline) | skipped |
+| mean speedup (baseline / plugin) | skipped |
 
 ## Correctness
 
 | Comparison | allclose | max abs diff | mean abs diff | argmax agreement |
 |---|---:|---:|---:|---:|
-| Plugin TRT vs Baseline TRT | True | 4.29153e-05 | 5.70334e-06 | 1.000000 |
-| Plugin TRT vs PyTorch | False | 0.000281334 | 2.5177e-05 | 1.000000 |
+| Plugin TRT vs Baseline TRT | None | nan | nan | nan |
+| Plugin TRT vs PyTorch | None | nan | nan | nan |
 
 ## Interpretation
 

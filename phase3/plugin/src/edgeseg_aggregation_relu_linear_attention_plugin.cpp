@@ -147,13 +147,11 @@ size_t EdgesegAggregationReluLinearAttentionPlugin::getWorkspaceSize(
     const int32_t spatialSize = config_.height * config_.width;
     const int32_t attentionInputC = config_.attentionInputC();
     const int32_t attentionHeads = attentionInputC / (3 * config_.dim);
-    const size_t depthwiseBytes =
-        static_cast<size_t>(config_.qkvC) * static_cast<size_t>(spatialSize) * sizeof(float);
     const size_t attentionInputBytes =
         static_cast<size_t>(attentionInputC) * static_cast<size_t>(spatialSize) * sizeof(float);
     const size_t vkBytes = static_cast<size_t>(attentionHeads) * static_cast<size_t>(config_.dim + 1)
         * static_cast<size_t>(config_.dim) * sizeof(float);
-    return depthwiseBytes + attentionInputBytes + vkBytes;
+    return attentionInputBytes + vkBytes;
 }
 
 int32_t EdgesegAggregationReluLinearAttentionPlugin::enqueue(

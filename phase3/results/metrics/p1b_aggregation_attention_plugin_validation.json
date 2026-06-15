@@ -7,7 +7,7 @@
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "1a6295ce5c2e3f62ec402dac723e99d5fdc3afb12feacc25fe0f13b763f724fb",
+    "dll_sha256": "38587a866abdc1229fa13eadfb0cabf2c5dc9fe33335d12d7cefb43f56a5b513",
     "creator_found": true,
     "registered_creator_count": 66
   },
@@ -62,7 +62,7 @@
       },
       "engine": {
         "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\p1b_validation_stage2_op_list_1_context_module_main_fp32.engine",
-        "engine_sha256": "0939c2be77aad73ec6ef8c2120eb103bded2cd94ee9c0197336e2fe8e47e22dc",
+        "engine_sha256": "bf43fca2dce566fda9cc91a732f76d04ac9bdea0c76d91f768cffa0f5eb5e06f",
         "engine_size_bytes": 37116,
         "parser_errors": [],
         "workspace_mib": 256,
@@ -163,7 +163,7 @@
       },
       "engine": {
         "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\p1b_validation_stage2_op_list_2_context_module_main_fp32.engine",
-        "engine_sha256": "b50e01993b0c639841bd2fc0afa4e4dc81ee990137133171e2a0a0f5e6427d25",
+        "engine_sha256": "de231e709773f80a60cdedb2bb122a999186210564110c69f4c8b194e1f2032e",
         "engine_size_bytes": 37116,
         "parser_errors": [],
         "workspace_mib": 256,
@@ -275,6 +275,6 @@
     "Each block gets its own toy ONNX/engine because aggregation weights differ.",
     "This is not an end-to-end EfficientViT latency benchmark."
   ],
-  "timestamp_utc": "2026-06-15T03:32:59.040802+00:00",
-  "script_version": "validate_p1b_aggregation_attention_plugin.py@7fbe8c0"
+  "timestamp_utc": "2026-06-15T08:38:15.694588+00:00",
+  "script_version": "validate_p1b_aggregation_attention_plugin.py@d950778"
 }

@@ -5,76 +5,65 @@ namespace {
 
 constexpr int32_t kAggregationThreads = 256;
 constexpr int32_t kSpecializedDim = 16;
+constexpr int32_t kAggregationGroups = 12;
+constexpr int32_t kChannelsPerAggregationGroup = 16;
 
-__global__ void depthwise5x5Kernel(
+__global__ void fusedAggregationCatKernel(
     float const* input,
-    float const* weight,
-    float* output,
-    int32_t channels,
+    float const* depthwiseWeight,
+    float const* pointwiseWeight,
+    float* attentionInput,
     int32_t height,
     int32_t width) {
     const int32_t spatialSize = height * width;
-    const int32_t index = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    const int32_t total = channels * spatialSize;
-    if (index >= total) {
+    const int32_t n = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
+    const int32_t group = static_cast<int32_t>(blockIdx.y);
+    if (n >= spatialSize || group >= kAggregationGroups) {
         return;
     }
 
-    const int32_t n = index % spatialSize;
-    const int32_t channel = index / spatialSize;
     const int32_t h = n / width;
     const int32_t w = n - h * width;
 
-    float sum = 0.0F;
+    float depthwise[kChannelsPerAggregationGroup];
 #pragma unroll
-    for (int32_t ky = 0; ky < 5; ++ky) {
-        const int32_t ih = h + ky - 2;
-        if (ih < 0 || ih >= height) {
-            continue;
-        }
+    for (int32_t channelInGroup = 0; channelInGroup < kChannelsPerAggregationGroup; ++channelInGroup) {
+        const int32_t channel = group * kChannelsPerAggregationGroup + channelInGroup;
+        const int32_t channelBase = channel * spatialSize;
+        attentionInput[channelBase + n] = input[channelBase + n];
+
+        float sum = 0.0F;
 #pragma unroll
-        for (int32_t kx = 0; kx < 5; ++kx) {
-            const int32_t iw = w + kx - 2;
-            if (iw < 0 || iw >= width) {
+        for (int32_t ky = 0; ky < 5; ++ky) {
+            const int32_t ih = h + ky - 2;
+            if (ih < 0 || ih >= height) {
                 continue;
             }
-            const int32_t inputIndex = channel * spatialSize + ih * width + iw;
-            const int32_t weightIndex = channel * 25 + ky * 5 + kx;
-            sum += input[inputIndex] * weight[weightIndex];
-        }
-    }
-    output[index] = sum;
-}
-
-__global__ void groupedPointwise1x1Kernel(
-    float const* input,
-    float const* weight,
-    float* output,
-    int32_t channels,
-    int32_t spatialSize,
-    int32_t groups,
-    int32_t channelsPerGroup) {
-    const int32_t index = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
-    const int32_t total = channels * spatialSize;
-    if (index >= total) {
-        return;
-    }
-
-    const int32_t n = index % spatialSize;
-    const int32_t outChannel = index / spatialSize;
-    const int32_t group = outChannel / channelsPerGroup;
-    if (group >= groups) {
-        return;
-    }
-
-    const int32_t inputChannelBase = group * channelsPerGroup;
-    const int32_t weightBase = outChannel * channelsPerGroup;
-    float sum = 0.0F;
 #pragma unroll
-    for (int32_t i = 0; i < 16; ++i) {
-        sum += input[(inputChannelBase + i) * spatialSize + n] * weight[weightBase + i];
+            for (int32_t kx = 0; kx < 5; ++kx) {
+                const int32_t iw = w + kx - 2;
+                if (iw < 0 || iw >= width) {
+                    continue;
+                }
+                const int32_t inputIndex = channelBase + ih * width + iw;
+                const int32_t weightIndex = channel * 25 + ky * 5 + kx;
+                sum += input[inputIndex] * depthwiseWeight[weightIndex];
+            }
+        }
+        depthwise[channelInGroup] = sum;
     }
-    output[index] = sum;
+
+#pragma unroll
+    for (int32_t outputInGroup = 0; outputInGroup < kChannelsPerAggregationGroup; ++outputInGroup) {
+        const int32_t outChannel = group * kChannelsPerAggregationGroup + outputInGroup;
+        const int32_t weightBase = outChannel * kChannelsPerAggregationGroup;
+        float sum = 0.0F;
+#pragma unroll
+        for (int32_t i = 0; i < kChannelsPerAggregationGroup; ++i) {
+            sum += depthwise[i] * pointwiseWeight[weightBase + i];
+        }
+        attentionInput[(192 + outChannel) * spatialSize + n] = sum;
+    }
 }
 
 } // namespace
@@ -99,49 +88,25 @@ int launchAggregationReluLinearAttention(
     const int32_t spatialSize = config.height * config.width;
     const int32_t attentionInputC = config.attentionInputC();
     const int32_t attentionHeads = attentionInputC / (3 * config.dim);
-    const size_t depthwiseElements = static_cast<size_t>(config.qkvC) * static_cast<size_t>(spatialSize);
     const size_t attentionInputElements = static_cast<size_t>(attentionInputC) * static_cast<size_t>(spatialSize);
     const size_t vkElements = static_cast<size_t>(attentionHeads) * static_cast<size_t>(config.dim + 1)
         * static_cast<size_t>(config.dim);
-    const size_t depthwiseBytes = depthwiseElements * sizeof(float);
     const size_t attentionInputBytes = attentionInputElements * sizeof(float);
     const size_t vkBytes = vkElements * sizeof(float);
-    if (workspaceBytes < depthwiseBytes + attentionInputBytes + vkBytes) {
+    if (workspaceBytes < attentionInputBytes + vkBytes) {
         return 1;
     }
 
     auto* cursor = static_cast<char*>(workspace);
-    auto* depthwiseWorkspace = reinterpret_cast<float*>(cursor);
-    cursor += depthwiseBytes;
     auto* attentionInput = reinterpret_cast<float*>(cursor);
     cursor += attentionInputBytes;
     auto* vkWorkspace = reinterpret_cast<float*>(cursor);
 
-    const size_t qkvBytes = static_cast<size_t>(config.qkvC) * static_cast<size_t>(spatialSize) * sizeof(float);
-    cudaError_t status = cudaMemcpyAsync(attentionInput, qkv, qkvBytes, cudaMemcpyDeviceToDevice, stream);
-    if (status != cudaSuccess) {
-        return 1;
-    }
-
-    const int32_t aggregationElements = config.qkvC * spatialSize;
-    const int32_t aggregationBlocks = (aggregationElements + kAggregationThreads - 1) / kAggregationThreads;
-    depthwise5x5Kernel<<<aggregationBlocks, kAggregationThreads, 0, stream>>>(
-        qkv, depthwiseWeight, depthwiseWorkspace, config.qkvC, config.height, config.width);
-    status = cudaGetLastError();
-    if (status != cudaSuccess) {
-        return 1;
-    }
-
-    float* aggregatedQkv = attentionInput + static_cast<size_t>(config.qkvC) * static_cast<size_t>(spatialSize);
-    groupedPointwise1x1Kernel<<<aggregationBlocks, kAggregationThreads, 0, stream>>>(
-        depthwiseWorkspace,
-        pointwiseWeight,
-        aggregatedQkv,
-        config.qkvC,
-        spatialSize,
-        12,
-        16);
-    status = cudaGetLastError();
+    const int32_t spatialBlocks = (spatialSize + kAggregationThreads - 1) / kAggregationThreads;
+    const dim3 aggregationGrid(spatialBlocks, kAggregationGroups);
+    fusedAggregationCatKernel<<<aggregationGrid, kAggregationThreads, 0, stream>>>(
+        qkv, depthwiseWeight, pointwiseWeight, attentionInput, config.height, config.width);
+    cudaError_t status = cudaGetLastError();
     if (status != cudaSuccess) {
         return 1;
     }

@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`../README.md`](../README.md)
 >
-> **状态**：v0.8。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution 均已完成。当前已证明 P1b 数学正确并能集成进真实 TensorRT engine；但第一版 P1b 端到端 p50 `56.3395ms` 慢于 baseline `54.4532ms`。Nsight attribution 进一步证明退化主因是 naive 自写 aggregation kernel 替换了 TensorRT/cuDNN 已优化的标准 Conv 路径；因此第一版 P1b 只能作为 correctness milestone，不作为性能采纳版本。
+> **状态**：v0.9。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution、P1b-1 fused aggregation+cat 优化均已完成。当前结论是：naive P1b 数学正确但性能退化；P1b-1 fused aggregation+cat 修复了主要退化点，使中段边界从 `6.189ms/iter` 降到 `4.848ms/iter`，对比 Phase 2 baseline `aggregation + attention_core` `5.443ms/iter` 达到 `1.123x` kernel-time speedup。P1b fused 已证明扩大边界有价值，但仍未达到 P1a `aggregation + plugin` proxy 约 `3.062ms/iter` 的水平。
 
 ---
 
@@ -34,7 +34,7 @@ Phase 2 TensorRT baseline 与 Phase 3 P1a 结果共同说明：
 
 因此 P1a 已经证明 `relu_linear_att-only` 可以减少目标边界的 kernel time 和 launch 数，但剩余 runtime 仍有很大一部分留在 aggregation 与中间 tensor 流转上。P1b 的价值是验证：把 aggregation 与 attention 放进同一个 Plugin 边界后，是否能进一步减少中间写回、读取、concat 相关开销和 launch 数。
 
-冷机端到端结果表明：第一版 P1b 数学正确，但性能慢于 baseline。这说明 P1b 的方向仍有诊断价值，但当前 naive aggregation 实现不能直接采纳。
+冷机端到端结果表明：naive P1b 数学正确，但性能慢于 baseline。随后的 P1b-1 fused aggregation+cat 实验证明，问题不在 P1b 边界本身，而在第一版 naive aggregation 中间 workspace 设计；融合 depthwise / grouped pointwise / cat 后，P1b 中段边界已能打赢 Phase 2 TensorRT baseline 的 `aggregation + attention_core` proxy。
 
 ---
 
@@ -99,7 +99,7 @@ P1b 的风险分三层：
 2. P1b CUDA 数学是否与 PyTorch block-local reference 对齐。
 3. 真实 EfficientViT P1b engine 是否在端到端 correctness / latency / Nsight attribution 上有收益。
 
-当前已完成第 1 层、第 2 层、端到端 correctness / latency 和 Nsight attribution。性能结论是不采纳第一版 P1b。
+当前已完成第 1 层、第 2 层、端到端 correctness / latency、Nsight attribution 和 P1b-1 fused aggregation+cat 优化。性能结论是不采纳 naive P1b；P1b fused 可作为继续优化候选，但还不能替代 P1a 主线。
 
 ### D4：权重 initializer 作为 Plugin 输入
 
@@ -156,7 +156,7 @@ P1b 按下面顺序推进：
 |---|---|---|
 | TensorRT parser 不接受 initializer 作为 Plugin 输入 | 3-input Plugin 是最干净的权重输入方式，但 TensorRT 8.6.1 parser 行为必须实测 | 已通过 toy parser/build 和真实 graph build smoke；若后续版本变化，fallback 到 PluginField / serialized weights |
 | aggregation 权重布局弄错 | depthwise 5x5 与 grouped 1x1 的 group 语义不同，不能按普通 dense Conv 处理 | block-level reference 验证必须覆盖 aggregation 输出与最终 attention 输出 |
-| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 已在冷机端到端 benchmark 和 Nsight attribution 中确认退化来源；不应继续扩大 naive aggregation 边界 |
+| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | naive 版已确认退化；fused aggregation+cat 后已打赢 Phase 2 中段 baseline，但仍未达到 P1a proxy 水平 |
 | 两个 block 权重不同 | block1/block2 shape 相同但数值不同 | surgery 与 toy engine 必须逐 block 绑定权重 |
 | P1b 不等于 P1c | qkv/proj/residual 仍在 Plugin 外 | 文档和报告中继续区分 P1b、整体 LiteMLA、整网端到端收益 |
 
@@ -185,8 +185,11 @@ P1b 相关产物：
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_engine_benchmark_nsys.json`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.json`
 
-当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness、真实 engine 端到端 cold-run benchmark 和 Nsight attribution。结论是：正确性通过，但第一版 P1b 性能退化；退化主因已定位为 naive aggregation kernel。
+当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness、真实 engine 端到端 cold-run benchmark、Nsight attribution 和 fused aggregation+cat 优化。结论是：P1b 边界本身有价值；naive aggregation 版本不采纳，P1b-1 fused 版本可继续作为候选，但需要进一步优化才能挑战 P1a。
 
 ---
 
@@ -397,7 +400,95 @@ Plugin 内部 kernel attribution：
 - Codex 沙盒内运行 `nsys profile` 曾出现 75s 超时；同一命令在提权执行后约 22s 完成，并成功生成 `.nsys-rep`、`.sqlite` 和 attribution summary。因此这次异常判断为沙盒/权限环境问题，不是 benchmark 脚本或 Plugin engine 问题。
 - Windows 普通权限下 CPU sampling / context switch trace 会被禁用；本次结论只依赖 CUDA/NVTX trace 与 SQLite correlationId 归因，不依赖 CPU sampling。
 
-后续判断：
+后续判断（naive 版）：
 
-- 当前 P1b 第一版到此应停止作为性能主线；它的价值是证明 graph surgery、权重输入、端到端 correctness 和退化诊断闭环。
-- 若未来继续 P1b，必须先重写 aggregation kernel 或改变边界设计。不能在当前 naive aggregation 实现上继续扩大到 P1c。
+- 当前 naive P1b 第一版到此应停止作为性能主线；它的价值是证明 graph surgery、权重输入、端到端 correctness 和退化诊断闭环。
+- 若继续 P1b，必须先重写 aggregation kernel 或改变边界设计。P1b-1 fused aggregation+cat 正是这一判断的后续实现，结果见本文 §14。
+
+---
+
+## 14. P1b-1 Fused Aggregation + Cat 结果
+
+根据 §13 的退化定位，P1b-1 将原来的三段路径：
+
+```text
+cudaMemcpyAsync(qkv -> attentionInput[0:192])
+depthwise5x5Kernel(qkv -> depthwiseWorkspace)
+groupedPointwise1x1Kernel(depthwiseWorkspace -> attentionInput[192:384])
+```
+
+改为单个 fused kernel：
+
+```text
+fusedAggregationCatKernel(qkv, depthwiseWeight, pointwiseWeight -> attentionInput[0:384])
+```
+
+设计目的：
+
+- 去掉 `depthwiseWorkspace` 的 global write/read。
+- 去掉 `depthwise5x5Kernel` 与 `groupedPointwise1x1Kernel` 之间的一次 launch。
+- 把原始 `qkv` 的 cat 前半部分写入合并进同一个 kernel，去掉独立 D2D copy。
+- 保留后续 P1a attention launcher 不变，因此输出 contract、Plugin ABI、op type 和真实 engine tensor contract 都不变。
+
+实现文件：
+
+```text
+phase3/plugin/src/aggregation_relu_linear_attention_kernel.cu
+```
+
+Workspace 变化：
+
+| 版本 | Workspace 内容 |
+|---|---|
+| naive P1b | `depthwiseWorkspace + attentionInput + vkWorkspace` |
+| P1b-1 fused | `attentionInput + vkWorkspace` |
+
+Block-level correctness：
+
+| 项 | 结果 |
+|---|---|
+| Validation metadata | [`../results/metrics/p1b_aggregation_attention_plugin_validation.json`](../results/metrics/p1b_aggregation_attention_plugin_validation.json) |
+| Overall pass | `true` |
+| 验证对象 | 两个真实 `stage2/context` block |
+| 口径 | Plugin output vs PyTorch `attention_out` reference |
+
+端到端 benchmark：
+
+| 项 | 结果 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md) |
+| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_build.json) |
+| Baseline TRT p50 | `54.3314 ms` |
+| P1b fused Plugin TRT p50 | `53.6100 ms` |
+| p50 delta | `-0.7214 ms` |
+| p50 speedup | `1.0135x` |
+| Baseline TRT mean | `54.3386 ms` |
+| P1b fused Plugin TRT mean | `53.6366 ms` |
+| mean speedup | `1.0131x` |
+| Plugin TRT vs baseline TRT | `allclose=True`、argmax agreement `1.0` |
+
+Nsight attribution：
+
+| 项 | 结果 |
+|---|---:|
+| Attribution summary | [`../results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md) |
+| P1b fused Plugin layer | `4.848 ms / iter` |
+| P1b fused Plugin launches | `6 launches / iter` |
+| `fusedAggregationCatKernel` | `3.536 ms / iter` |
+| `computeVkKernelDim16WarpD4` | `0.960 ms / iter` |
+| `computeOutputKernelDim16` | `0.352 ms / iter` |
+| stage2/context total | `5.792 ms / iter`、`10 launches / iter` |
+
+与 Phase 2 TensorRT baseline 对比：
+
+| Boundary | Before | After | Speedup |
+|---|---:|---:|---:|
+| `aggregation + attention_core -> p1b_fused_plugin_boundary` | `5.443 ms / 38 launches` | `4.848 ms / 6 launches` | `1.123x` |
+| `stage2_context_total` | `6.383 ms / 42 launches` | `5.792 ms / 10 launches` | `1.102x` |
+
+解释：
+
+- P1b-1 修正了 naive P1b 的主要问题：不再把 depthwise 中间结果写入 global workspace 后再读回。
+- P1b-1 已经证明“扩大边界”本身有性能价值：它打赢了 Phase 2 TensorRT baseline 的 `aggregation + attention_core` 中段 proxy。
+- 但 P1b-1 仍未达到 P1a 路径的 `aggregation + plugin` proxy 约 `3.062ms/iter`。当前 `fusedAggregationCatKernel` 仍有 `3.536ms/iter`，是后续 P1b 优化的主要对象。
+- 本轮已用真实 rebuild 后的 P1b fused engine 复测确认，engine sha256 为 `dcba4c1d10e692f4922c9b1332cadcadfc0055371e4e945a1216e567a1d2e945`。真实 engine rebuild 耗时约 `342s`；此前 `180s` timeout 不足导致误判为卡住。
