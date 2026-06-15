@@ -153,10 +153,19 @@ P1a-3b 直接吸收 P1a-2 的 nvprof 结论：当前 VK 归约不是 occupancy-b
 |---|---|---|---|
 | P1a-2 | VK 归约 kernel 硬件指标采集 | 判断 VK 归约 kernel 是 memory-bound、occupancy-bound 还是归约开销主导 | Nsight Compute 2024.1.1 不支持 MX250；已改用 `nvprof` 完成定性判断 |
 | P1a-3c | 继续改进 computeVk 跨 N 归约策略 | 在 P1a-3b 基础上进一步降低 `computeVkKernelDim16WarpD4` 或验证更稳定端到端表现 | 收益递减明显，且端到端 1ms 级差异高度受温度/频率影响；优先级应低于 P1b 评估 |
-| P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 需要处理跨 CTA 全局同步问题，不能简单合并 |
+| P1a-4 | 评估两阶段合并为单 kernel 的可行性 | 消除 workspace global write/read 和一次 launch | 已完成可行性评估，见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)；当前不作为主线采用 |
 | P1b | 扩大到 `aggregation + cat + relu_linear_att` | 更高端到端收益潜力 | graph surgery、数值对齐和共享内存容量风险更高 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。
+
+### 9.1 P1a-4 评估结论
+
+P1a-4 的完整分析见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)。简要结论是：
+
+1. 当前两阶段 kernel boundary 不是纯开销，它同时提供了 `computeVk -> computeOutput` 之间的全局同步。
+2. VK workspace 只有约 `8704 bytes`，workspace global write/read 本身不是最大开销。
+3. naive single-kernel 方案要么降低 output 并行度，要么重复大量 VK 归约，要么引入高风险 device-side barrier / cooperative launch。
+4. 因此 P1a-4 记录为 `evaluated, not adopted as mainline`；下一主线应优先评估 P1b `aggregation + cat + relu_linear_att`。
 
 ---
 

@@ -40,6 +40,7 @@ Phase 3 暂不做：
 | Plugin 单层验证 | [`results/metrics/relu_linear_attention_plugin_validation.json`](results/metrics/relu_linear_attention_plugin_validation.json) | 证明 Step 5 CUDA kernel 在 toy/plugin 单层层面与 PyTorch `relu_linear_att` reference 对齐 |
 | Plugin 单层 microbenchmark | [`results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md) | 记录 Step 5.5 单层 latency、Nsight kernel summary 与继续 Step 6 的边界判断 |
 | Plugin kernel 优化历程 | [`design_notes/plugin_kernel_optimization_history.md`](design_notes/plugin_kernel_optimization_history.md) | 记录 v0 两阶段 kernel、P0 shared-memory VK cache、P1a-1c warp reduction、P1a-1d `dim=16` fast path、P1a-3a warp-per-output-scalar、P1a-3b single-warp 4-d accumulation 的关键指标变化和下一步瓶颈 |
+| P1a single-kernel feasibility | [`design_notes/p1a_single_kernel_feasibility.md`](design_notes/p1a_single_kernel_feasibility.md) | 评估 P1a-4 两阶段合并为单 kernel 的同步、并行度和收益风险，决定不作为下一主线 |
 | Plugin ONNX 集成 | [`results/metrics/relu_linear_attention_plugin_onnx_integration.json`](results/metrics/relu_linear_attention_plugin_onnx_integration.json) | 证明两个 `stage2/context` attention 子图已被替换成 Plugin node |
 | Plugin engine build | [`results/metrics/relu_linear_attention_plugin_engine_build.json`](results/metrics/relu_linear_attention_plugin_engine_build.json) | 证明 patched ONNX 可被 TensorRT parser 解析并构建真实 Plugin engine |
 | Plugin engine benchmark | [`results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md) | 证明 Plugin engine 可执行、与 baseline TRT 输出对齐，并给出端到端 latency 净收益 |
@@ -72,6 +73,7 @@ Phase 3 暂不做：
 - [x] Step 7：复用 Phase 2 benchmark，比较 TensorRT FP32 baseline vs Plugin engine latency。产物：[`design_notes/plugin_engine_benchmark_design.md`](design_notes/plugin_engine_benchmark_design.md)、[`scripts/benchmark_plugin_engine.py`](scripts/benchmark_plugin_engine.py)、[`results/metrics/relu_linear_attention_plugin_engine_benchmark.json`](results/metrics/relu_linear_attention_plugin_engine_benchmark.json)、[`results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md)。P1a-3b 冷机重测后 Plugin vs baseline TRT `allclose=True`，Plugin vs PyTorch argmax pixel agreement 100%。当前有效 `both` run 为 baseline p50 54.394ms、Plugin p50 52.168ms，speedup 1.043x；此前热机/并行污染 run 出现负收益，已作为无效测量处理。该结果说明整网 1ms 级差异对温度、频率和系统状态敏感，后续必须保持冷机/顺序运行纪律。
 - [x] Step 8：采集 Plugin engine Nsight trace，更新 attribution summary。产物：[`design_notes/plugin_nsys_attribution_design.md`](design_notes/plugin_nsys_attribution_design.md)、[`scripts/analyze_plugin_nsys_attribution.py`](scripts/analyze_plugin_nsys_attribution.py)、[`results/metrics/relu_linear_attention_plugin_engine_benchmark_nsys.json`](results/metrics/relu_linear_attention_plugin_engine_benchmark_nsys.json)、[`results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md`](results/metrics/relu_linear_attention_plugin_nsys_attribution_summary.md)。P1a-3b 冷机重测后结果：Plugin layer 合计 1.310ms / 4 launches，对比 Phase 2 baseline `attention_core` proxy 的 3.689ms / 12 launches，目标边界 kernel time 约 2.816x 改善；`aggregation + plugin` proxy 为 3.062ms / 30 launches，对比 baseline `aggregation + attention_core` 的 5.443ms / 38 launches，约 1.778x 改善；stage2/context total 约 1.557x 改善。Nsight 采集需脱离 Codex 沙盒执行；普通权限下 CPU sampling / context switch trace 仍会被禁用，但 CUDA/NVTX trace 可用。
 - [x] Step 8.5：尝试采集 Plugin VK 归约 kernel 硬件指标。结论：Nsight Compute 2024.1.1 不支持 MX250 (`sm_61`)，但 CUDA 12.4 `nvprof` 在补充 CUPTI DLL 路径后可采集 Pascal 指标。P1a-3a 的 `computeVkKernelDim16Warp4` 更接近 memory-dependency / load-latency 主导，不是 occupancy-bound 或同步归约开销主导；记录见 [`design_notes/plugin_kernel_optimization_history.md`](design_notes/plugin_kernel_optimization_history.md) §10 和 [`results/metrics/nvprof_p1a3a_vk_summary.md`](results/metrics/nvprof_p1a3a_vk_summary.md)。
+- [x] Step 8.6：评估 P1a-4 单 kernel 合并可行性。产物：[`design_notes/p1a_single_kernel_feasibility.md`](design_notes/p1a_single_kernel_feasibility.md)。结论：`computeOutput` 依赖完整 VK 跨 `N=8192` 归约结果，当前两阶段 kernel boundary 承担了全局同步语义；naive single-kernel 需要接受低并行度、重复 VK 归约或高风险 device-side barrier，因此记录为 `evaluated, not adopted as mainline`。下一主线优先转向 P1b。
 - [ ] Step 9：撰写 `integration_validation_report.md`。
 
 ---
@@ -88,6 +90,7 @@ phase3/
 |   |-- plugin_engine_benchmark_design.md
 |   |-- plugin_kernel_optimization_history.md
 |   |-- plugin_nsys_attribution_design.md
+|   |-- p1a_single_kernel_feasibility.md
 |   `-- stage2_context_tensor_contract.md
 |-- plugin/
 |   |-- CMakeLists.txt

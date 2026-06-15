@@ -208,6 +208,10 @@ Step 6 已完成真实 EfficientViT graph replacement：
    - 记录 CUDA Events latency 与 Nsight kernel summary。
    - 若单层结果没有稳定加速，也不直接否定 Step 6；Step 6 的主要价值是验证 Plugin replacement 是否可完整闭环。
 
+5.5. **P1a-4 single-kernel feasibility**
+   - 在继续扩大 P1a 内部优化前，先评估两阶段 kernel 是否值得合并。
+   - 结论见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)：当前两阶段边界承担全局同步语义，naive single-kernel 方案风险高、收益上限有限，不作为下一主线。
+
 6. **集成完整 EfficientViT TensorRT graph**
    - 优先用 ONNX graph surgery 把 `Concat_output_0 -> Cast_1_output_0` 子图替换为 custom op。
    - 若 ONNX parser custom op 路线不稳定，再评估 TensorRT Network API 手动重建局部网络。
