@@ -750,3 +750,27 @@ Nsight 对比：
 | `stage2_context_total` | `6.383 ms / 42 launches` | `4.002 ms / 10 launches` | `1.595x` |
 
 P1b-7 是当前 P1b 的采纳版本。它说明在不能继续增大 channel chunk 的前提下，扩大 spatial tile 的行数仍能减少 halo 重复加载，并带来约 `0.2ms/iter` 的 kernel-time 改善。后续继续优化应优先考虑不增加 shared memory 峰值的方式，例如 warp-level output reuse 或更细的 pointwise 输出映射。
+
+## 21. P1b-8 Probe：Skip Final `__syncthreads()`（不采纳）
+
+P1b-8 probe 尝试去掉 row-tile 路径最后一个 channel chunk 之后的冗余 CTA barrier：
+
+```cpp
+if (channelChunk + kDepthwiseTileChannels < kChannelsPerAggregationGroup) {
+    __syncthreads();
+}
+```
+
+动机是：chunk 之间的 `__syncthreads()` 必须保留，防止下一轮加载覆盖 shared memory；但最后一个 chunk 计算结束后不再复用 `depthwiseInputTile` / `depthwiseWeightTile`，理论上末尾同步可省。
+
+该变体编译通过，block-level validation 也通过，但端到端 benchmark 退化：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_skip_final_sync_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_skip_final_sync_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.380 ms` |
+| P1b-8 probe p50 | `53.123 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+判断：P1b-8 虽然仍比 Phase 2 baseline 快，但明显慢于 P1b-7。最可能原因是 uniform conditional barrier 带来的控制流/编译调度成本，超过了省掉最后一次 CTA barrier 的收益。因此 P1b-8 记录为 `evaluated, not adopted`；主线恢复并保持 P1b-7。
