@@ -7,6 +7,12 @@ constexpr int32_t kAggregationThreads = 256;
 constexpr int32_t kSpecializedDim = 16;
 constexpr int32_t kAggregationGroups = 12;
 constexpr int32_t kChannelsPerAggregationGroup = 16;
+constexpr int32_t kDepthwiseKernel = 5;
+constexpr int32_t kDepthwiseKernelElements = kDepthwiseKernel * kDepthwiseKernel;
+constexpr int32_t kDepthwiseTileChannels = 4;
+constexpr int32_t kDepthwiseTileRows = 6;
+constexpr int32_t kDepthwiseTileWidth = 132;
+constexpr int32_t kSpecializedStage2Width = 128;
 
 __global__ void fusedAggregationCatKernel(
     float const* input,
@@ -16,6 +22,8 @@ __global__ void fusedAggregationCatKernel(
     int32_t height,
     int32_t width) {
     __shared__ float pointwiseTile[kChannelsPerAggregationGroup * kChannelsPerAggregationGroup];
+    __shared__ float depthwiseInputTile[kDepthwiseTileChannels * kDepthwiseTileRows * kDepthwiseTileWidth];
+    __shared__ float depthwiseWeightTile[kDepthwiseTileChannels * kDepthwiseKernelElements];
 
     const int32_t group = static_cast<int32_t>(blockIdx.y);
     if (group >= kAggregationGroups) {
@@ -35,6 +43,7 @@ __global__ void fusedAggregationCatKernel(
 
     const int32_t spatialSize = height * width;
     const int32_t n = static_cast<int32_t>(blockIdx.x * blockDim.x + threadIdx.x);
+    const bool useRowTile = (width == kSpecializedStage2Width && (spatialSize % kAggregationThreads) == 0);
     if (n >= spatialSize) {
         return;
     }
@@ -43,31 +52,94 @@ __global__ void fusedAggregationCatKernel(
     const int32_t w = n - h * width;
 
     float depthwise[kChannelsPerAggregationGroup];
-#pragma unroll
-    for (int32_t channelInGroup = 0; channelInGroup < kChannelsPerAggregationGroup; ++channelInGroup) {
-        const int32_t channel = group * kChannelsPerAggregationGroup + channelInGroup;
-        const int32_t channelBase = channel * spatialSize;
-        attentionInput[channelBase + n] = input[channelBase + n];
 
-        float sum = 0.0F;
+    if (useRowTile) {
+        const int32_t tileBaseH = static_cast<int32_t>(blockIdx.x * blockDim.x) / width;
+        const int32_t localH = static_cast<int32_t>(threadIdx.x) / width;
+        const int32_t localW = static_cast<int32_t>(threadIdx.x) - localH * width;
+        constexpr int32_t tilePlaneElements = kDepthwiseTileRows * kDepthwiseTileWidth;
+
 #pragma unroll
-        for (int32_t ky = 0; ky < 5; ++ky) {
-            const int32_t ih = h + ky - 2;
-            if (ih < 0 || ih >= height) {
-                continue;
+        for (int32_t channelChunk = 0; channelChunk < kChannelsPerAggregationGroup;
+             channelChunk += kDepthwiseTileChannels) {
+            for (int32_t idx = static_cast<int32_t>(threadIdx.x);
+                 idx < kDepthwiseTileChannels * tilePlaneElements;
+                 idx += static_cast<int32_t>(blockDim.x)) {
+                const int32_t tileChannel = idx / tilePlaneElements;
+                const int32_t rem = idx - tileChannel * tilePlaneElements;
+                const int32_t tileY = rem / kDepthwiseTileWidth;
+                const int32_t tileX = rem - tileY * kDepthwiseTileWidth;
+                const int32_t globalH = tileBaseH + tileY - 2;
+                const int32_t globalW = tileX - 2;
+                const int32_t channel = group * kChannelsPerAggregationGroup + channelChunk + tileChannel;
+                float value = 0.0F;
+                if (globalH >= 0 && globalH < height && globalW >= 0 && globalW < width) {
+                    value = input[channel * spatialSize + globalH * width + globalW];
+                }
+                depthwiseInputTile[idx] = value;
             }
+
+            for (int32_t idx = static_cast<int32_t>(threadIdx.x);
+                 idx < kDepthwiseTileChannels * kDepthwiseKernelElements;
+                 idx += static_cast<int32_t>(blockDim.x)) {
+                const int32_t tileChannel = idx / kDepthwiseKernelElements;
+                const int32_t kernelIndex = idx - tileChannel * kDepthwiseKernelElements;
+                const int32_t channel = group * kChannelsPerAggregationGroup + channelChunk + tileChannel;
+                depthwiseWeightTile[idx] = depthwiseWeight[channel * kDepthwiseKernelElements + kernelIndex];
+            }
+
+            __syncthreads();
+
 #pragma unroll
-            for (int32_t kx = 0; kx < 5; ++kx) {
-                const int32_t iw = w + kx - 2;
-                if (iw < 0 || iw >= width) {
+            for (int32_t tileChannel = 0; tileChannel < kDepthwiseTileChannels; ++tileChannel) {
+                const int32_t channelInGroup = channelChunk + tileChannel;
+                const int32_t channel = group * kChannelsPerAggregationGroup + channelInGroup;
+                const int32_t channelBase = channel * spatialSize;
+                attentionInput[channelBase + n] = input[channelBase + n];
+
+                float sum = 0.0F;
+#pragma unroll
+                for (int32_t ky = 0; ky < kDepthwiseKernel; ++ky) {
+#pragma unroll
+                    for (int32_t kx = 0; kx < kDepthwiseKernel; ++kx) {
+                        const int32_t inputIndex =
+                            tileChannel * tilePlaneElements + (localH + ky) * kDepthwiseTileWidth + localW + kx;
+                        const int32_t weightIndex = tileChannel * kDepthwiseKernelElements + ky * kDepthwiseKernel + kx;
+                        sum += depthwiseInputTile[inputIndex] * depthwiseWeightTile[weightIndex];
+                    }
+                }
+                depthwise[channelInGroup] = sum;
+            }
+
+            __syncthreads();
+        }
+    } else {
+#pragma unroll
+        for (int32_t channelInGroup = 0; channelInGroup < kChannelsPerAggregationGroup; ++channelInGroup) {
+            const int32_t channel = group * kChannelsPerAggregationGroup + channelInGroup;
+            const int32_t channelBase = channel * spatialSize;
+            attentionInput[channelBase + n] = input[channelBase + n];
+
+            float sum = 0.0F;
+#pragma unroll
+            for (int32_t ky = 0; ky < kDepthwiseKernel; ++ky) {
+                const int32_t ih = h + ky - 2;
+                if (ih < 0 || ih >= height) {
                     continue;
                 }
-                const int32_t inputIndex = channelBase + ih * width + iw;
-                const int32_t weightIndex = channel * 25 + ky * 5 + kx;
-                sum += input[inputIndex] * depthwiseWeight[weightIndex];
+#pragma unroll
+                for (int32_t kx = 0; kx < kDepthwiseKernel; ++kx) {
+                    const int32_t iw = w + kx - 2;
+                    if (iw < 0 || iw >= width) {
+                        continue;
+                    }
+                    const int32_t inputIndex = channelBase + ih * width + iw;
+                    const int32_t weightIndex = channel * kDepthwiseKernelElements + ky * kDepthwiseKernel + kx;
+                    sum += input[inputIndex] * depthwiseWeight[weightIndex];
+                }
             }
+            depthwise[channelInGroup] = sum;
         }
-        depthwise[channelInGroup] = sum;
     }
 
 #pragma unroll

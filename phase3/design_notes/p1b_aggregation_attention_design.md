@@ -582,3 +582,59 @@ else:
 - 当前 P1b aggregation kernel 的主要成本不在 depthwise 边界判断。
 - interior fast path 可能引入额外代码体积、分支分流或寄存器/指令压力，抵消了去掉越界判断的收益。
 - 因此 P1b-3 probe 记录为 `evaluated, not adopted`；主线 CUDA 代码已恢复到 P1b-2 shared weight cache 版本。
+
+---
+
+## 17. P1b-4：Depthwise Row-Tile Shared Cache
+
+P1b-4 继续保留 P1b-2 的 grouped pointwise shared weight cache，同时把 depthwise 5x5 的输入读取改成 row-tile shared cache。
+
+### 17.1 改动
+
+在真实 `stage2/context` contract 下，输入 feature map 固定为 `[1,192,64,128]`，`fusedAggregationCatKernel` 的一个 CTA 正好覆盖连续 `256` 个 spatial positions，也就是两整行 `2 x 128`。P1b-4 利用这个形状特点：
+
+```text
+每个 CTA:
+  覆盖 2 行 spatial tile
+  每次处理 4 个 channel
+  将 4 个 channel 的 6 x 132 halo tile 加载到 shared memory
+  将对应 4 x 5 x 5 depthwise weight 加载到 shared memory
+  线程从 shared memory 计算 depthwise 5x5
+  后续 grouped pointwise 仍复用 P1b-2 的 shared pointwise weight
+```
+
+该实现只在 `width == 128` 且 `spatialSize % 256 == 0` 时启用；其它形状保留原安全 fallback。它不改变 Plugin op type、ABI、workspace contract 或输出数学。
+
+### 17.2 验证结果
+
+| 项 | 结果 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_engine_benchmark_summary.md) |
+| Nsight attribution | [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_nsys_attribution_summary.md) |
+| Baseline TRT p50 | `54.411 ms` |
+| P1b-4 Plugin TRT p50 | `52.725 ms` |
+| p50 speedup | `1.0320x` |
+| Plugin TRT vs baseline TRT | `allclose=True`、argmax agreement `1.0` |
+
+Nsight attribution：
+
+| 项 | P1b-2 | P1b-4 | 变化 |
+|---|---:|---:|---:|
+| P1b Plugin layer | `4.347 ms/iter` | `3.574 ms/iter` | `-0.773 ms` |
+| `fusedAggregationCatKernel` | `3.038 ms/iter` | `2.262 ms/iter` | `-0.776 ms` |
+| `computeVkKernelDim16WarpD4` | `0.958 ms/iter` | `0.960 ms/iter` | 基本不变 |
+| `computeOutputKernelDim16` | `0.352 ms/iter` | `0.352 ms/iter` | 基本不变 |
+| stage2/context total | `5.302 ms/iter` | `4.533 ms/iter` | `-0.769 ms` |
+
+与 Phase 2 TensorRT baseline 对比：
+
+| Boundary | Phase 2 baseline | P1b-4 | Speedup |
+|---|---:|---:|---:|
+| `aggregation + attention_core` / `p1b_depthwise_tile_plugin_boundary` | `5.443 ms / 38 launches` | `3.574 ms / 6 launches` | `1.523x` |
+| `stage2_context_total` | `6.383 ms / 42 launches` | `4.533 ms / 10 launches` | `1.408x` |
+
+### 17.3 判断
+
+P1b-4 是当前 P1b 的采纳版本。它证明 `fusedAggregationCatKernel` 的核心优化点不是单纯去掉边界判断，而是减少 depthwise 输入 tile 的重复 global memory load。
+
+后续如果继续 P1b，方向应从“是否缓存输入”转为“如何更好地组织 tile / channel / warp 映射”。但 P1b-4 已经把中段边界压到 `3.574 ms/iter`，继续优化的收益会更接近 1ms 内的小数级，需要保持冷机和重复验证纪律。
