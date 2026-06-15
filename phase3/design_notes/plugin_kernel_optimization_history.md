@@ -158,6 +158,7 @@ P1b 的目标边界是 `aggregation + cat + relu_linear_att`，只替换两个 `
 | P1b-3 probe | 在 P1b-2 基础上，为非边界像素增加 depthwise 5x5 interior fast path，去掉 `ih/iw` 越界判断；边界像素保留安全路径 | `54.710 ms` vs baseline `54.312 ms`，`0.9927x` | 未采集 Nsight；冷机 benchmark 已显示退化 | 不适用 | 不采纳；去掉边界判断没有抵消代码膨胀、分支分流或寄存器/指令压力，主线代码已恢复到 P1b-2 |
 | P1b-4 | 在 P1b-2 基础上，把每个 CTA 对应的两行 spatial tile 加 5x5 halo 缓存到 shared memory；每次处理 4 个 channel，并缓存对应 depthwise 5x5 权重 | `52.725 ms` vs baseline `54.411 ms`，`1.0320x` | `3.574 ms/iter`，`6 launches/iter` | `fusedAggregationCatKernel 2.262 ms`、`computeVk 0.960 ms`、`computeOutput 0.352 ms` | 有效；减少 depthwise input 重复 global load 后，P1b 中段边界相对 Phase 2 baseline 达到 `1.523x` kernel-time speedup，stage2/context total 达到 `1.408x` |
 | P1b-5 | 在 P1b-4 基础上，将 depthwise row-tile channel chunk 从 4 扩到 8；shared input tile 和 depthwise weight tile 一次覆盖更多 channel | `52.455 ms` vs baseline `54.297 ms`，`1.0351x` | `3.241 ms/iter`，`6 launches/iter` | `fusedAggregationCatKernel 1.926 ms`、`computeVk 0.963 ms`、`computeOutput 0.351 ms` | 有效；chunk-size A/B 进一步降低 depthwise tile 路径约 `0.336 ms/iter`，中段边界相对 Phase 2 baseline 达到 `1.679x` kernel-time speedup，stage2/context total 达到 `1.518x` |
+| P1b-6 probe | 继续把 depthwise row-tile channel chunk 从 8 扩到 16 | 未进入 benchmark | validation 执行失败 | 不适用 | 不采纳；shared input tile 约 `50,688 bytes`，加 depthwise/pointwise shared 后约 `53,312 bytes/block`，超过常见 Pascal per-block shared memory `48KB` 约束，TensorRT Plugin 执行返回 false |
 
 P1b-2 的第一次热机 benchmark 曾显示明显负收益：baseline p50 `54.585 ms`，Plugin p50 `59.144 ms`。冷机重测后转为 baseline p50 `54.306 ms`，Plugin p50 `53.530 ms`。因此该热机样本只作为测量纪律提醒，不作为性能结论。
 
@@ -169,6 +170,7 @@ P1b 当前结论：
 4. **P1b 结果要冷机/顺序复核**。整网 1ms 级收益对 MX250 温度、频率和 Windows 调度很敏感，热机样本不能直接写成结论。
 5. **P1b-3 interior fast path 不采纳**。该变体 correctness 通过，但端到端 p50 退化到 `0.9927x`，说明在当前 kernel 中，边界判断不是主要瓶颈。
 6. **P1b-4/P1b-5 证明 depthwise input reuse 和 chunk 粒度都是真实优化点**。相比 P1b-2，P1b-4 先让 `fusedAggregationCatKernel` 下降约 `0.776 ms/iter`；P1b-5 再通过 channel chunk 从 4 扩到 8 下降约 `0.336 ms/iter`。这说明输入 tile/halo 的重复 global load 和 CTA 内 channel 组织比边界判断更核心。
+7. **P1b-6 给出了 shared memory 上限信号**。`kDepthwiseTileChannels=16` 让每个 CTA 的 shared memory 需求约 `53KB`，在当前 MX250 / `sm_61` TensorRT Plugin 路径下无法通过 execution validation；因此后续不能继续简单放大 channel chunk。
 
 P1b-2 相关文件：
 
@@ -194,7 +196,8 @@ P1b-2 相关文件：
 | P1b-3 | depthwise 5x5 interior fast path | 去掉非边界像素的越界判断 | 已 probe，端到端 `0.9927x`，不采纳 |
 | P1b-4 | depthwise row-tile shared cache | 减少 depthwise input 重复 global load | 已完成并采纳；`fusedAggregationCatKernel` 降到 `2.262 ms/iter` |
 | P1b-5 | depthwise tile channel chunk = 8 | 减少 channel chunk 循环并提高 tile 复用粒度 | 已完成并采纳；`fusedAggregationCatKernel` 降到 `1.926 ms/iter` |
-| P1b-6 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | P1b-5 后仍约 `1.926 ms/iter`；可考虑 `kDepthwiseTileChannels=16`、warp-level output reuse、CTA layout A/B，但收益递减且风险更高 |
+| P1b-6 | depthwise tile channel chunk = 16 | 继续减少 channel chunk 循环 | 已 probe，不采纳；shared memory 约 `53KB/block`，validation 执行失败 |
+| P1b-7 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | P1b-5 后仍约 `1.926 ms/iter`；下一步应避免继续增大 shared memory，可考虑 warp-level output reuse 或 CTA layout A/B |
 | P1b-cooldown-rerun | 冷机重复 benchmark | 区分真实收益和热机/频率偏置 | MX250 整网 1ms 级差异敏感；P1b-2 已出现热机负、冷机正的反例 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。

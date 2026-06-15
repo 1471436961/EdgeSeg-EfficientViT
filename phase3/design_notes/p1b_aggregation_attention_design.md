@@ -678,4 +678,24 @@ Nsight 对比：
 | `aggregation + attention_core` / `p1b_depthwise_tile_ch8_plugin_boundary` | `5.443 ms / 38 launches` | `3.241 ms / 6 launches` | `1.679x` |
 | `stage2_context_total` | `6.383 ms / 42 launches` | `4.204 ms / 10 launches` | `1.518x` |
 
-P1b-5 是当前 P1b 的采纳版本。它说明 P1b-4 之后仍有收益可从 tile/channel 组织中挤出，但收益已进入 `0.3ms/iter` 级别。继续优化时应避免大改边界，优先做小步 A/B：例如 `kDepthwiseTileChannels=16`、warp-level output reuse、或更细的 CTA layout 变体，并继续坚持冷机 benchmark + Nsight attribution 双证据。
+P1b-5 是当前 P1b 的采纳版本。它说明 P1b-4 之后仍有收益可从 tile/channel 组织中挤出，但收益已进入 `0.3ms/iter` 级别。继续优化时应避免大改边界，优先做小步 A/B：例如 warp-level output reuse、或更细的 CTA layout 变体，并继续坚持冷机 benchmark + Nsight attribution 双证据。
+
+## 19. P1b-6 Probe：Depthwise Tile Channel Chunk = 16（不采纳）
+
+P1b-6 probe 尝试把 `kDepthwiseTileChannels` 从 8 继续扩到 16。该变体编译通过，但 block-level TensorRT Plugin validation 在第一个真实 `stage2/context` block 执行时失败：
+
+```text
+TensorRT execute_async_v2 returned false
+PluginV2DynamicExtRunner::execute: Assertion status == kSTATUS_SUCCESS failed
+```
+
+该失败发生在 benchmark 之前，因此没有进入端到端 latency 或 Nsight 采集。最可能原因是 per-block shared memory 已超过当前 MX250 / `sm_61` 路径可接受范围：
+
+| Shared memory item | Size |
+|---|---:|
+| depthwise input tile | `16 * 6 * 132 * 4 = 50,688 bytes` |
+| depthwise weight tile | `16 * 25 * 4 = 1,600 bytes` |
+| pointwise weight tile | `16 * 16 * 4 = 1,024 bytes` |
+| Approx total | `53,312 bytes` |
+
+这个规模已经超过常见 Pascal per-block shared memory `48KB` 约束；即便某些配置能提高 shared memory 配额，在 TensorRT Plugin 当前 launch 路径下也没有通过执行验证。因此 P1b-6 记录为 `evaluated, not adopted`，主线保持 P1b-5 的 `kDepthwiseTileChannels=8`。
