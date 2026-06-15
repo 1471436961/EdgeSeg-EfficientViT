@@ -1,0 +1,440 @@
+{
+  "status": "ok",
+  "purpose": "p1b_stage2_block_reference_capture",
+  "model_name": "efficientvit_seg_b0",
+  "dataset": "cityscapes",
+  "input_resolution": [
+    1024,
+    2048
+  ],
+  "device": "cuda",
+  "target_modules": [
+    "backbone.stages.2.op_list.1.context_module.main",
+    "backbone.stages.2.op_list.2.context_module.main"
+  ],
+  "weights": {
+    "weights_status": "loaded",
+    "weights_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\weights\\efficientvit_seg_b0_cityscapes.pt",
+    "weights_sha256": "923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50",
+    "zoo_key": "efficientvit-seg-b0-cityscapes",
+    "weights_load_msg": "create_efficientvit_seg_model(name='efficientvit-seg-b0-cityscapes', pretrained=True) loaded checkpoint"
+  },
+  "input": {
+    "input_status": "image",
+    "input_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\data\\city_asset_cityscapes_like.png",
+    "input_sha256": "34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630",
+    "input_tensor_sha256": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba",
+    "input_dummy_seed": null,
+    "input_resolution": [
+      1024,
+      2048
+    ],
+    "batch_size": 1,
+    "dtype": "float32",
+    "preprocess": "PIL RGB resize to fixed resolution, scale to [0,1], no mean/std normalization"
+  },
+  "compat": {
+    "env_patches": [
+      "triton_stub",
+      "wandb_stub"
+    ],
+    "triton_stubbed": true,
+    "wandb_stubbed": true
+  },
+  "blocks": [
+    {
+      "module_id": 0,
+      "name": "backbone.stages.2.op_list.1.context_module.main",
+      "semantic": "stage2/context LiteMLA P1b boundary",
+      "module_type": "LiteMLA",
+      "dim": 16,
+      "eps": 1e-15,
+      "aggregation_count": 1,
+      "weights": {
+        "depthwise": {
+          "shape": [
+            192,
+            1,
+            5,
+            5
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "922414534072b72019e575967d291a6a09c694dfaa9434f304b87360fc0df156",
+          "min": -0.15763476490974426,
+          "max": 0.22264668345451355,
+          "mean": 0.0004627288435585797,
+          "std": 0.02904188446700573,
+          "groups": 192,
+          "kernel_size": [
+            5,
+            5
+          ],
+          "padding": [
+            2,
+            2
+          ],
+          "bias": null
+        },
+        "pointwise": {
+          "shape": [
+            192,
+            16,
+            1,
+            1
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "93988c223f7751e2ae4331cea12eef1aa54c7b48feae9db62843d53a07c1f1c6",
+          "min": -0.1737907975912094,
+          "max": 0.17198242247104645,
+          "mean": 0.0008437745273113251,
+          "std": 0.03296144679188728,
+          "groups": 12,
+          "kernel_size": [
+            1,
+            1
+          ],
+          "padding": [
+            0,
+            0
+          ],
+          "bias": null
+        }
+      },
+      "tensors": {
+        "context_input": {
+          "shape": [
+            1,
+            64,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "c051f75eabbd63d99870a5d02a0f91bfb2e51269e3d687037dda85464b0e3d3a",
+          "min": -11.849686622619629,
+          "max": 13.192025184631348,
+          "mean": 0.020255303010344505,
+          "std": 1.8042141199111938
+        },
+        "qkv": {
+          "shape": [
+            1,
+            192,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "0b0ba99d81b042470d5f04a3dd92a3ea5520808b8976800113e73451db25359d",
+          "min": -3.9625091552734375,
+          "max": 4.131570339202881,
+          "mean": -0.28329595923423767,
+          "std": 0.6552115678787231
+        },
+        "aggregated_qkv": {
+          "shape": [
+            1,
+            192,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "23c3653db905ec60228fdbaa2b412cd2b7b6f7b2e23b1469fb5268ec8b1b1a93",
+          "min": -0.4663262665271759,
+          "max": 0.46588611602783203,
+          "mean": -0.01658596098423004,
+          "std": 0.05310864374041557
+        },
+        "cat_qkv": {
+          "shape": [
+            1,
+            384,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "04084938bb22ba30b8f73b330f3ea6f97ec24cf5587dd54c5cb67485ccdc3f17",
+          "min": -3.9625091552734375,
+          "max": 4.131570339202881,
+          "mean": -0.14994096755981445,
+          "std": 0.48357513546943665
+        },
+        "attention_out": {
+          "shape": [
+            1,
+            128,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "1b31a1e2b5e2f277a568c39aef64b838e54377e822c2e59c4c85eefc4ffe6d47",
+          "min": -1.1809417009353638,
+          "max": 1.1486334800720215,
+          "mean": -0.008506189100444317,
+          "std": 0.23790208995342255
+        },
+        "projected_attention": {
+          "shape": [
+            1,
+            64,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "61fcc14c50009abf88574958a8e24eb8ba334a65d357fc8156d925fd3b532b74",
+          "min": -7.935920238494873,
+          "max": 4.180446624755859,
+          "mean": -0.10927049815654755,
+          "std": 1.2026054859161377
+        },
+        "captured_module_output": {
+          "shape": [
+            1,
+            64,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "61fcc14c50009abf88574958a8e24eb8ba334a65d357fc8156d925fd3b532b74",
+          "min": -7.935920238494873,
+          "max": 4.180446624755859,
+          "mean": -0.10927049815654755,
+          "std": 1.2026054859161377
+        }
+      },
+      "proj_check_against_module_output": {
+        "max_abs_diff": 0.0,
+        "mean_abs_diff": 0.0,
+        "allclose_atol_1e_5_rtol_1e_5": true
+      }
+    },
+    {
+      "module_id": 1,
+      "name": "backbone.stages.2.op_list.2.context_module.main",
+      "semantic": "stage2/context LiteMLA P1b boundary",
+      "module_type": "LiteMLA",
+      "dim": 16,
+      "eps": 1e-15,
+      "aggregation_count": 1,
+      "weights": {
+        "depthwise": {
+          "shape": [
+            192,
+            1,
+            5,
+            5
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "af783c1231d0ce63f8827700519b4fb5b71f596331255a2f1a4d0ee02b381b53",
+          "min": -0.168031245470047,
+          "max": 0.1615641564130783,
+          "mean": -0.001083418377675116,
+          "std": 0.03464018926024437,
+          "groups": 192,
+          "kernel_size": [
+            5,
+            5
+          ],
+          "padding": [
+            2,
+            2
+          ],
+          "bias": null
+        },
+        "pointwise": {
+          "shape": [
+            192,
+            16,
+            1,
+            1
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "7b6b7be5a4100d75ef4bc100998ea2d8f52ec05ec3ad4ed5b66e41cff4d60839",
+          "min": -0.17629660665988922,
+          "max": 0.15520766377449036,
+          "mean": -0.0002533170336391777,
+          "std": 0.03975803032517433,
+          "groups": 12,
+          "kernel_size": [
+            1,
+            1
+          ],
+          "padding": [
+            0,
+            0
+          ],
+          "bias": null
+        }
+      },
+      "tensors": {
+        "context_input": {
+          "shape": [
+            1,
+            64,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "c2c2d149a29fee906e7fa3bfc27577f1aca8e5a29414b814ea0321a30149b786",
+          "min": -12.277016639709473,
+          "max": 13.369583129882812,
+          "mean": -0.24397525191307068,
+          "std": 1.8220423460006714
+        },
+        "qkv": {
+          "shape": [
+            1,
+            192,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "c0ef7e5ac8e047e8a81ceadbc0c14b48701ed053beb05db9bcb76ff012e48fa7",
+          "min": -4.045085906982422,
+          "max": 5.603135108947754,
+          "mean": -0.1609228551387787,
+          "std": 0.523594081401825
+        },
+        "aggregated_qkv": {
+          "shape": [
+            1,
+            192,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "7f0854ea0561625a3e04f7eb3e045dceb024e56b4e0ec58004f5cee47533624a",
+          "min": -0.7712574005126953,
+          "max": 0.8261691927909851,
+          "mean": -0.0029795505106449127,
+          "std": 0.06322972476482391
+        },
+        "cat_qkv": {
+          "shape": [
+            1,
+            384,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "1c40357bf2c42a8cd7723f2b664ef87fef2476db363ceb39b170c2b4b072a55f",
+          "min": -4.045085906982422,
+          "max": 5.603135108947754,
+          "mean": -0.08195120096206665,
+          "std": 0.3811967074871063
+        },
+        "attention_out": {
+          "shape": [
+            1,
+            128,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "17093730c1026d2a87f7804ad30422428f05ca5141c765c90734bd5ee416631e",
+          "min": -1.2673202753067017,
+          "max": 1.7447824478149414,
+          "mean": 0.0027709156274795532,
+          "std": 0.18832498788833618
+        },
+        "projected_attention": {
+          "shape": [
+            1,
+            64,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "d90c2f4dd1020d9613a8e1f73bdd8dea1ec14b84e1190ff2cb34dd8e884f1001",
+          "min": -7.06197452545166,
+          "max": 6.689446926116943,
+          "mean": 0.11430562287569046,
+          "std": 0.7964238524436951
+        },
+        "captured_module_output": {
+          "shape": [
+            1,
+            64,
+            64,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "sha256": "d90c2f4dd1020d9613a8e1f73bdd8dea1ec14b84e1190ff2cb34dd8e884f1001",
+          "min": -7.06197452545166,
+          "max": 6.689446926116943,
+          "mean": 0.11430562287569046,
+          "std": 0.7964238524436951
+        }
+      },
+      "proj_check_against_module_output": {
+        "max_abs_diff": 0.0,
+        "mean_abs_diff": 0.0,
+        "allclose_atol_1e_5_rtol_1e_5": true
+      }
+    }
+  ],
+  "tensor_bundle": {
+    "tensor_bundle_saved": true,
+    "tensor_bundle_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\tensors\\p1b_stage2_reference_capture.npz",
+    "tensor_bundle_size_bytes": 18733673,
+    "tensor_bundle_arrays": [
+      "stage2_op_list_1_context_module_main__attention_out",
+      "stage2_op_list_1_context_module_main__depthwise_weight",
+      "stage2_op_list_1_context_module_main__pointwise_weight",
+      "stage2_op_list_1_context_module_main__qkv",
+      "stage2_op_list_2_context_module_main__attention_out",
+      "stage2_op_list_2_context_module_main__depthwise_weight",
+      "stage2_op_list_2_context_module_main__pointwise_weight",
+      "stage2_op_list_2_context_module_main__qkv"
+    ],
+    "tensor_bundle_note": "Generated artifact for local validation; not intended for git tracking."
+  },
+  "versions": {
+    "python": "3.10.20",
+    "torch": "2.4.1+cu124",
+    "numpy": "1.26.4",
+    "pillow": "10.4.0"
+  },
+  "known_risks": [
+    "p1b_skeleton_zero_fill_not_validated_here",
+    "fp32_only_reference",
+    "fixed_cityscapes_resolution_only",
+    "tensor_bundle_is_local_large_artifact"
+  ],
+  "timestamp_utc": "2026-06-15T03:00:03.635908+00:00",
+  "script_version": "capture_p1b_stage2_reference.py@d5e83f3"
+}

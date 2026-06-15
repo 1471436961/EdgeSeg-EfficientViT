@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，设计并实现一个面向 EfficientViT `stage2/context` LiteMLA 的 TensorRT Plugin MVP，验证自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录、Step 6 真实 EfficientViT ONNX graph replacement + Plugin engine build、Step 7 端到端 correctness / latency 对比、Step 8 Plugin engine Nsight attribution、P1a-4 单 kernel 合并可行性评估，以及 P1b skeleton / parser toy / 真实 EfficientViT ONNX surgery build smoke。Plugin DLL 可编译，TensorRT registry 能找到 P1a/P1b 两个 Creator，toy engine 和真实 P1a/P1b Plugin engine 均可构建；P1a Plugin engine 与 Phase 2 TensorRT baseline 输出对齐，端到端 p50 有轻微净收益；Nsight 证明 P1a 替换减少了目标边界 kernel time 和 launch 数，但整网收益被其他标准算子热点稀释。P1b 当前只证明 `aggregation + cat + relu_linear_att` skeleton Plugin 的真实 parser/build 闭环，下一步进入单 block 数值验证设计。
+> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录、Step 6 真实 EfficientViT ONNX graph replacement + Plugin engine build、Step 7 端到端 correctness / latency 对比、Step 8 Plugin engine Nsight attribution、P1a-4 单 kernel 合并可行性评估，以及 P1b skeleton / parser toy / 真实 EfficientViT ONNX surgery build smoke。Plugin DLL 可编译，TensorRT registry 能找到 P1a/P1b 两个 Creator，toy engine 和真实 P1a/P1b Plugin engine 均可构建；P1a Plugin engine 与 Phase 2 TensorRT baseline 输出对齐，端到端 p50 有轻微净收益；Nsight 证明 P1a 替换减少了目标边界 kernel time 和 launch 数，但整网收益被其他标准算子热点稀释。P1b 当前只证明 `aggregation + cat + relu_linear_att` skeleton Plugin 的真实 parser/build 闭环；单 block PyTorch reference 捕获已跑通，下一步应实现 P1b CUDA 数学并用该 reference 做 block-level correctness。
 
 ---
 
@@ -42,6 +42,8 @@ Phase 3 暂不做：
 | Plugin kernel 优化历程 | [`design_notes/plugin_kernel_optimization_history.md`](design_notes/plugin_kernel_optimization_history.md) | 记录 v0 两阶段 kernel、P0 shared-memory VK cache、P1a-1c warp reduction、P1a-1d `dim=16` fast path、P1a-3a warp-per-output-scalar、P1a-3b single-warp 4-d accumulation 的关键指标变化和下一步瓶颈 |
 | P1a single-kernel feasibility | [`design_notes/p1a_single_kernel_feasibility.md`](design_notes/p1a_single_kernel_feasibility.md) | 评估 P1a-4 两阶段合并为单 kernel 的同步、并行度和收益风险，决定不作为下一主线 |
 | P1b aggregation + attention design | [`design_notes/p1b_aggregation_attention_design.md`](design_notes/p1b_aggregation_attention_design.md) | 确定 P1b `aggregation + cat + relu_linear_att` 的替换边界、权重输入方式、parser/build 风险与验证顺序 |
+| P1b single-block validation design | [`design_notes/p1b_single_block_validation_design.md`](design_notes/p1b_single_block_validation_design.md) | 固定 P1b block-level PyTorch reference、tensor/weight 捕获、数值指标和后续 Plugin correctness 验收口径 |
+| P1b stage2 reference capture | [`results/metrics/p1b_stage2_reference_capture.json`](results/metrics/p1b_stage2_reference_capture.json) | 证明两个真实 `stage2/context` block 的 qkv、aggregation、cat、attention output、权重 shape/group 与 reference 口径均可复现 |
 | P1b parser toy build | [`results/metrics/p1b_aggregation_attention_toy_build.json`](results/metrics/p1b_aggregation_attention_toy_build.json) | 证明 P1b skeleton Plugin Creator 可注册，带两个 aggregation weight initializer 的 custom op 可被 TensorRT ONNX parser/build 接受 |
 | P1b real graph ONNX integration | [`results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`](results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json) | 证明两个真实 `stage2/context` 的 `qkv/conv/Conv_output_0 -> Cast_1_output_0` 子图可替换为 P1b Plugin node |
 | P1b real graph engine build | [`results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](results/metrics/p1b_aggregation_attention_plugin_engine_build.json) | 证明 P1b patched ONNX 可被 TensorRT parser 解析并构建真实 skeleton Plugin engine |
@@ -81,6 +83,7 @@ Phase 3 暂不做：
 - [x] Step 8.7：启动 P1b `aggregation + cat + relu_linear_att` 落盘前设计。产物：[`design_notes/p1b_aggregation_attention_design.md`](design_notes/p1b_aggregation_attention_design.md)。结论：P1b 只覆盖两个 `stage2/context` 实例，保留 qkv/proj/residual 在 Plugin 外；第一步先验证带 aggregation 权重输入的 TensorRT parser/build 可行性，不直接承诺 CUDA 性能。
 - [x] Step 8.8：实现 P1b skeleton / parser toy 验证。产物：[`plugin/include/edgeseg_aggregation_relu_linear_attention_plugin.h`](plugin/include/edgeseg_aggregation_relu_linear_attention_plugin.h)、[`plugin/src/edgeseg_aggregation_relu_linear_attention_plugin.cpp`](plugin/src/edgeseg_aggregation_relu_linear_attention_plugin.cpp)、[`scripts/build_p1b_plugin_toy_engine.py`](scripts/build_p1b_plugin_toy_engine.py)、[`results/metrics/p1b_aggregation_attention_toy_build.json`](results/metrics/p1b_aggregation_attention_toy_build.json)。结论：TensorRT 8.6.1 能创建 `EdgesegAggregationReluLinearAttention_TRT`，`parser_errors=[]`，toy network 只有 `qkv [1,192,64,128]` 一个 runtime input，两个 aggregation 权重保持为 initializer / constant 路径；当前 skeleton 只 zero-fill 输出，不代表 correctness / latency。
 - [x] Step 8.9：完成 P1b 真实 EfficientViT ONNX surgery / engine build smoke。产物：[`scripts/integrate_p1b_aggregation_attention_plugin_onnx.py`](scripts/integrate_p1b_aggregation_attention_plugin_onnx.py)、[`scripts/build_p1b_plugin_engine.py`](scripts/build_p1b_plugin_engine.py)、[`results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`](results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json)、[`results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](results/metrics/p1b_aggregation_attention_plugin_engine_build.json)。结论：真实 ONNX 从 `393 -> 256` nodes，P1b Plugin nodes=2；TensorRT engine build `parser_errors=[]`、network IO 为 `input [1,3,1024,2048] -> segout [1,19,128,256]`、layers=239。当前 skeleton 仍只 zero-fill 输出，不代表 correctness / latency。
+- [x] Step 8.10：完成 P1b 单 block 数值验证设计与 PyTorch reference 捕获。产物：[`design_notes/p1b_single_block_validation_design.md`](design_notes/p1b_single_block_validation_design.md)、[`scripts/capture_p1b_stage2_reference.py`](scripts/capture_p1b_stage2_reference.py)、[`results/metrics/p1b_stage2_reference_capture.json`](results/metrics/p1b_stage2_reference_capture.json)。结论：两个 `stage2/context` block 均被捕获，`qkv -> aggreg[0](qkv) -> cat -> relu_linear_att` 的 shape / weight group / projection sanity check 全部通过；当前 zero-fill skeleton 不可用于 correctness / latency。下一步应实现 P1b CUDA 数学，并用该 reference 做 block-level correctness。
 - [ ] Step 9：撰写 `integration_validation_report.md`。
 
 ---
@@ -99,6 +102,7 @@ phase3/
 |   |-- plugin_nsys_attribution_design.md
 |   |-- p1a_single_kernel_feasibility.md
 |   |-- p1b_aggregation_attention_design.md
+|   |-- p1b_single_block_validation_design.md
 |   `-- stage2_context_tensor_contract.md
 |-- plugin/
 |   |-- CMakeLists.txt
@@ -117,6 +121,7 @@ phase3/
 |   |-- build_plugin_toy_engine.py
 |   |-- build_p1b_plugin_engine.py
 |   |-- build_p1b_plugin_toy_engine.py
+|   |-- capture_p1b_stage2_reference.py
 |   |-- integrate_relu_linear_attention_plugin_onnx.py
 |   |-- integrate_p1b_aggregation_attention_plugin_onnx.py
 |   |-- analyze_plugin_nsys_attribution.py
@@ -126,6 +131,7 @@ phase3/
 |   |   `-- .gitkeep
 |   |-- metrics/
 |   |   |-- .gitkeep
+|   |   |-- p1b_stage2_reference_capture.json
 |   |   |-- p1b_aggregation_attention_plugin_engine_build.json
 |   |   |-- p1b_aggregation_attention_plugin_onnx_integration.json
 |   |   |-- p1b_aggregation_attention_toy_build.json
@@ -145,6 +151,8 @@ phase3/
 |   |-- onnx/
 |   |   `-- .gitkeep
 |   |-- figures/
+|   |   `-- .gitkeep
+|   |-- tensors/
 |   |   `-- .gitkeep
 |   `-- nsight/
 |       `-- .gitkeep

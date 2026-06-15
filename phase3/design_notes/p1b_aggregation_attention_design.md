@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`../README.md`](../README.md)
 >
-> **状态**：v0.3，P1b skeleton / parser toy 与真实 EfficientViT ONNX surgery build smoke 均已通过。本文确定 `aggregation + cat + relu_linear_att` 的替换边界、权重输入方式和验证顺序；当前只证明 TensorRT parser/build 闭环，不承诺 CUDA kernel 数学正确性或性能。
+> **状态**：v0.5，P1b skeleton / parser toy 与真实 EfficientViT ONNX surgery build smoke 均已通过，单 block 数值验证口径与 PyTorch reference 捕获已完成。本文确定 `aggregation + cat + relu_linear_att` 的替换边界、权重输入方式和验证顺序；当前只证明 TensorRT parser/build 闭环和 PyTorch reference 可复现，不承诺 P1b CUDA kernel 数学正确性或性能。
 
 ---
 
@@ -156,7 +156,7 @@ P1b 按下面顺序推进：
 
 ## 7. 下一步文件
 
-P1b skeleton / parser toy 已新增：
+P1b skeleton / parser toy 与真实 graph build smoke 已新增：
 
 - `phase3/plugin/include/edgeseg_aggregation_relu_linear_attention_plugin.h`
 - `phase3/plugin/src/edgeseg_aggregation_relu_linear_attention_plugin.cpp`
@@ -166,8 +166,17 @@ P1b skeleton / parser toy 已新增：
 - `phase3/scripts/build_p1b_plugin_engine.py`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_build.json`
+- `phase3/design_notes/p1b_single_block_validation_design.md`
+- `phase3/scripts/capture_p1b_stage2_reference.py`
+- `phase3/results/metrics/p1b_stage2_reference_capture.json`
 
 第一版 P1b 实现的验收口径是 parser/build feasibility JSON，而不是 latency 优化结论。
+
+后续实现顺序已收敛为：
+
+1. 实现 P1b CUDA 数学路径。
+2. 写 `validate_p1b_aggregation_attention_plugin.py`，用 toy P1b engine 对 block1/block2 分别做数值验证。
+3. 数值通过后，再进入真实 P1b engine correctness / latency / Nsight attribution。
 
 ---
 
@@ -223,4 +232,28 @@ P1b skeleton / parser toy 已新增：
 - 构建命令在 Codex 工具层面触发了超时，但在超时前已经打印 engine build complete，且 metadata/engine 文件均已落盘并通过 JSON 断言校验。
 - 当前 P1b Plugin skeleton 仍只 zero-fill 输出，所以该 engine 只能证明真实 graph parser/build 可行，不能用于 correctness、latency 或 Nsight attribution 结论。
 
-下一步应进入 P1b 单 block 数值验证设计：在真实 CUDA 实现之前，先构造 PyTorch LiteMLA block-level reference，确保 aggregation 权重布局与 P1b 替换边界完全正确。
+---
+
+## 10. 单 Block Reference 捕获结果
+
+P1b 单 block reference 捕获已通过：
+
+| 项 | 结果 |
+|---|---|
+| Capture script | [`../scripts/capture_p1b_stage2_reference.py`](../scripts/capture_p1b_stage2_reference.py) |
+| Metadata | [`../results/metrics/p1b_stage2_reference_capture.json`](../results/metrics/p1b_stage2_reference_capture.json) |
+| Tensor bundle | `phase3/results/tensors/p1b_stage2_reference_capture.npz`（本地大文件，不入 git） |
+| 输入 | `phase1/data/city_asset_cityscapes_like.png`，固定 resize 到 `1024x2048` |
+| 权重 | `efficientvit_seg_b0_cityscapes.pt`，sha256=`923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50` |
+| 目标模块 | `backbone.stages.2.op_list.1.context_module.main`、`backbone.stages.2.op_list.2.context_module.main` |
+| P1b runtime input | `qkv [1,192,64,128]` |
+| P1b output reference | `attention_out [1,128,64,128]` |
+| depthwise weight | `[192,1,5,5]`，`groups=192` |
+| pointwise weight | `[192,16,1,1]`，`groups=12` |
+| projection sanity check | 两个 block 的 `module.proj(attention_out)` 均与原模块输出 `allclose(atol=1e-5, rtol=1e-5)` |
+
+解释：
+
+- 该结果证明 P1b 替换边界、aggregation 权重布局和 PyTorch block-level reference 可复现。
+- 该结果仍不证明 P1b Plugin correctness，因为当前 P1b skeleton 的 `enqueue()` 仍是 zero-fill。
+- 下一步应实现 P1b CUDA 数学，并用 `p1b_stage2_reference_capture.json` / 本地 tensor bundle 作为 block-level correctness 标尺。

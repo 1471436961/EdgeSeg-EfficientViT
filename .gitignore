@@ -52,6 +52,10 @@ build/
 out/
 cmake-build-*/
 
+# 本地 tensor 捕获包通常较大，只保留目录占位与 JSON/MD 结论入库
+phase3/results/tensors/*
+!phase3/results/tensors/.gitkeep
+
 # 目标文件与中间产物
 *.o
 *.obj
