@@ -3,7 +3,6 @@
 #include <NvInferRuntime.h>
 
 #include <cstring>
-#include <limits>
 
 namespace edgeseg {
 namespace {
@@ -24,20 +23,6 @@ T readValue(char const*& buffer) noexcept {
 
 bool dimsEqual(nvinfer1::Dims const& dims, int32_t n, int32_t c, int32_t h, int32_t w) noexcept {
     return dims.nbDims == 4 && dims.d[0] == n && dims.d[1] == c && dims.d[2] == h && dims.d[3] == w;
-}
-
-int32_t volume(nvinfer1::Dims const& dims) noexcept {
-    if (dims.nbDims <= 0) {
-        return 0;
-    }
-    int64_t result = 1;
-    for (int32_t i = 0; i < dims.nbDims; ++i) {
-        if (dims.d[i] < 0) {
-            return -1;
-        }
-        result *= dims.d[i];
-    }
-    return result > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) ? -1 : static_cast<int32_t>(result);
 }
 
 AggregationReluLinearAttentionPluginConfig parseFields(nvinfer1::PluginFieldCollection const* fc) noexcept {
@@ -156,7 +141,19 @@ size_t EdgesegAggregationReluLinearAttentionPlugin::getWorkspaceSize(
     (void) nbInputs;
     (void) outputs;
     (void) nbOutputs;
-    return 0;
+    if (!validConfig(config_)) {
+        return 0;
+    }
+    const int32_t spatialSize = config_.height * config_.width;
+    const int32_t attentionInputC = config_.attentionInputC();
+    const int32_t attentionHeads = attentionInputC / (3 * config_.dim);
+    const size_t depthwiseBytes =
+        static_cast<size_t>(config_.qkvC) * static_cast<size_t>(spatialSize) * sizeof(float);
+    const size_t attentionInputBytes =
+        static_cast<size_t>(attentionInputC) * static_cast<size_t>(spatialSize) * sizeof(float);
+    const size_t vkBytes = static_cast<size_t>(attentionHeads) * static_cast<size_t>(config_.dim + 1)
+        * static_cast<size_t>(config_.dim) * sizeof(float);
+    return depthwiseBytes + attentionInputBytes + vkBytes;
 }
 
 int32_t EdgesegAggregationReluLinearAttentionPlugin::enqueue(
@@ -166,9 +163,9 @@ int32_t EdgesegAggregationReluLinearAttentionPlugin::enqueue(
     void* const* outputs,
     void* workspace,
     cudaStream_t stream) noexcept {
-    (void) workspace;
     if (inputDesc == nullptr || outputDesc == nullptr || inputs == nullptr || outputs == nullptr || outputs[0] == nullptr
-        || inputs[0] == nullptr || inputs[1] == nullptr || inputs[2] == nullptr || !validConfig(config_)) {
+        || inputs[0] == nullptr || inputs[1] == nullptr || inputs[2] == nullptr || workspace == nullptr
+        || !validConfig(config_)) {
         return 1;
     }
     if (!dimsEqual(inputDesc[0].dims, 1, config_.qkvC, config_.height, config_.width)
@@ -178,12 +175,16 @@ int32_t EdgesegAggregationReluLinearAttentionPlugin::enqueue(
         return 1;
     }
 
-    int32_t const outputElements = volume(outputDesc[0].dims);
-    if (outputElements <= 0) {
-        return 1;
-    }
-    cudaError_t status = cudaMemsetAsync(outputs[0], 0, static_cast<size_t>(outputElements) * sizeof(float), stream);
-    return status == cudaSuccess ? 0 : 1;
+    const size_t workspaceBytes = getWorkspaceSize(inputDesc, 3, outputDesc, 1);
+    return launchAggregationReluLinearAttention(
+        static_cast<float const*>(inputs[0]),
+        static_cast<float const*>(inputs[1]),
+        static_cast<float const*>(inputs[2]),
+        static_cast<float*>(outputs[0]),
+        workspace,
+        workspaceBytes,
+        config_,
+        stream);
 }
 
 nvinfer1::DataType EdgesegAggregationReluLinearAttentionPlugin::getOutputDataType(

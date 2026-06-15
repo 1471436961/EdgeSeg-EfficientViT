@@ -27,6 +27,16 @@ struct AggregationReluLinearAttentionPluginConfig {
     }
 };
 
+int launchAggregationReluLinearAttention(
+    float const* qkv,
+    float const* depthwiseWeight,
+    float const* pointwiseWeight,
+    float* output,
+    void* workspace,
+    size_t workspaceBytes,
+    AggregationReluLinearAttentionPluginConfig const& config,
+    cudaStream_t stream) noexcept;
+
 class EdgesegAggregationReluLinearAttentionPlugin final : public nvinfer1::IPluginV2DynamicExt {
 public:
     explicit EdgesegAggregationReluLinearAttentionPlugin(AggregationReluLinearAttentionPluginConfig config);

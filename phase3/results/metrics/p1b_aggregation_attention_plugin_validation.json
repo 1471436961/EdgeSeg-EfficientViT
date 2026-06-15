@@ -1,0 +1,280 @@
+{
+  "status": "ok",
+  "purpose": "p1b_aggregation_attention_plugin_block_validation",
+  "overall_pass": true,
+  "plugin": {
+    "name": "EdgesegAggregationReluLinearAttention_TRT",
+    "version": "1",
+    "namespace": "edgeseg",
+    "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
+    "dll_sha256": "1a6295ce5c2e3f62ec402dac723e99d5fdc3afb12feacc25fe0f13b763f724fb",
+    "creator_found": true,
+    "registered_creator_count": 66
+  },
+  "reference": {
+    "metadata_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\metrics\\p1b_stage2_reference_capture.json",
+    "tensor_bundle_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\tensors\\p1b_stage2_reference_capture.npz",
+    "target_modules": [
+      "backbone.stages.2.op_list.1.context_module.main",
+      "backbone.stages.2.op_list.2.context_module.main"
+    ],
+    "input": {
+      "input_status": "image",
+      "input_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\data\\city_asset_cityscapes_like.png",
+      "input_sha256": "34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630",
+      "input_tensor_sha256": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba",
+      "input_dummy_seed": null,
+      "input_resolution": [
+        1024,
+        2048
+      ],
+      "batch_size": 1,
+      "dtype": "float32",
+      "preprocess": "PIL RGB resize to fixed resolution, scale to [0,1], no mean/std normalization"
+    },
+    "weights": {
+      "weights_status": "loaded",
+      "weights_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\weights\\efficientvit_seg_b0_cityscapes.pt",
+      "weights_sha256": "923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50",
+      "zoo_key": "efficientvit-seg-b0-cityscapes",
+      "weights_load_msg": "create_efficientvit_seg_model(name='efficientvit-seg-b0-cityscapes', pretrained=True) loaded checkpoint"
+    }
+  },
+  "blocks": [
+    {
+      "module_id": 0,
+      "name": "backbone.stages.2.op_list.1.context_module.main",
+      "block_key": "stage2_op_list_1_context_module_main",
+      "reference_tensor_sha256": "1b31a1e2b5e2f277a568c39aef64b838e54377e822c2e59c4c85eefc4ffe6d47",
+      "qkv_tensor_sha256": "0b0ba99d81b042470d5f04a3dd92a3ea5520808b8976800113e73451db25359d",
+      "depthwise_weight_sha256": "922414534072b72019e575967d291a6a09c694dfaa9434f304b87360fc0df156",
+      "pointwise_weight_sha256": "93988c223f7751e2ae4331cea12eef1aa54c7b48feae9db62843d53a07c1f1c6",
+      "onnx": {
+        "onnx_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\onnx\\p1b_validation_stage2_op_list_1_context_module_main.onnx",
+        "onnx_sha256": "249669f60f112d4ee9f395325947fc9b8d56b0b0ae750f6da9dc7a1fc939efdc",
+        "onnx_size_bytes": 32085,
+        "checker": {
+          "status": "warning",
+          "error_type": "ValidationError",
+          "error": "No Op registered for EdgesegAggregationReluLinearAttention_TRT with domain_version of 17\n\n==> Context: Bad node spec for node. Name: stage2_op_list_1_context_module_main__p1b_plugin OpType: EdgesegAggregationReluLinearAttention_TRT",
+          "note": "ONNX checker may not know TensorRT custom Plugin ops; TensorRT parser build is authoritative."
+        }
+      },
+      "engine": {
+        "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\p1b_validation_stage2_op_list_1_context_module_main_fp32.engine",
+        "engine_sha256": "0939c2be77aad73ec6ef8c2120eb103bded2cd94ee9c0197336e2fe8e47e22dc",
+        "engine_size_bytes": 37116,
+        "parser_errors": [],
+        "workspace_mib": 256,
+        "workspace_bytes": 268435456,
+        "workspace_method": "set_memory_pool_limit",
+        "network": {
+          "inputs": [
+            {
+              "name": "qkv",
+              "shape": [
+                1,
+                192,
+                64,
+                128
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "attention_out",
+              "shape": [
+                1,
+                128,
+                64,
+                128
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "num_layers": 3
+        }
+      },
+      "bindings": [
+        {
+          "index": 0,
+          "name": "qkv",
+          "is_input": true,
+          "shape": [
+            1,
+            192,
+            64,
+            128
+          ],
+          "dtype": "DataType.FLOAT"
+        },
+        {
+          "index": 1,
+          "name": "attention_out",
+          "is_input": false,
+          "shape": [
+            1,
+            128,
+            64,
+            128
+          ],
+          "dtype": "DataType.FLOAT"
+        }
+      ],
+      "comparison": {
+        "output_shape": [
+          1,
+          128,
+          64,
+          128
+        ],
+        "max_abs_diff": 1.3113021850585938e-06,
+        "mean_abs_diff": 9.50438490441963e-08,
+        "max_rel_diff": 0.9808368142546634,
+        "cosine_similarity": 0.9999999999996935,
+        "allclose_pass": true,
+        "allclose_pass_atol_1e_2_rtol_1e_2": true,
+        "argmax_channel_agreement": 1.0,
+        "argmax_mismatch_pixels": 0,
+        "argmax_total_pixels": 8192,
+        "atol": 0.001,
+        "rtol": 0.001
+      }
+    },
+    {
+      "module_id": 1,
+      "name": "backbone.stages.2.op_list.2.context_module.main",
+      "block_key": "stage2_op_list_2_context_module_main",
+      "reference_tensor_sha256": "17093730c1026d2a87f7804ad30422428f05ca5141c765c90734bd5ee416631e",
+      "qkv_tensor_sha256": "c0ef7e5ac8e047e8a81ceadbc0c14b48701ed053beb05db9bcb76ff012e48fa7",
+      "depthwise_weight_sha256": "af783c1231d0ce63f8827700519b4fb5b71f596331255a2f1a4d0ee02b381b53",
+      "pointwise_weight_sha256": "7b6b7be5a4100d75ef4bc100998ea2d8f52ec05ec3ad4ed5b66e41cff4d60839",
+      "onnx": {
+        "onnx_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\onnx\\p1b_validation_stage2_op_list_2_context_module_main.onnx",
+        "onnx_sha256": "8f26a9fb86ba8cb0521a828361e2db732cba4c245bc0caae0a4d645e2d2f81f8",
+        "onnx_size_bytes": 32085,
+        "checker": {
+          "status": "warning",
+          "error_type": "ValidationError",
+          "error": "No Op registered for EdgesegAggregationReluLinearAttention_TRT with domain_version of 17\n\n==> Context: Bad node spec for node. Name: stage2_op_list_2_context_module_main__p1b_plugin OpType: EdgesegAggregationReluLinearAttention_TRT",
+          "note": "ONNX checker may not know TensorRT custom Plugin ops; TensorRT parser build is authoritative."
+        }
+      },
+      "engine": {
+        "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\p1b_validation_stage2_op_list_2_context_module_main_fp32.engine",
+        "engine_sha256": "b50e01993b0c639841bd2fc0afa4e4dc81ee990137133171e2a0a0f5e6427d25",
+        "engine_size_bytes": 37116,
+        "parser_errors": [],
+        "workspace_mib": 256,
+        "workspace_bytes": 268435456,
+        "workspace_method": "set_memory_pool_limit",
+        "network": {
+          "inputs": [
+            {
+              "name": "qkv",
+              "shape": [
+                1,
+                192,
+                64,
+                128
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "outputs": [
+            {
+              "name": "attention_out",
+              "shape": [
+                1,
+                128,
+                64,
+                128
+              ],
+              "dtype": "DataType.FLOAT"
+            }
+          ],
+          "num_layers": 3
+        }
+      },
+      "bindings": [
+        {
+          "index": 0,
+          "name": "qkv",
+          "is_input": true,
+          "shape": [
+            1,
+            192,
+            64,
+            128
+          ],
+          "dtype": "DataType.FLOAT"
+        },
+        {
+          "index": 1,
+          "name": "attention_out",
+          "is_input": false,
+          "shape": [
+            1,
+            128,
+            64,
+            128
+          ],
+          "dtype": "DataType.FLOAT"
+        }
+      ],
+      "comparison": {
+        "output_shape": [
+          1,
+          128,
+          64,
+          128
+        ],
+        "max_abs_diff": 2.384185791015625e-06,
+        "mean_abs_diff": 7.170572310693303e-08,
+        "max_rel_diff": 0.13094577650646647,
+        "cosine_similarity": 0.9999999999997492,
+        "allclose_pass": true,
+        "allclose_pass_atol_1e_2_rtol_1e_2": true,
+        "argmax_channel_agreement": 1.0,
+        "argmax_mismatch_pixels": 0,
+        "argmax_total_pixels": 8192,
+        "atol": 0.001,
+        "rtol": 0.001
+      }
+    }
+  ],
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "phase3_extra_dll_dirs_added": [
+      "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4\\bin"
+    ],
+    "phase3_extra_dll_dirs_missing": []
+  },
+  "versions": {
+    "python": "3.10.20",
+    "tensorrt": "8.6.1",
+    "torch": "2.4.1+cu124",
+    "numpy": "1.26.4",
+    "onnx": "1.21.0"
+  },
+  "notes": [
+    "This validates block-level P1b math against captured PyTorch attention_out.",
+    "Each block gets its own toy ONNX/engine because aggregation weights differ.",
+    "This is not an end-to-end EfficientViT latency benchmark."
+  ],
+  "timestamp_utc": "2026-06-15T03:32:59.040802+00:00",
+  "script_version": "validate_p1b_aggregation_attention_plugin.py@7fbe8c0"
+}

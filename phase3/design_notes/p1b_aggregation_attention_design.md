@@ -2,13 +2,13 @@
 
 > **关联阶段**：[`../README.md`](../README.md)
 >
-> **状态**：v0.5，P1b skeleton / parser toy 与真实 EfficientViT ONNX surgery build smoke 均已通过，单 block 数值验证口径与 PyTorch reference 捕获已完成。本文确定 `aggregation + cat + relu_linear_att` 的替换边界、权重输入方式和验证顺序；当前只证明 TensorRT parser/build 闭环和 PyTorch reference 可复现，不承诺 P1b CUDA kernel 数学正确性或性能。
+> **状态**：v0.6，P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获与第一版 CUDA 数学 block-level correctness 均已通过。当前已证明两个真实 `stage2/context` block 的 P1b Plugin 输出与 PyTorch `attention_out` reference 对齐；尚未证明真实 P1b engine 的端到端 correctness / latency / Nsight 收益。
 
 ---
 
 ## 1. 设计目标
 
-P1b 的目标是在 P1a `relu_linear_att-only` 已经跑通的基础上，把替换边界向前扩展到 LiteMLA 的中段组合：
+P1b 的目标是在 P1a `relu_linear_att-only` 已跑通的基础上，把替换边界向前扩展到 LiteMLA 的中段组合：
 
 ```text
 qkv output
@@ -19,7 +19,7 @@ qkv output
   -> attention output
 ```
 
-它不是整体 LiteMLA Plugin：`qkv Conv` 仍保留在 TensorRT/cuDNN 路径中，`proj Conv` 和 residual add 也保留在 Plugin 外部。
+它不是整体 LiteMLA Plugin：`qkv Conv` 仍在 TensorRT/cuDNN 路径中，`proj Conv` 与 residual add 也保留在 Plugin 外部。
 
 ---
 
@@ -32,7 +32,7 @@ Phase 2 TensorRT baseline 与 Phase 3 P1a 结果共同说明：
 - P1a-3b 后，`aggregation + plugin` proxy 约为 `3.062 ms / iter`、`30 launches / iter`。
 - 其中 `aggregation_preserved` 仍约为 `1.752 ms / iter`、`26 launches / iter`。
 
-因此 P1a 已经证明 `relu_linear_att-only` 可以减少目标边界的 kernel time 和 launch 数，但剩余 runtime 很大一部分还留在 aggregation 与中间 tensor 流转上。P1b 的价值是验证：把 aggregation 与 attention 放进同一个 Plugin 边界后，是否能进一步减少中间写回、读取、concat 相关开销和 launch 数。
+因此 P1a 已经证明 `relu_linear_att-only` 可以减少目标边界的 kernel time 和 launch 数，但剩余 runtime 仍有很大一部分留在 aggregation 与中间 tensor 流转上。P1b 的价值是验证：把 aggregation 与 attention 放进同一个 Plugin 边界后，是否能进一步减少中间写回、读取、concat 相关开销和 launch 数。
 
 ---
 
@@ -40,17 +40,17 @@ Phase 2 TensorRT baseline 与 Phase 3 P1a 结果共同说明：
 
 P1b 只覆盖两个 `stage2/context` 实例：
 
-| 模块 | ONNX 路径前缀 | 语义 |
-|---|---|---|
-| block1 context | `/backbone/stages.2/op_list.1/context_module/main` | stage2 第一个 LiteMLA context |
-| block2 context | `/backbone/stages.2/op_list.2/context_module/main` | stage2 第二个 LiteMLA context |
+| 模块 | 语义 |
+|---|---|
+| `backbone.stages.2.op_list.1.context_module.main` | stage2 第一个 LiteMLA context block |
+| `backbone.stages.2.op_list.2.context_module.main` | stage2 第二个 LiteMLA context block |
 
 固定 Cityscapes 输入 `1x3x1024x2048` 下，P1b 的 tensor contract 为：
 
 | 项 | shape | 说明 |
 |---|---:|---|
 | runtime input | `[1, 192, 64, 128]` | `qkv/conv/Conv_output_0` |
-| output | `[1, 128, 64, 128]` | 原 `Cast_1_output_0`，继续喂给现有 `proj/conv/Conv` |
+| output | `[1, 128, 64, 128]` | 去 `Cast_1_output_0`，继续喂给现有 `proj/conv/Conv` |
 | dtype | `float32` | 第一版不走 FP16 / Tensor Core |
 | layout | `NCHW` | 固定 shape、batch=1 |
 
@@ -58,8 +58,8 @@ P1b 只覆盖两个 `stage2/context` 实例：
 
 | 权重 | shape | 语义 |
 |---|---:|---|
-| `aggreg.0.0.weight` | `[192, 1, 5, 5]` | depthwise 5x5，groups=192，padding=2 |
-| `aggreg.0.1.weight` | `[192, 16, 1, 1]` | grouped 1x1，groups=12，每组 16 输入通道到 16 输出通道 |
+| `aggreg.0.0.weight` | `[192, 1, 5, 5]` | depthwise 5x5，`groups=192`，`padding=2` |
+| `aggreg.0.1.weight` | `[192, 16, 1, 1]` | grouped 1x1，`groups=12`，每组 16 输入通道到 16 输出通道 |
 
 当前 ONNX 中 aggregation 无 bias。
 
@@ -75,25 +75,33 @@ P1b 使用新的 op type：
 EdgesegAggregationReluLinearAttention_TRT
 ```
 
-而不是把现有 `EdgesegReluLinearAttention_TRT` 扩展成多模式 Plugin。原因是 P1a 已经有完整的验证结果和可复现实验链，P1b 权重、输入数量、替换边界、序列化字段都会改变。拆成新类型可以保留 P1a 的 ABI 和历史结果，降低回归风险。
+不把现有 `EdgesegReluLinearAttention_TRT` 扩展成多模式 Plugin。原因是 P1a 已有完整验证结果和可复现实验链，P1b 的权重、输入数量、替换边界、序列化字段都会改变。拆成新类型可以保留 P1a 的 ABI 和历史结果，降低回归风险。
 
-### D2：第一版继续放在同一个 DLL / CMake target
+### D2：同一 DLL / CMake target，但 CUDA 源文件分开
 
-P1b 先复用当前 `edgeseg_relu_linear_attention_plugin.dll` 的构建、加载和注册路径，但新增独立 Creator 与独立 C++ 类。这样可以减少 Windows DLL、TensorRT registry、Python loader 的变量，同时保持 Plugin 类型隔离。
+P1b 复用当前 `edgeseg_relu_linear_attention_plugin.dll` 的构建、加载和注册路径，但新增独立 Creator 与独立 C++ 类。这样减少 Windows DLL、TensorRT registry、Python loader 的变量，同时保持 Plugin 类型隔离。
 
-### D3：先做 parser/build 可行性，再写性能 kernel
+CUDA 实现层面不直接写进 P1a 的 `relu_linear_attention_kernel.cu`。P1a 已经有独立验证结果、性能历史和 Nsight attribution；P1b 的 aggregation workspace、depthwise/grouped pointwise kernel 和后续优化路线都会分叉，因此 P1b 使用独立 CUDA 文件：
 
-P1b 的第一风险不是 CUDA 算法，而是 TensorRT ONNX parser 是否能稳定创建一个带权重输入的 Plugin node。因此第一阶段只要求：
+```text
+phase3/plugin/src/aggregation_relu_linear_attention_kernel.cu
+```
 
-1. P1b custom op 可以被 TensorRT parser 识别。
-2. depthwise / grouped 1x1 权重能以可追溯方式进入 Plugin。
-3. engine 可以 build / deserialize / execute smoke。
+该文件负责 P1b 的 aggregation、cat workspace 和 P1a attention launcher 调用；P1a 文件继续只维护 `relu_linear_att-only`。
 
-在 parser/build 闭环通过前，不进入 P1b CUDA 性能实现。
+### D3：先 parser/build，再 block correctness，再端到端
 
-### D4：优先尝试“权重 initializer 作为 Plugin 输入”
+P1b 的风险分三层：
 
-优先方案是让 P1b Plugin node 有 3 个输入：
+1. TensorRT ONNX parser 是否能稳定创建一个带权重输入的 Plugin node。
+2. P1b CUDA 数学是否与 PyTorch block-local reference 对齐。
+3. 真实 EfficientViT P1b engine 是否在端到端 correctness / latency / Nsight attribution 上有收益。
+
+当前已完成第 1 层和第 2 层；第 3 层还未完成。
+
+### D4：权重 initializer 作为 Plugin 输入
+
+P1b Plugin node 有 3 个输入：
 
 ```text
 input0: qkv runtime tensor [1,192,64,128]
@@ -102,8 +110,6 @@ input2: aggregation grouped pointwise weight initializer [192,16,1,1]
 ```
 
 这样权重仍保留在 ONNX initializer 中，来源、shape、hash 更容易追溯，也避免把几千个 float 手写进 PluginField attribute。
-
-该方案已通过 toy ONNX parser 验证：TensorRT 8.6.1 可以创建 `EdgesegAggregationReluLinearAttention_TRT` Plugin，`parser_errors=[]`，构建后的网络只有 `qkv` 一个 runtime input，两个 aggregation 权重保持为 initializer / constant 路径，不暴露为外部 engine input。
 
 ### D5：Graph surgery 边界
 
@@ -134,7 +140,7 @@ qkv/conv/Conv_output_0 -> Cast_1_output_0
 P1b 按下面顺序推进：
 
 1. **设计与 contract 落盘**：本文即本步产物。
-2. **P1b parser toy / skeleton**：新增 Plugin 类型，先用 zero-fill 或简单 placeholder 输出验证 parser/build，不宣称数值正确。
+2. **P1b parser toy / skeleton**：新增 Plugin 类型，先用 zero-fill 验证 parser/build，不宣称数值正确。
 3. **真实 ONNX surgery build smoke**：替换两个 stage2 context 的 P1b 边界，确认 TensorRT engine 可构建。
 4. **单 block 数值验证**：用 PyTorch LiteMLA 子模块输出作为 reference，验证 P1b Plugin 的 aggregation + attention 数学。
 5. **端到端 correctness / latency**：复用 Phase 2/3 benchmark 口径，与 TensorRT FP32 baseline 和 P1a engine 对比。
@@ -146,43 +152,39 @@ P1b 按下面顺序推进：
 
 | 风险 | 说明 | 应对 |
 |---|---|---|
-| TensorRT parser 不接受 initializer 作为 Plugin 输入 | 3-input Plugin 是最干净的权重输入方式，但 TensorRT 8.6.1 parser 行为需要实测 | fallback 到 PluginField / serialized weights |
-| aggregation 权重布局弄错 | depthwise 5x5 与 grouped 1x1 的 group 语义不同，不能按普通 dense Conv 处理 | 单 block PyTorch reference 验证必须覆盖 aggregation 输出与最终 attention 输出 |
-| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 先做 parser/build，再做 microbenchmark 与 Nsight，避免凭直觉扩大边界 |
-| 两个 block 权重不同 | block1/block2 shape 相同但数值不同 | surgery 与 Plugin 创建必须逐 block 绑定权重 |
+| TensorRT parser 不接受 initializer 作为 Plugin 输入 | 3-input Plugin 是最干净的权重输入方式，但 TensorRT 8.6.1 parser 行为必须实测 | 已通过 toy parser/build 和真实 graph build smoke；若后续版本变化，fallback 到 PluginField / serialized weights |
+| aggregation 权重布局弄错 | depthwise 5x5 与 grouped 1x1 的 group 语义不同，不能按普通 dense Conv 处理 | block-level reference 验证必须覆盖 aggregation 输出与最终 attention 输出 |
+| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 先做 correctness，再做真实 engine latency 与 Nsight，不凭直觉扩大边界 |
+| 两个 block 权重不同 | block1/block2 shape 相同但数值不同 | surgery 与 toy engine 必须逐 block 绑定权重 |
 | P1b 不等于 P1c | qkv/proj/residual 仍在 Plugin 外 | 文档和报告中继续区分 P1b、整体 LiteMLA、整网端到端收益 |
 
 ---
 
-## 7. 下一步文件
+## 7. 当前文件
 
-P1b skeleton / parser toy 与真实 graph build smoke 已新增：
+P1b 相关产物：
 
 - `phase3/plugin/include/edgeseg_aggregation_relu_linear_attention_plugin.h`
 - `phase3/plugin/src/edgeseg_aggregation_relu_linear_attention_plugin.cpp`
+- `phase3/plugin/src/aggregation_relu_linear_attention_kernel.cu`
 - `phase3/scripts/build_p1b_plugin_toy_engine.py`
-- `phase3/results/metrics/p1b_aggregation_attention_toy_build.json`
 - `phase3/scripts/integrate_p1b_aggregation_attention_plugin_onnx.py`
 - `phase3/scripts/build_p1b_plugin_engine.py`
+- `phase3/scripts/capture_p1b_stage2_reference.py`
+- `phase3/scripts/validate_p1b_aggregation_attention_plugin.py`
+- `phase3/results/metrics/p1b_aggregation_attention_toy_build.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_build.json`
-- `phase3/design_notes/p1b_single_block_validation_design.md`
-- `phase3/scripts/capture_p1b_stage2_reference.py`
 - `phase3/results/metrics/p1b_stage2_reference_capture.json`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json`
 
-第一版 P1b 实现的验收口径是 parser/build feasibility JSON，而不是 latency 优化结论。
-
-后续实现顺序已收敛为：
-
-1. 实现 P1b CUDA 数学路径。
-2. 写 `validate_p1b_aggregation_attention_plugin.py`，用 toy P1b engine 对 block1/block2 分别做数值验证。
-3. 数值通过后，再进入真实 P1b engine correctness / latency / Nsight attribution。
+当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness；它仍然不是 latency 优化结论。
 
 ---
 
 ## 8. Parser Toy 验证结果
 
-本轮已完成 P1b skeleton / parser toy：
+P1b skeleton / parser toy 已通过：
 
 | 项 | 结果 |
 |---|---|
@@ -198,10 +200,10 @@ P1b skeleton / parser toy 与真实 graph build smoke 已新增：
 
 解释：
 
-- ONNX checker 对自定义 op 报 “No Op registered” 是预期 warning；本步骤以 TensorRT parser/build 为权威检查。
+- ONNX checker 对自定义 op 报 “No Op registered” 是预期 warning；本步以 TensorRT parser/build 为权威检查。
 - TensorRT 日志显示 `Successfully created plugin: EdgesegAggregationReluLinearAttention_TRT`。
 - TensorRT build 日志显示网络只有 `1 inputs and 1 output network tensors`，说明两个 aggregation weight initializer 没有变成外部 runtime binding。
-- 当前 skeleton 的 `enqueue()` 只 zero-fill 输出，用于验证 Plugin 创建、序列化、shape 和 parser/build 路径；它不是数学正确版本，也不是性能结果。
+- Parser toy 阶段的 skeleton `enqueue()` 只 zero-fill 输出，用于验证 Plugin 创建、序列化、shape 和 parser/build 路径；后续第一版 CUDA 数学正确性见本文 §11。
 
 ---
 
@@ -217,7 +219,7 @@ P1b skeleton / parser toy 与真实 graph build smoke 已新增：
 | Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_build.json) |
 | Patched graph | `393 -> 256` nodes |
 | Plugin node count | `2` |
-| Removed subgraph | block1: `58` nodes；block2: `81` nodes |
+| Removed subgraph | block1: `58` nodes，block2: `81` nodes |
 | Plugin inputs | `qkv` runtime tensor + depthwise weight initializer + grouped pointwise weight initializer |
 | TensorRT parser | 通过，`parser_errors=[]` |
 | TensorRT network IO | input `input [1,3,1024,2048]`，output `segout [1,19,128,256]` |
@@ -229,8 +231,7 @@ P1b skeleton / parser toy 与真实 graph build smoke 已新增：
 - 真实 ONNX surgery 删除了每个目标 block 中从 aggregation depthwise Conv 到 `Cast_1_output_0` 的子图，并用 P1b Plugin node 替换。
 - 两个 aggregation 权重仍作为 initializer 输入进入 Plugin node：`aggreg.0.0.weight [192,1,5,5]` 与 `aggreg.0.1.weight [192,16,1,1]`。
 - TensorRT 日志显示两个 P1b Plugin node 都被成功创建。
-- 构建命令在 Codex 工具层面触发了超时，但在超时前已经打印 engine build complete，且 metadata/engine 文件均已落盘并通过 JSON 断言校验。
-- 当前 P1b Plugin skeleton 仍只 zero-fill 输出，所以该 engine 只能证明真实 graph parser/build 可行，不能用于 correctness、latency 或 Nsight attribution 结论。
+- 该 engine build smoke 发生在 skeleton 阶段，只证明真实 graph parser/build 可行。当前 DLL 已有第一版 CUDA 数学路径，但真实 P1b patched engine 仍需在后续步骤重新构建并单独验证。
 
 ---
 
@@ -255,5 +256,48 @@ P1b 单 block reference 捕获已通过：
 解释：
 
 - 该结果证明 P1b 替换边界、aggregation 权重布局和 PyTorch block-level reference 可复现。
-- 该结果仍不证明 P1b Plugin correctness，因为当前 P1b skeleton 的 `enqueue()` 仍是 zero-fill。
-- 下一步应实现 P1b CUDA 数学，并用 `p1b_stage2_reference_capture.json` / 本地 tensor bundle 作为 block-level correctness 标尺。
+- 该结果本身只证明 reference 可用；后续第一版 P1b CUDA 数学验证结果见本文 §11。
+
+---
+
+## 11. P1b 第一版 CUDA 数学验证结果
+
+P1b 第一版 CUDA 数学路径已独立落盘在：
+
+```text
+phase3/plugin/src/aggregation_relu_linear_attention_kernel.cu
+```
+
+它没有把 P1b 逻辑写回 P1a 的 `relu_linear_attention_kernel.cu`，而是采用分文件维护：
+
+- P1a 文件继续只维护 `relu_linear_att-only`。
+- P1b 文件负责 `depthwise 5x5 -> grouped pointwise 1x1 -> cat workspace -> P1a attention launcher`。
+- 两者共用同一个 DLL / CMake target，降低 TensorRT registry 与 Windows DLL 加载变量。
+
+验证脚本：
+
+```text
+phase3/scripts/validate_p1b_aggregation_attention_plugin.py
+```
+
+验证结果：
+
+| 项 | block1 | block2 |
+|---|---:|---:|
+| `max_abs_diff` | `1.311302e-06` | `2.384186e-06` |
+| `mean_abs_diff` | `9.504385e-08` | `7.170572e-08` |
+| `cosine_similarity` | `0.9999999999996935` | `0.9999999999997492` |
+| `allclose(atol=1e-3, rtol=1e-3)` | `true` | `true` |
+| `argmax_channel_agreement` | `1.0` | `1.0` |
+
+Metadata：
+
+```text
+phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json
+```
+
+解释：
+
+- 这一步证明两个真实 `stage2/context` block 的 P1b Plugin 输出与 PyTorch `attention_out` reference 对齐。
+- 这一步仍是 block-local toy/plugin correctness，不代表真实 EfficientViT P1b engine 的端到端 correctness。
+- 第一版实现以正确性优先，使用 TensorRT workspace 暂存 depthwise 输出、cat 后 attention input 与 P1a VK workspace；它不是最终性能优化版。

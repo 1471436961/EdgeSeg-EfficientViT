@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，设计并实现一个面向 EfficientViT `stage2/context` LiteMLA 的 TensorRT Plugin MVP，验证自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录、Step 6 真实 EfficientViT ONNX graph replacement + Plugin engine build、Step 7 端到端 correctness / latency 对比、Step 8 Plugin engine Nsight attribution、P1a-4 单 kernel 合并可行性评估，以及 P1b skeleton / parser toy / 真实 EfficientViT ONNX surgery build smoke。Plugin DLL 可编译，TensorRT registry 能找到 P1a/P1b 两个 Creator，toy engine 和真实 P1a/P1b Plugin engine 均可构建；P1a Plugin engine 与 Phase 2 TensorRT baseline 输出对齐，端到端 p50 有轻微净收益；Nsight 证明 P1a 替换减少了目标边界 kernel time 和 launch 数，但整网收益被其他标准算子热点稀释。P1b 当前只证明 `aggregation + cat + relu_linear_att` skeleton Plugin 的真实 parser/build 闭环；单 block PyTorch reference 捕获已跑通，下一步应实现 P1b CUDA 数学并用该 reference 做 block-level correctness。
+> **当前状态**：Phase 3 已完成 P1a Plugin skeleton、Step 5 单层 CUDA 数学验证、Step 5.5 单层 microbenchmark / Nsight 记录、Step 6 真实 EfficientViT ONNX graph replacement + Plugin engine build、Step 7 端到端 correctness / latency 对比、Step 8 Plugin engine Nsight attribution、P1a-4 单 kernel 合并可行性评估，以及 P1b skeleton / parser toy / 真实 EfficientViT ONNX surgery build smoke。Plugin DLL 可编译，TensorRT registry 能找到 P1a/P1b 两个 Creator，toy engine 和真实 P1a/P1b Plugin engine 均可构建；P1a Plugin engine 与 Phase 2 TensorRT baseline 输出对齐，端到端 p50 有轻微净收益；Nsight 证明 P1a 替换减少了目标边界 kernel time 和 launch 数，但整网收益被其他标准算子热点稀释。P1b 第一版 CUDA 数学路径已独立落在 `aggregation_relu_linear_attention_kernel.cu`，两个真实 `stage2/context` block 的 block-level toy/plugin correctness 均已通过；下一步应进入真实 P1b engine correctness / latency / Nsight attribution。
 
 ---
 
@@ -47,6 +47,7 @@ Phase 3 暂不做：
 | P1b parser toy build | [`results/metrics/p1b_aggregation_attention_toy_build.json`](results/metrics/p1b_aggregation_attention_toy_build.json) | 证明 P1b skeleton Plugin Creator 可注册，带两个 aggregation weight initializer 的 custom op 可被 TensorRT ONNX parser/build 接受 |
 | P1b real graph ONNX integration | [`results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`](results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json) | 证明两个真实 `stage2/context` 的 `qkv/conv/Conv_output_0 -> Cast_1_output_0` 子图可替换为 P1b Plugin node |
 | P1b real graph engine build | [`results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](results/metrics/p1b_aggregation_attention_plugin_engine_build.json) | 证明 P1b patched ONNX 可被 TensorRT parser 解析并构建真实 skeleton Plugin engine |
+| P1b block-level Plugin validation | [`results/metrics/p1b_aggregation_attention_plugin_validation.json`](results/metrics/p1b_aggregation_attention_plugin_validation.json) | 证明 P1b 第一版 CUDA 数学路径在两个真实 `stage2/context` block 上与 PyTorch `attention_out` reference 对齐 |
 | Plugin ONNX 集成 | [`results/metrics/relu_linear_attention_plugin_onnx_integration.json`](results/metrics/relu_linear_attention_plugin_onnx_integration.json) | 证明两个 `stage2/context` attention 子图已被替换成 Plugin node |
 | Plugin engine build | [`results/metrics/relu_linear_attention_plugin_engine_build.json`](results/metrics/relu_linear_attention_plugin_engine_build.json) | 证明 patched ONNX 可被 TensorRT parser 解析并构建真实 Plugin engine |
 | Plugin engine benchmark | [`results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_engine_benchmark_summary.md) | 证明 Plugin engine 可执行、与 baseline TRT 输出对齐，并给出端到端 latency 净收益 |
@@ -84,6 +85,7 @@ Phase 3 暂不做：
 - [x] Step 8.8：实现 P1b skeleton / parser toy 验证。产物：[`plugin/include/edgeseg_aggregation_relu_linear_attention_plugin.h`](plugin/include/edgeseg_aggregation_relu_linear_attention_plugin.h)、[`plugin/src/edgeseg_aggregation_relu_linear_attention_plugin.cpp`](plugin/src/edgeseg_aggregation_relu_linear_attention_plugin.cpp)、[`scripts/build_p1b_plugin_toy_engine.py`](scripts/build_p1b_plugin_toy_engine.py)、[`results/metrics/p1b_aggregation_attention_toy_build.json`](results/metrics/p1b_aggregation_attention_toy_build.json)。结论：TensorRT 8.6.1 能创建 `EdgesegAggregationReluLinearAttention_TRT`，`parser_errors=[]`，toy network 只有 `qkv [1,192,64,128]` 一个 runtime input，两个 aggregation 权重保持为 initializer / constant 路径；当前 skeleton 只 zero-fill 输出，不代表 correctness / latency。
 - [x] Step 8.9：完成 P1b 真实 EfficientViT ONNX surgery / engine build smoke。产物：[`scripts/integrate_p1b_aggregation_attention_plugin_onnx.py`](scripts/integrate_p1b_aggregation_attention_plugin_onnx.py)、[`scripts/build_p1b_plugin_engine.py`](scripts/build_p1b_plugin_engine.py)、[`results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`](results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json)、[`results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](results/metrics/p1b_aggregation_attention_plugin_engine_build.json)。结论：真实 ONNX 从 `393 -> 256` nodes，P1b Plugin nodes=2；TensorRT engine build `parser_errors=[]`、network IO 为 `input [1,3,1024,2048] -> segout [1,19,128,256]`、layers=239。当前 skeleton 仍只 zero-fill 输出，不代表 correctness / latency。
 - [x] Step 8.10：完成 P1b 单 block 数值验证设计与 PyTorch reference 捕获。产物：[`design_notes/p1b_single_block_validation_design.md`](design_notes/p1b_single_block_validation_design.md)、[`scripts/capture_p1b_stage2_reference.py`](scripts/capture_p1b_stage2_reference.py)、[`results/metrics/p1b_stage2_reference_capture.json`](results/metrics/p1b_stage2_reference_capture.json)。结论：两个 `stage2/context` block 均被捕获，`qkv -> aggreg[0](qkv) -> cat -> relu_linear_att` 的 shape / weight group / projection sanity check 全部通过；当前 zero-fill skeleton 不可用于 correctness / latency。下一步应实现 P1b CUDA 数学，并用该 reference 做 block-level correctness。
+- [x] Step 8.11：实现 P1b 第一版 CUDA 数学路径，并完成 block-level toy/plugin correctness 验证。产物：[`plugin/src/aggregation_relu_linear_attention_kernel.cu`](plugin/src/aggregation_relu_linear_attention_kernel.cu)、[`scripts/validate_p1b_aggregation_attention_plugin.py`](scripts/validate_p1b_aggregation_attention_plugin.py)、[`results/metrics/p1b_aggregation_attention_plugin_validation.json`](results/metrics/p1b_aggregation_attention_plugin_validation.json)。结论：P1b CUDA 文件与 P1a attention kernel 分开维护；第一版实现采用 `depthwise 5x5 -> grouped pointwise 1x1 -> cat workspace -> P1a attention launcher` 的正确性优先路径。两个真实 `stage2/context` block 均通过 `allclose(atol=1e-3, rtol=1e-3)`，block1 `max_abs_diff=1.31e-6`、block2 `max_abs_diff=2.38e-6`，`argmax_channel_agreement=1.0`。该结果证明 block-local 数学正确性，不代表真实 P1b engine 端到端 latency 或 Nsight 收益。
 - [ ] Step 9：撰写 `integration_validation_report.md`。
 
 ---
@@ -110,6 +112,7 @@ phase3/
 |   |   |-- edgeseg_aggregation_relu_linear_attention_plugin.h
 |   |   `-- edgeseg_relu_linear_attention_plugin.h
 |   `-- src/
+|       |-- aggregation_relu_linear_attention_kernel.cu
 |       |-- edgeseg_aggregation_relu_linear_attention_plugin.cpp
 |       |-- edgeseg_relu_linear_attention_plugin.cpp
 |       `-- relu_linear_attention_kernel.cu
@@ -125,6 +128,7 @@ phase3/
 |   |-- integrate_relu_linear_attention_plugin_onnx.py
 |   |-- integrate_p1b_aggregation_attention_plugin_onnx.py
 |   |-- analyze_plugin_nsys_attribution.py
+|   |-- validate_p1b_aggregation_attention_plugin.py
 |   `-- validate_relu_linear_attention_plugin.py
 |-- results/
 |   |-- engines/
@@ -134,6 +138,7 @@ phase3/
 |   |   |-- p1b_stage2_reference_capture.json
 |   |   |-- p1b_aggregation_attention_plugin_engine_build.json
 |   |   |-- p1b_aggregation_attention_plugin_onnx_integration.json
+|   |   |-- p1b_aggregation_attention_plugin_validation.json
 |   |   |-- p1b_aggregation_attention_toy_build.json
 |   |   |-- relu_linear_attention_plugin_engine_build.json
 |   |   |-- relu_linear_attention_plugin_engine_benchmark.json

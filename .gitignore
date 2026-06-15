@@ -48,6 +48,7 @@ phase1/results/nsight/*
 # 构建目录（CMake / Make / Ninja 通用）
 phase3/build/
 phase3/*/build/
+phase3/*/build*/
 build/
 out/
 cmake-build-*/

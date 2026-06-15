@@ -20,6 +20,7 @@ find_package(CUDAToolkit REQUIRED)
 add_library(edgeseg_relu_linear_attention_plugin SHARED
     include/edgeseg_aggregation_relu_linear_attention_plugin.h
     include/edgeseg_relu_linear_attention_plugin.h
+    src/aggregation_relu_linear_attention_kernel.cu
     src/edgeseg_aggregation_relu_linear_attention_plugin.cpp
     src/edgeseg_relu_linear_attention_plugin.cpp
     src/relu_linear_attention_kernel.cu
