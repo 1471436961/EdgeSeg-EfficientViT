@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`../README.md`](../README.md)
 >
-> **状态**：v0.7。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency 均已完成。当前已证明 P1b 数学正确并能集成进真实 TensorRT engine；但第一版 P1b 端到端 p50 `56.3395ms` 慢于 baseline `54.4532ms`，因此只能作为 correctness milestone，不作为性能采纳版本。
+> **状态**：v0.8。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution 均已完成。当前已证明 P1b 数学正确并能集成进真实 TensorRT engine；但第一版 P1b 端到端 p50 `56.3395ms` 慢于 baseline `54.4532ms`。Nsight attribution 进一步证明退化主因是 naive 自写 aggregation kernel 替换了 TensorRT/cuDNN 已优化的标准 Conv 路径；因此第一版 P1b 只能作为 correctness milestone，不作为性能采纳版本。
 
 ---
 
@@ -99,7 +99,7 @@ P1b 的风险分三层：
 2. P1b CUDA 数学是否与 PyTorch block-local reference 对齐。
 3. 真实 EfficientViT P1b engine 是否在端到端 correctness / latency / Nsight attribution 上有收益。
 
-当前已完成第 1 层、第 2 层和端到端 correctness / latency。性能结论是不采纳第一版 P1b。
+当前已完成第 1 层、第 2 层、端到端 correctness / latency 和 Nsight attribution。性能结论是不采纳第一版 P1b。
 
 ### D4：权重 initializer 作为 Plugin 输入
 
@@ -156,7 +156,7 @@ P1b 按下面顺序推进：
 |---|---|---|
 | TensorRT parser 不接受 initializer 作为 Plugin 输入 | 3-input Plugin 是最干净的权重输入方式，但 TensorRT 8.6.1 parser 行为必须实测 | 已通过 toy parser/build 和真实 graph build smoke；若后续版本变化，fallback 到 PluginField / serialized weights |
 | aggregation 权重布局弄错 | depthwise 5x5 与 grouped 1x1 的 group 语义不同，不能按普通 dense Conv 处理 | block-level reference 验证必须覆盖 aggregation 输出与最终 attention 输出 |
-| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 已在冷机端到端 benchmark 中观测到退化；后续必须先做 Nsight attribution，不应直接扩大边界 |
+| P1b 可能比 P1a 慢 | aggregation 是标准 Conv 路径，TensorRT/cuDNN 已有优化；naive 自写 aggregation 可能抵消 attention 收益 | 已在冷机端到端 benchmark 和 Nsight attribution 中确认退化来源；不应继续扩大 naive aggregation 边界 |
 | 两个 block 权重不同 | block1/block2 shape 相同但数值不同 | surgery 与 toy engine 必须逐 block 绑定权重 |
 | P1b 不等于 P1c | qkv/proj/residual 仍在 Plugin 外 | 文档和报告中继续区分 P1b、整体 LiteMLA、整网端到端收益 |
 
@@ -182,8 +182,11 @@ P1b 相关产物：
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`
+- `phase3/results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`
 
-当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness 与真实 engine 端到端 cold-run benchmark。结论是：正确性通过，但第一版 P1b 性能退化。
+当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness、真实 engine 端到端 cold-run benchmark 和 Nsight attribution。结论是：正确性通过，但第一版 P1b 性能退化；退化主因已定位为 naive aggregation kernel。
 
 ---
 
@@ -339,4 +342,62 @@ Correctness：
 - 冷机结果排除了上一轮 hot run 中 300ms 级 outlier 的主要干扰。
 - 第一版 P1b 在数学上正确，并且真实 engine 端到端输出保持可接受对齐。
 - 但第一版 P1b 端到端性能慢于 Phase 2 TensorRT FP32 baseline，说明“把 aggregation 也放入 Plugin”在 naive 实现下会破坏 TensorRT/cuDNN 对标准 Conv 路径的优化收益。
-- 因此 P1b 当前结论是 `correctness passed, performance rejected for first implementation`。若继续投入，必须先用 Nsight attribution 找出退化来源，而不是直接继续扩大 fusion 边界。
+- 因此 P1b 当前结论是 `correctness passed, performance rejected for first implementation`。Nsight attribution 已经进一步确认退化来源，见本文 §13；后续不能继续沿用当前 naive aggregation 实现扩大 fusion 边界。
+
+---
+
+## 13. P1b Nsight Attribution 结果
+
+P1b Plugin engine 已完成正式 Nsight Systems 采集和 SQLite correlationId 归因：
+
+| 项 | 结果 |
+|---|---|
+| Benchmark metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json) |
+| Attribution summary | [`../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md) |
+| Attribution JSON | [`../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`](../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json) |
+| Protocol | `warmup=20`、`measure=100`、CUDA/NVTX trace |
+| CUDA Events latency mean / p50 | `56.180 ms` / `56.124 ms` |
+| `trt/execute` kernel avg | `54.902 ms / iter` |
+| `trt/execute` launches | `151.0 / iter` |
+
+Stage2 context attribution：
+
+| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter |
+|---|---:|---:|---:|
+| `p1b_aggregation_attention_plugin` | `6.189` | `11.27%` | `10.0` |
+| `qkv` | `0.548` | `1.00%` | `2.0` |
+| `proj_add` | `0.399` | `0.73%` | `2.0` |
+
+Plugin 内部 kernel attribution：
+
+| Kernel | Avg ms / iter | Plugin 内占比 | Count |
+|---|---:|---:|---:|
+| `depthwise5x5Kernel` | `2.462` | `39.77%` | `200` |
+| `groupedPointwise1x1Kernel` | `2.427` | `39.22%` | `200` |
+| `computeVkKernelDim16WarpD4` | `0.949` | `15.33%` | `200` |
+| `computeOutputKernelDim16` | `0.351` | `5.67%` | `200` |
+
+与 Phase 2 TensorRT baseline 对比：
+
+| Boundary | Before | After | Speedup | 解释 |
+|---|---:|---:|---:|---|
+| `attention_core -> p1b_plugin_only` | `3.689 ms / 12 launches` | `6.189 ms / 10 launches` | `0.596x` | P1b plugin 吸收了 aggregation，因此不能只按 attention-only 解释 |
+| `aggregation + attention_core -> p1b_plugin_boundary` | `5.443 ms / 38 launches` | `6.189 ms / 10 launches` | `0.879x` | launch 数显著减少，但 kernel time 变差 |
+| `stage2_context_total` | `6.383 ms / 42 launches` | `7.136 ms / 14 launches` | `0.894x` | P1b 让 stage2 context 总耗时退化 |
+
+解释：
+
+- P1b 证明了“扩大边界可以减少 launch 数”：`aggregation + attention_core` proxy 从 `38 launches/iter` 降到 `10 launches/iter`。
+- 但 P1b 没有证明“扩大边界可以提速”：kernel time 从 `5.443ms/iter` 增加到 `6.189ms/iter`。
+- 退化主因不是 P1a attention 数学。`computeVk + computeOutput` 合计约 `1.300ms/iter`，与 P1a 路径量级一致。
+- 退化主因是自写 aggregation：`depthwise5x5Kernel + groupedPointwise1x1Kernel` 合计约 `4.889ms/iter`，占 P1b Plugin kernel time 约 `79%`。这验证了本文风险表中的判断：aggregation 是标准 Conv 路径，TensorRT/cuDNN 已经有更成熟的实现，naive CUDA 复刻会抵消甚至反噬 fusion 收益。
+
+采集纪律：
+
+- Codex 沙盒内运行 `nsys profile` 曾出现 75s 超时；同一命令在提权执行后约 22s 完成，并成功生成 `.nsys-rep`、`.sqlite` 和 attribution summary。因此这次异常判断为沙盒/权限环境问题，不是 benchmark 脚本或 Plugin engine 问题。
+- Windows 普通权限下 CPU sampling / context switch trace 会被禁用；本次结论只依赖 CUDA/NVTX trace 与 SQLite correlationId 归因，不依赖 CPU sampling。
+
+后续判断：
+
+- 当前 P1b 第一版到此应停止作为性能主线；它的价值是证明 graph surgery、权重输入、端到端 correctness 和退化诊断闭环。
+- 若未来继续 P1b，必须先重写 aggregation kernel 或改变边界设计。不能在当前 naive aggregation 实现上继续扩大到 P1c。

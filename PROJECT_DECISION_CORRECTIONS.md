@@ -133,7 +133,20 @@ Phase 2 attribution 使用 TensorRT layer-name group，例如 `attention_core = 
 
 ---
 
-## 4. 对项目路线的总体影响
+## 4. 跨阶段执行纪律：先排除沙盒 / 权限因素
+
+Phase 1/2/3 多次遇到同一类问题：命令本身需要访问 CUDA driver、CUPTI、Nsight Systems、TensorRT DLL、`.git` 或外部进程资源，但在 Codex 沙盒内表现为卡住、超时、权限错误或残留进程。人工 review 多次提醒后，最终形成跨阶段执行纪律：
+
+- `nsys profile`、TensorRT engine benchmark、Plugin engine benchmark、CMake/CUDA build、git commit/push 等命令，如果在沙盒内出现异常，不能第一时间归因到脚本或模型逻辑。
+- 应先检查是否属于沙盒 / 权限 / 外部进程交互问题；必要时用提权命令复跑，或先清理残留进程。
+- Nsight Systems 在 Windows 普通权限下 CPU sampling / context switch trace 可能被禁用；只要 CUDA/NVTX trace 和 SQLite export 正常，仍可用于本项目的 GPU kernel attribution。
+- 对 profiling 结果做技术结论前，必须确认采集路径本身可信。环境问题不能写成性能问题，工具权限问题不能写成 Plugin 问题。
+
+这条纪律已经在 Phase 3 P1b Nsight attribution 中再次验证：沙盒内 `nsys profile` 曾超时；同一命令提权后正常生成 `.nsys-rep`、`.sqlite` 和 attribution summary，最终证明 P1b 退化来自 naive aggregation kernel，而不是 benchmark 脚本或 TensorRT engine 损坏。
+
+---
+
+## 5. 对项目路线的总体影响
 
 这些纠偏共同形成了当前项目路线：
 

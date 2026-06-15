@@ -29,7 +29,8 @@ if str(PHASE2_SCRIPTS) not in sys.path:
 import analyze_trt_nsys_attribution as base_attr  # noqa: E402
 
 
-PLUGIN_LAYER_NAME = "EdgesegReluLinearAttention_TRT"
+DEFAULT_PLUGIN_LAYER_NAME = "EdgesegReluLinearAttention_TRT"
+DEFAULT_PLUGIN_COMPONENT = "relu_linear_att_plugin"
 
 
 def parse_args() -> argparse.Namespace:
@@ -38,6 +39,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metrics", required=True, type=Path, help="benchmark_plugin_engine.py JSON metadata.")
     parser.add_argument("--out-md", required=True, type=Path, help="Markdown summary output.")
     parser.add_argument("--out-json", default=None, type=Path, help="Optional JSON summary output.")
+    parser.add_argument("--plugin-layer-name", default=DEFAULT_PLUGIN_LAYER_NAME)
+    parser.add_argument("--plugin-component", default=DEFAULT_PLUGIN_COMPONENT)
+    parser.add_argument("--plugin-boundary-name", default="relu_linear_att_plugin_only")
+    parser.add_argument("--combined-boundary-name", default="aggregation_plus_plugin_proxy")
     parser.add_argument(
         "--baseline-summary-json",
         default=Path("phase2/results/metrics/trt_nsys_attribution_summary.json"),
@@ -67,12 +72,12 @@ def adapt_metrics(raw: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def stage2_context_component(name: str) -> str:
+def stage2_context_component(name: str, plugin_layer_name: str, plugin_component: str) -> str:
     text = base_attr.normalize_layer_path(name)
     if "/backbone/stages.2/" not in text or "/context_module/" not in text:
         return ""
-    if PLUGIN_LAYER_NAME in text:
-        return "relu_linear_att_plugin"
+    if plugin_layer_name in text:
+        return plugin_component
     if "/qkv/" in text:
         return "qkv"
     if "/aggreg." in text:
@@ -88,10 +93,16 @@ def stage2_context_component(name: str) -> str:
     return "other_context"
 
 
-def stage2_plugin_context_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
+def stage2_plugin_context_summary(
+    summary: Dict[str, Any],
+    plugin_layer_name: str,
+    plugin_component: str,
+    plugin_boundary_name: str,
+    combined_boundary_name: str,
+) -> Dict[str, Any]:
     rows = []
     for row in summary["layers"]:
-        component = stage2_context_component(row["name"])
+        component = stage2_context_component(row["name"], plugin_layer_name, plugin_component)
         if not component:
             continue
         enriched = dict(row)
@@ -152,11 +163,11 @@ def stage2_plugin_context_summary(summary: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     candidate_boundaries = [
-        boundary("relu_linear_att_plugin_only", ["relu_linear_att_plugin"]),
+        boundary(plugin_boundary_name, [plugin_component]),
         boundary("aggregation_only", ["aggregation"]),
-        boundary("aggregation_plus_plugin_proxy", ["aggregation", "relu_linear_att_plugin"]),
+        boundary(combined_boundary_name, ["aggregation", plugin_component]),
         boundary("qkv_proj_overhead", ["qkv", "proj_add"]),
-        boundary("full_stage2_context_plugin_path", ["qkv", "aggregation", "relu_linear_att_plugin", "proj_add"]),
+        boundary("full_stage2_context_plugin_path", ["qkv", "aggregation", plugin_component, "proj_add"]),
     ]
 
     return {
@@ -179,7 +190,12 @@ def plugin_kernel_types(con: sqlite3.Connection, measure: int, plugin_layers: Se
     return base_attr.kernel_type_summary(con, measure, correlations)
 
 
-def baseline_comparison(current: Dict[str, Any], baseline_path: Path) -> Dict[str, Any]:
+def baseline_comparison(
+    current: Dict[str, Any],
+    baseline_path: Path,
+    plugin_boundary_name: str,
+    combined_boundary_name: str,
+) -> Dict[str, Any]:
     if not baseline_path.is_file():
         return {"status": "missing", "baseline_summary_json": str(baseline_path)}
 
@@ -201,8 +217,8 @@ def baseline_comparison(current: Dict[str, Any], baseline_path: Path) -> Dict[st
 
     base_attention = find_boundary(base_ctx, "attention_core")
     base_mid = find_boundary(base_ctx, "aggregation_plus_attention_core")
-    cur_plugin = find_boundary(cur_ctx, "relu_linear_att_plugin_only")
-    cur_mid = find_boundary(cur_ctx, "aggregation_plus_plugin_proxy")
+    cur_plugin = find_boundary(cur_ctx, plugin_boundary_name)
+    cur_mid = find_boundary(cur_ctx, combined_boundary_name)
     base_aggregation = find_component(base_ctx, "aggregation")
     cur_aggregation = find_component(cur_ctx, "aggregation")
 
@@ -225,8 +241,8 @@ def baseline_comparison(current: Dict[str, Any], baseline_path: Path) -> Dict[st
         "status": "ok",
         "baseline_summary_json": str(baseline_path),
         "rows": [
-            diff_row("relu_linear_att_proxy: baseline attention_core -> plugin layer", base_attention, cur_plugin),
-            diff_row("p1b_proxy: baseline aggregation_plus_attention_core -> aggregation_plus_plugin", base_mid, cur_mid),
+            diff_row(f"attention_proxy: baseline attention_core -> {plugin_boundary_name}", base_attention, cur_plugin),
+            diff_row(f"middle_boundary: baseline aggregation_plus_attention_core -> {combined_boundary_name}", base_mid, cur_mid),
             diff_row("aggregation_preserved", base_aggregation, cur_aggregation),
             diff_row("stage2_context_total", base_ctx, cur_ctx),
         ],
@@ -309,7 +325,8 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
             "|---|---|---:|---:|---:|",
         ]
     )
-    for row in [item for item in ctx["layers"] if item["component"] == "relu_linear_att_plugin"]:
+    plugin_component = summary.get("plugin_component", DEFAULT_PLUGIN_COMPONENT)
+    for row in [item for item in ctx["layers"] if item["component"] == plugin_component]:
         name = row["name"].replace("|", "\\|")
         lines.append(
             f"| `{row['block']}` | `{name}` | {row['avg_kernel_ms']:.3f} | "
@@ -374,8 +391,8 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
             "## Interpretation Notes",
             "",
             "- This Plugin engine trace executes only the Phase 3 Plugin engine, not the Phase 2 baseline engine.",
-            "- `relu_linear_att_plugin_only` is the runtime cost of the two custom Plugin layers after TensorRT graph replacement.",
-            "- `aggregation_plus_plugin_proxy` is the Phase 3 proxy for the previous `aggregation + cat + relu_linear_att` middle-boundary candidate; `cat` is no longer a separate TensorRT layer at this boundary.",
+            f"- `{summary.get('plugin_boundary_name')}` is the runtime cost of the two custom Plugin layers after TensorRT graph replacement.",
+            f"- `{summary.get('combined_boundary_name')}` is the Phase 3 proxy for the previous middle-boundary candidate; `cat` may no longer be a separate TensorRT layer at this boundary.",
             "- The comparison table uses Phase 2 TensorRT baseline attribution as the before state and this Plugin engine attribution as the after state.",
         ]
     )
@@ -392,10 +409,24 @@ def main() -> None:
     summary["kernel_types"] = base_attr.kernel_type_summary(con, summary["measure"], execute_correlations)
     summary["memory"] = base_attr.memory_summary(con, summary["measure"], execute_intervals)
     summary["benchmark_target"] = metrics.get("benchmark_target")
-    summary["stage2_plugin_context"] = stage2_plugin_context_summary(summary)
-    plugin_layers = [row for row in summary["stage2_plugin_context"]["layers"] if row["component"] == "relu_linear_att_plugin"]
+    summary["plugin_layer_name"] = args.plugin_layer_name
+    summary["plugin_component"] = args.plugin_component
+    summary["plugin_boundary_name"] = args.plugin_boundary_name
+    summary["combined_boundary_name"] = args.combined_boundary_name
+    summary["stage2_plugin_context"] = stage2_plugin_context_summary(
+        summary,
+        args.plugin_layer_name,
+        args.plugin_component,
+        args.plugin_boundary_name,
+        args.combined_boundary_name,
+    )
+    plugin_layers = [
+        row for row in summary["stage2_plugin_context"]["layers"] if row["component"] == args.plugin_component
+    ]
     summary["plugin_kernel_types"] = plugin_kernel_types(con, summary["measure"], plugin_layers)
-    summary["baseline_comparison"] = baseline_comparison(summary, args.baseline_summary_json)
+    summary["baseline_comparison"] = baseline_comparison(
+        summary, args.baseline_summary_json, args.plugin_boundary_name, args.combined_boundary_name
+    )
 
     args.out_md.parent.mkdir(parents=True, exist_ok=True)
     args.out_md.write_text(render_markdown(summary, args.sqlite, args.metrics, args.top_k), encoding="utf-8")
