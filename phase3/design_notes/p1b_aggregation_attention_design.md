@@ -2,7 +2,7 @@
 
 > **关联阶段**：[`../README.md`](../README.md)
 >
-> **状态**：v1.0。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution，以及 P1b-1 到 P1b-5 的 kernel 优化均已完成。当前结论是：naive P1b 数学正确但性能退化；P1b-1 fused aggregation+cat 修复了主要退化点；P1b-2 / P1b-4 / P1b-5 通过 shared-memory weight/input tile 复用继续降低 `fusedAggregationCatKernel`。当前采纳版本 P1b-5 的 Plugin layer 为 `3.241ms/iter`、`6 launches/iter`，对比 Phase 2 baseline `aggregation + attention_core` `5.443ms/iter`、`38 launches/iter` 达到 `1.679x` kernel-time speedup；冷机端到端 p50 为 baseline `54.297ms` vs P1b-5 `52.455ms`，speedup `1.035x`。
+> **状态**：v1.1。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution，以及 P1b-1 到 P1b-7 的 kernel 优化均已完成。当前结论是：naive P1b 数学正确但性能退化；P1b-1 fused aggregation+cat 修复了主要退化点；P1b-2 / P1b-4 / P1b-5 / P1b-7 通过 shared-memory weight/input tile 复用和 CTA layout A/B 继续降低 `fusedAggregationCatKernel`。当前采纳版本 P1b-7 的 Plugin layer 为 `3.043ms/iter`、`6 launches/iter`，对比 Phase 2 baseline `aggregation + attention_core` `5.443ms/iter`、`38 launches/iter` 达到 `1.789x` kernel-time speedup；冷机端到端 p50 为 baseline `54.380ms` vs P1b-7 `52.311ms`，speedup `1.040x`。
 
 ---
 
@@ -189,7 +189,7 @@ P1b 相关产物：
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.json`
 
-当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness、真实 engine 端到端 cold-run benchmark、Nsight attribution 和 fused aggregation+cat 后续优化。结论是：P1b 边界本身有价值；naive aggregation 版本不采纳；当前采纳版本是 P1b-5 `kDepthwiseTileChannels=8`，它已接近 P1a proxy 水平，但继续优化仍应以小步 A/B 和冷机复核为准。
+当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness、真实 engine 端到端 cold-run benchmark、Nsight attribution 和 fused aggregation+cat 后续优化。结论是：P1b 边界本身有价值；naive aggregation 版本不采纳；当前采纳版本是 P1b-7 CTA512 / 4-row tile，它已接近 P1a proxy 水平，但继续优化仍应以小步 A/B 和冷机复核为准。
 
 ---
 
@@ -678,7 +678,7 @@ Nsight 对比：
 | `aggregation + attention_core` / `p1b_depthwise_tile_ch8_plugin_boundary` | `5.443 ms / 38 launches` | `3.241 ms / 6 launches` | `1.679x` |
 | `stage2_context_total` | `6.383 ms / 42 launches` | `4.204 ms / 10 launches` | `1.518x` |
 
-P1b-5 是当前 P1b 的采纳版本。它说明 P1b-4 之后仍有收益可从 tile/channel 组织中挤出，但收益已进入 `0.3ms/iter` 级别。继续优化时应避免大改边界，优先做小步 A/B：例如 warp-level output reuse、或更细的 CTA layout 变体，并继续坚持冷机 benchmark + Nsight attribution 双证据。
+P1b-5 曾是 P1b 的采纳版本。它说明 P1b-4 之后仍有收益可从 tile/channel 组织中挤出，但收益已进入 `0.3ms/iter` 级别。后续 P1b-7 进一步验证了 CTA layout A/B 仍有小幅收益。
 
 ## 19. P1b-6 Probe：Depthwise Tile Channel Chunk = 16（不采纳）
 
@@ -698,4 +698,55 @@ PluginV2DynamicExtRunner::execute: Assertion status == kSTATUS_SUCCESS failed
 | pointwise weight tile | `16 * 16 * 4 = 1,024 bytes` |
 | Approx total | `53,312 bytes` |
 
-这个规模已经超过常见 Pascal per-block shared memory `48KB` 约束；即便某些配置能提高 shared memory 配额，在 TensorRT Plugin 当前 launch 路径下也没有通过执行验证。因此 P1b-6 记录为 `evaluated, not adopted`，主线保持 P1b-5 的 `kDepthwiseTileChannels=8`。
+这个规模已经超过常见 Pascal per-block shared memory `48KB` 约束；即便某些配置能提高 shared memory 配额，在 TensorRT Plugin 当前 launch 路径下也没有通过执行验证。因此 P1b-6 记录为 `evaluated, not adopted`，主线没有采用 `kDepthwiseTileChannels=16`。
+
+## 20. P1b-7：CTA512 / 4-Row Tile
+
+P1b-7 保留 P1b-5 的 `kDepthwiseTileChannels=8`，但把 spatial CTA layout 从两行 tile 改成四行 tile：
+
+```cpp
+constexpr int32_t kAggregationThreads = 512;
+constexpr int32_t kDepthwiseTileRows = 8;
+```
+
+真实 `stage2/context` 输入固定为 `H=64, W=128`。P1b-5 中一个 CTA 覆盖 `256` 个 spatial positions，也就是两行 `2x128`，shared input tile 为 `6x132`：两行有效输出加上下各 2 行 halo。P1b-7 改为一个 CTA 覆盖四行 `4x128`，shared input tile 为 `8x132`：四行有效输出加上下各 2 行 halo。
+
+这个变体的动机是减少跨 CTA 的 halo 重复加载：
+
+| Layout | Spatial per CTA | Tile rows loaded | Row-load ratio |
+|---|---:|---:|---:|
+| P1b-5 | `2 rows` | `6 rows` | `3.0x` |
+| P1b-7 | `4 rows` | `8 rows` | `2.0x` |
+
+代价是每个 CTA 的线程数从 256 增到 512，shared input tile 从 `8 * 6 * 132 * 4 = 25,344 bytes` 增到 `8 * 8 * 132 * 4 = 33,792 bytes`。加上 depthwise / pointwise shared 后仍低于 P1b-6 ch16 的失败规模，并通过了 block-level validation。
+
+| 产物 | 文件 |
+|---|---|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md) |
+| Nsight attribution | [`../results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md) |
+
+| 指标 | 数值 |
+|---|---:|
+| Baseline TRT p50 | `54.380 ms` |
+| P1b-7 Plugin TRT p50 | `52.311 ms` |
+| p50 speedup | `1.0395x` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+| Argmax agreement | `1.0` |
+
+Nsight 对比：
+
+| 项 | P1b-5 | P1b-7 | 变化 |
+|---|---:|---:|---:|
+| P1b Plugin layer | `3.241 ms/iter` | `3.043 ms/iter` | `-0.198 ms` |
+| `fusedAggregationCatKernel` | `1.926 ms/iter` | `1.730 ms/iter` | `-0.196 ms` |
+| `computeVk` | `0.963 ms/iter` | `0.961 ms/iter` | `-0.002 ms` |
+| `computeOutput` | `0.351 ms/iter` | `0.351 ms/iter` | `0.000 ms` |
+
+边界对比：
+
+| Boundary | Phase 2 baseline | P1b-7 | Speedup |
+|---|---:|---:|---:|
+| `aggregation + attention_core` / `p1b_cta512_plugin_boundary` | `5.443 ms / 38 launches` | `3.043 ms / 6 launches` | `1.789x` |
+| `stage2_context_total` | `6.383 ms / 42 launches` | `4.002 ms / 10 launches` | `1.595x` |
+
+P1b-7 是当前 P1b 的采纳版本。它说明在不能继续增大 channel chunk 的前提下，扩大 spatial tile 的行数仍能减少 halo 重复加载，并带来约 `0.2ms/iter` 的 kernel-time 改善。后续继续优化应优先考虑不增加 shared memory 峰值的方式，例如 warp-level output reuse 或更细的 pointwise 输出映射。

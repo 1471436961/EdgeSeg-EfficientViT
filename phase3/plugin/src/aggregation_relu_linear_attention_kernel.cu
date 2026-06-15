@@ -3,14 +3,14 @@
 
 namespace {
 
-constexpr int32_t kAggregationThreads = 256;
+constexpr int32_t kAggregationThreads = 512;
 constexpr int32_t kSpecializedDim = 16;
 constexpr int32_t kAggregationGroups = 12;
 constexpr int32_t kChannelsPerAggregationGroup = 16;
 constexpr int32_t kDepthwiseKernel = 5;
 constexpr int32_t kDepthwiseKernelElements = kDepthwiseKernel * kDepthwiseKernel;
 constexpr int32_t kDepthwiseTileChannels = 8;
-constexpr int32_t kDepthwiseTileRows = 6;
+constexpr int32_t kDepthwiseTileRows = 8;
 constexpr int32_t kDepthwiseTileWidth = 132;
 constexpr int32_t kSpecializedStage2Width = 128;
 
