@@ -901,3 +901,31 @@ if (globalW >= 0 && globalW < width) {
 | Plugin TRT vs baseline TRT allclose | `true` |
 
 判断：P1b-12a 不采纳。虽然减少了大多数 block 的高度边界比较，但新增 uniform branch 与更复杂控制流没有换来收益，端到端 p50 反而慢约 `0.199 ms`。这和 P1b-3 interior fast path 的结论一致：当前 `fusedAggregationCatKernel` 不能只靠“减少边界判断”解决；主线恢复并保持 P1b-7。
+
+## 26. P1b-13a Probe：Shared-Center QKV Copy（不采纳）
+
+P1b-13a 尝试减少 `fusedAggregationCatKernel` 中 qkv 原始通道 copy 的 global load。P1b-7 在 row-tile 路径里先把 depthwise input tile 加载到 shared memory；对每个输出像素来说，`ky=2, kx=2` 的 tile center 正好等于原始 `input[channelBase + n]`。因此 probe 将：
+
+```cpp
+attentionInput[channelBase + n] = input[channelBase + n];
+```
+
+替换为：
+
+```cpp
+const int32_t centerIndex =
+    tileChannel * tilePlaneElements + (localH + 2) * kDepthwiseTileWidth + localW + 2;
+attentionInput[channelBase + n] = depthwiseInputTile[centerIndex];
+```
+
+动机是避免每线程额外 16 次 qkv copy 的 global load，复用已经加载到 shared memory 的中心值。该变体编译通过，block-level validation 通过，但端到端 benchmark 慢于 P1b-7：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.483 ms` |
+| P1b-13a probe p50 | `52.889 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+判断：P1b-13a 不采纳。虽然它减少了一部分 global load，但新增 shared load、地址计算和 dependency chain 明显不划算；原始 global qkv copy 很可能已经是 coalesced 且相对便宜的路径。该结果进一步说明，当前 P1b 后续优化不应继续做局部“看起来少一次 load”的替换，而应考虑更大的线程职责重构或重新划分 depthwise / pointwise 的并行方式。
