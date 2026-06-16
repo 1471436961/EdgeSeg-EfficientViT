@@ -1,0 +1,11 @@
+==59520== NVPROF is profiling process 59520, command: D:\software\anaconda3\envs\efficientvit\python.exe -B phase3\scripts\benchmark_plugin_engine.py --weights phase1\weights\efficientvit_seg_b0_cityscapes.pt --input phase1\data\city_asset_cityscapes_like.png --plugin-engine phase3\results\engines\efficientv
+==59520== Profiling application: D:\software\anaconda3\envs\efficientvit\python.exe -B phase3\scripts\benchmark_plugin_engine.py --weights phase1\weights\efficientvit_seg_b0_cityscapes.pt --input phase1\data\city_asset_cityscapes_like.png --plugin-engine phase3\results\engines\efficientv
+==59520== Profiling result:
+==59520== Metric result:
+"Device","Kernel","Invocations","Metric Name","Metric Description","Min","Max","Avg"
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__588b81e2_43_aggregation_relu_linear_attention_kernel_cu_8efb7909::fusedAggregationCatKernel(float const *, float const *, float const *, float*, int, int)",8,"achieved_occupancy","Achieved Occupancy",0.495970,0.496689,0.496249
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__588b81e2_43_aggregation_relu_linear_attention_kernel_cu_8efb7909::fusedAggregationCatKernel(float const *, float const *, float const *, float*, int, int)",8,"sm_efficiency","Multiprocessor Activity",99.595344%,99.650606%,99.622755%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__588b81e2_43_aggregation_relu_linear_attention_kernel_cu_8efb7909::fusedAggregationCatKernel(float const *, float const *, float const *, float*, int, int)",8,"eligible_warps_per_cycle","Eligible Warps Per Active Cycle",3.715997,3.811085,3.767498
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__588b81e2_43_aggregation_relu_linear_attention_kernel_cu_8efb7909::fusedAggregationCatKernel(float const *, float const *, float const *, float*, int, int)",8,"issue_slot_utilization","Issue Slot Utilization",47.397927%,48.367666%,47.873806%
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__588b81e2_43_aggregation_relu_linear_attention_kernel_cu_8efb7909::fusedAggregationCatKernel(float const *, float const *, float const *, float*, int, int)",8,"ipc","Executed IPC",2.429707,2.479386,2.454078
+"NVIDIA GeForce MX250 (0)","_GLOBAL__N__588b81e2_43_aggregation_relu_linear_attention_kernel_cu_8efb7909::fusedAggregationCatKernel(float const *, float const *, float const *, float*, int, int)",8,"issued_ipc","Issued IPC",2.429808,2.479527,2.454193

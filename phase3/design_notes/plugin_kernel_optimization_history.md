@@ -161,6 +161,9 @@ P1b 的目标边界是 `aggregation + cat + relu_linear_att`，只替换两个 `
 | P1b-6 probe | 继续把 depthwise row-tile channel chunk 从 8 扩到 16 | 未进入 benchmark | validation 执行失败 | 不适用 | 不采纳；shared input tile 约 `50,688 bytes`，加 depthwise/pointwise shared 后约 `53,312 bytes/block`，超过常见 Pascal per-block shared memory `48KB` 约束，TensorRT Plugin 执行返回 false |
 | P1b-7 | 在 P1b-5 基础上，把 CTA 从两行 `2x128` spatial tile 扩到四行 `4x128` spatial tile；`kAggregationThreads=512`、`kDepthwiseTileRows=8` | `52.311 ms` vs baseline `54.380 ms`，`1.0395x` | `3.043 ms/iter`，`6 launches/iter` | `fusedAggregationCatKernel 1.730 ms`、`computeVk 0.961 ms`、`computeOutput 0.351 ms` | 有效；减少跨 CTA halo 重复加载后，P1b 中段边界相对 Phase 2 baseline 达到 `1.789x` kernel-time speedup，stage2/context total 达到 `1.595x` |
 | P1b-8 probe | 在 P1b-7 基础上跳过最后一个 channel chunk 后的冗余 `__syncthreads()` | `53.123 ms` vs baseline `54.380 ms`，`1.0237x` | 未采集 Nsight；benchmark 已显示慢于 P1b-7 | 不适用 | 不采纳；虽然仍比 Phase 2 baseline 快，但慢于 P1b-7 的 `52.311 ms`，条件同步/控制流成本可能抵消了省掉一次 barrier 的收益 |
+| P1b-9 probe | 在 P1b-7 基础上，把 grouped pointwise 16 个输出改为单线程内 16 个标量累加器，尝试减少 `depthwise[i]` 重读 | `52.431 ms` vs baseline `54.450 ms`，`1.0385x` | 未采集 Nsight；benchmark 已显示慢于 P1b-7 | 不适用 | 不采纳；该变体 correctness 通过且仍比 Phase 2 baseline 快，但慢于 P1b-7 的 `52.311 ms`，推测寄存器压力和展开指令数增加抵消了减少 depthwise 重读的收益 |
+| P1b-10 probe | 在 P1b-7 基础上，把 grouped pointwise 输出折中为每次 4 个标量累加器，尝试平衡 depthwise 复用与寄存器压力 | `54.197 ms` vs baseline `54.453 ms`，`1.0047x` | 未采集 Nsight；benchmark 已显示明显慢于 P1b-7 | 不适用 | 不采纳；4-output 分组比 16-output 全展开更温和，但仍显著慢于 P1b-7，说明当前 pointwise 输出映射方向不是有效主线 |
+| P1b-11a probe | 使用 `nvprof` 定位 P1b-7 `fusedAggregationCatKernel`，再把 shared row pitch 从 `132` 改为 `133` 测试 bank/stride 假设 | `52.268 ms` vs baseline `54.298 ms`，`1.0388x` | 未采集 Nsight；`nvprof` 显示 shared efficiency 几乎不变 | `shared_efficiency 41.7087% -> 41.7221%`，`global load transactions 2,423,810 -> 2,435,330` | 不采纳；p50 只快 `0.043 ms`，低于当前 MX250 噪声口径，且硬件指标没有支持 row-pitch padding 有效，主线保持 P1b-7 的 `kDepthwiseTileWidth=132` |
 
 P1b-2 的第一次热机 benchmark 曾显示明显负收益：baseline p50 `54.585 ms`，Plugin p50 `59.144 ms`。冷机重测后转为 baseline p50 `54.306 ms`，Plugin p50 `53.530 ms`。因此该热机样本只作为测量纪律提醒，不作为性能结论。
 
@@ -175,6 +178,10 @@ P1b 当前结论：
 7. **P1b-6 给出了 shared memory 上限信号**。`kDepthwiseTileChannels=16` 让每个 CTA 的 shared memory 需求约 `53KB`，在当前 MX250 / `sm_61` TensorRT Plugin 路径下无法通过 execution validation；因此后续不能继续简单放大 channel chunk。
 8. **P1b-7 证明 CTA spatial layout 仍有收益**。在保持 `kDepthwiseTileChannels=8` 的前提下，把 tile 从两行扩到四行，让 `fusedAggregationCatKernel` 再下降约 `0.196 ms/iter`，说明 halo 重复加载仍是可压缩成本。
 9. **P1b-8 说明同步优化不能只看语义冗余**。最后一个 chunk 后的 barrier 语义上可省，但条件同步带来的控制流和编译调度成本让端到端退化；后续不应继续沿这个方向微调。
+10. **P1b-9 说明 pointwise 输出展开也不能只看重用次数**。16 个输出并行累加减少了 `depthwise[i]` 的重复读取，但增加了每线程活跃标量、寄存器压力和展开指令数；在当前 MX250/Pascal 路径上不如原始嵌套输出循环。
+11. **P1b-10 基本排除了当前线程内 pointwise 输出重映射方向**。折中为 4 个输出累加器后仍明显变慢，说明该方向的主要问题不是“16 个累加器太多”这么简单，而是当前编译器/寄存器/指令调度组合下，原始嵌套循环更合适。
+12. **P1b-7 fused kernel 不是纯 DRAM bandwidth-bound，也不是 occupancy-bound**。`nvprof` 显示 `achieved_occupancy ~= 0.496`、`sm_efficiency ~= 99.6%`、DRAM/L2 利用率不高、local memory overhead 为 0；最大 stall 是 `stall_exec_dependency ~= 53%`，更像 instruction / dependency scheduling 主导。
+13. **P1b-11a 排除了简单 row-pitch padding 方向**。把 shared tile width 从 `132` 改到 `133` 后，`shared_efficiency` 几乎不变，global load transactions 反而略增；端到端 p50 的 `0.043 ms` 改善不足以采纳。
 
 P1b-2 相关文件：
 
@@ -187,6 +194,10 @@ P1b-2 相关文件：
 - [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_ch8_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_ch8_nsys_attribution_summary.md)
 - [`../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md)
 - [`../results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md)
+- [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md)
+- [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md)
+- [`../results/metrics/nvprof_p1b7_fused_summary.md`](../results/metrics/nvprof_p1b7_fused_summary.md)
+- [`../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md)
 
 ---
 
@@ -205,7 +216,9 @@ P1b-2 相关文件：
 | P1b-6 | depthwise tile channel chunk = 16 | 继续减少 channel chunk 循环 | 已 probe，不采纳；shared memory 约 `53KB/block`，validation 执行失败 |
 | P1b-7 | CTA512 / 4-row tile | 减少跨 CTA halo 重复加载 | 已完成并采纳；`fusedAggregationCatKernel` 降到 `1.730 ms/iter` |
 | P1b-8 | skip final sync | 省掉 row-tile 最后一个 chunk 后的冗余 CTA barrier | 已 probe，不采纳；端到端 p50 `53.123 ms`，慢于 P1b-7 |
-| P1b-9 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | P1b-7 后仍约 `1.730 ms/iter`；下一步应避免继续增大 shared memory 或微调 barrier，可考虑 warp-level output reuse 或 pointwise 输出映射 A/B |
+| P1b-9 | pointwise accumulator probe | 减少 grouped pointwise 输出阶段对 `depthwise[i]` 的重复读取 | 已 probe，不采纳；端到端 p50 `52.431 ms`，慢于 P1b-7 |
+| P1b-10 | pointwise accum4 probe | 在重用 depthwise 与降低寄存器压力之间取折中 | 已 probe，不采纳；端到端 p50 `54.197 ms`，明显慢于 P1b-7 |
+| P1b-11 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | 已用 `nvprof` 完成 P1b-7 fused kernel 定性：不是纯 DRAM bandwidth-bound / occupancy-bound，更像 instruction dependency 主导；P1b-11a row-pitch padding 已 probe，不采纳。下一步若继续，应考虑更大的线程职责重构或减少 dependency chain，而不是继续微调 shared pitch / barrier / 单线程 pointwise 累加器 |
 | P1b-cooldown-rerun | 冷机重复 benchmark | 区分真实收益和热机/频率偏置 | MX250 整网 1ms 级差异敏感；P1b-2 已出现热机负、冷机正的反例 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。

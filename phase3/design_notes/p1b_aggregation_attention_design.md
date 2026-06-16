@@ -774,3 +774,96 @@ if (channelChunk + kDepthwiseTileChannels < kChannelsPerAggregationGroup) {
 | Plugin TRT vs baseline TRT allclose | `true` |
 
 判断：P1b-8 虽然仍比 Phase 2 baseline 快，但明显慢于 P1b-7。最可能原因是 uniform conditional barrier 带来的控制流/编译调度成本，超过了省掉最后一次 CTA barrier 的收益。因此 P1b-8 记录为 `evaluated, not adopted`；主线恢复并保持 P1b-7。
+
+## 22. P1b-9 Probe：Pointwise Accumulator Mapping（不采纳）
+
+P1b-9 probe 尝试在 P1b-7 基础上调整 grouped pointwise 输出阶段的映射方式：原始 P1b-7 对每个输出 channel 做一层循环，每次重新读取 `depthwise[i]`；P1b-9 改为单线程内同时维护 16 个输出累加器：
+
+```cpp
+float out0 = 0.0F;
+...
+float out15 = 0.0F;
+
+for (int32_t i = 0; i < kChannelsPerAggregationGroup; ++i) {
+    const float value = depthwise[i];
+    out0 += value * pointwiseTile[0 * kChannelsPerAggregationGroup + i];
+    ...
+    out15 += value * pointwiseTile[15 * kChannelsPerAggregationGroup + i];
+}
+```
+
+动机是减少 `depthwise[i]` 的重复读取，让同一个 depthwise 标量被 16 个 pointwise 输出复用。该变体编译通过，block-level validation 也通过，但端到端 benchmark 低于 P1b-7：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.450 ms` |
+| P1b-9 probe p50 | `52.431 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+判断：P1b-9 仍比 Phase 2 baseline 快，但慢于当前采纳的 P1b-7。最可能原因是单线程内 16 个活跃累加器增加了寄存器压力和展开指令数，抵消了减少 `depthwise[i]` 重读的收益。因此该变体记录为 `evaluated, not adopted`；主线保持 P1b-7 的嵌套 pointwise 输出循环。
+
+## 23. P1b-10 Probe：Pointwise Accumulator-4 Mapping（不采纳）
+
+P1b-10 probe 是 P1b-9 的折中版本：不再一次性维护 16 个输出累加器，而是每次只并行计算 4 个输出，试图降低寄存器压力，同时仍比原始嵌套循环更少重复读取 `depthwise[i]`。
+
+```cpp
+for (int32_t outputBase = 0; outputBase < kChannelsPerAggregationGroup; outputBase += 4) {
+    float sum0 = 0.0F;
+    float sum1 = 0.0F;
+    float sum2 = 0.0F;
+    float sum3 = 0.0F;
+
+    for (int32_t i = 0; i < kChannelsPerAggregationGroup; ++i) {
+        const float value = depthwise[i];
+        sum0 += value * pointwiseTile[(outputBase + 0) * kChannelsPerAggregationGroup + i];
+        ...
+        sum3 += value * pointwiseTile[(outputBase + 3) * kChannelsPerAggregationGroup + i];
+    }
+}
+```
+
+该变体编译通过，block-level validation 也通过，但端到端 benchmark 明显低于 P1b-7：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.453 ms` |
+| P1b-10 probe p50 | `54.197 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+判断：P1b-10 说明当前 pointwise 输出映射方向不应继续投入。即便把累加器数量从 16 个降到 4 个，收益仍不足以抵消新增控制/展开/寄存器调度成本。后续若继续 P1b，应回到 `fusedAggregationCatKernel` 的整体线程职责划分或先用 profiling 进一步判断具体 stall，而不是继续在单线程 pointwise 累加器上微调。
+
+## 24. P1b-11a Probe：Shared Row Pitch Padding（不采纳）
+
+P1b-11a 基于 P1b-7 的 `nvprof` 指标继续做一个低风险 probe。P1b-7 的 `shared_efficiency` 只有约 `41.71%`，因此尝试把 depthwise input shared tile 的行宽从 `132` 改成 `133`：
+
+```cpp
+constexpr int32_t kDepthwiseTileWidth = 133;
+```
+
+动机是用一个 padding column 改变 shared memory 行 stride，观察是否存在明显 bank/stride 问题。该变体编译通过，block-level validation 通过，端到端 benchmark 结果如下：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md) |
+| P1b-7 benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md) |
+| P1b-11a probe p50 | `52.268 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+同时补充 `nvprof` 指标对照：
+
+| 指标 | P1b-7 | P1b-11a |
+|---|---:|---:|
+| shared efficiency | `41.7087%` | `41.7221%` |
+| shared load transactions | `3,244,032` | `3,244,032` |
+| shared store transactions | `105,600` | `106,368` |
+| global load transactions | `2,423,810` | `2,435,330` |
+| local memory overhead | `0.00%` | `0.00%` |
+
+判断：P1b-11a 的 p50 虽略低于 P1b-7，但差值只有 `0.043ms`，属于 MX250 当前测量噪声范围；更关键的是 `shared_efficiency` 几乎没有变化，global load transactions 还略增。因此该 probe 记录为 `evaluated, not adopted`；主线恢复并保持 P1b-7 的 `kDepthwiseTileWidth=132`。
+
+P1b-7 fused kernel 的硬件指标汇总见 [`../results/metrics/nvprof_p1b7_fused_summary.md`](../results/metrics/nvprof_p1b7_fused_summary.md)。当前判断是：`fusedAggregationCatKernel` 更像 instruction / dependency scheduling 主导，不是纯 DRAM bandwidth-bound，也不是 occupancy-bound。
