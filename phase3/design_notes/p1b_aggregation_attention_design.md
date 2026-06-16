@@ -867,3 +867,37 @@ constexpr int32_t kDepthwiseTileWidth = 133;
 判断：P1b-11a 的 p50 虽略低于 P1b-7，但差值只有 `0.043ms`，属于 MX250 当前测量噪声范围；更关键的是 `shared_efficiency` 几乎没有变化，global load transactions 还略增。因此该 probe 记录为 `evaluated, not adopted`；主线恢复并保持 P1b-7 的 `kDepthwiseTileWidth=132`。
 
 P1b-7 fused kernel 的硬件指标汇总见 [`../results/metrics/nvprof_p1b7_fused_summary.md`](../results/metrics/nvprof_p1b7_fused_summary.md)。当前判断是：`fusedAggregationCatKernel` 更像 instruction / dependency scheduling 主导，不是纯 DRAM bandwidth-bound，也不是 occupancy-bound。
+
+## 25. P1b-12a Probe：Height Boundary Fast Path（不采纳）
+
+P1b-12a 基于 P1b-7 继续尝试减少 row-tile shared load 阶段的边界判断。当前 P1b-7 对每个 shared tile 元素都执行：
+
+```cpp
+if (globalH >= 0 && globalH < height && globalW >= 0 && globalW < width) {
+    value = input[channel * spatialSize + globalH * width + globalW];
+}
+```
+
+但在真实 stage2 contract 下，`height=64`、`width=128`、`kAggregationThreads=512`，一个 CTA 覆盖 4 行输出。16 个 spatial block 中只有第 0 个和第 15 个会触碰高度 halo 越界；中间 14 个 block 的高度方向都是安全的。因此 P1b-12a 增加 `interiorTileH`，在中间 block 只检查左右列 halo：
+
+```cpp
+const bool interiorTileH = (tileBaseH >= 2) && (tileBaseH + kDepthwiseTileRows - 3 < height);
+
+if (globalW >= 0 && globalW < width) {
+    if (interiorTileH || (globalH >= 0 && globalH < height)) {
+        value = input[channel * spatialSize + globalH * width + globalW];
+    }
+}
+```
+
+该变体编译通过，block-level validation 通过，但端到端 benchmark 慢于 P1b-7：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.387 ms` |
+| P1b-12a probe p50 | `52.510 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+判断：P1b-12a 不采纳。虽然减少了大多数 block 的高度边界比较，但新增 uniform branch 与更复杂控制流没有换来收益，端到端 p50 反而慢约 `0.199 ms`。这和 P1b-3 interior fast path 的结论一致：当前 `fusedAggregationCatKernel` 不能只靠“减少边界判断”解决；主线恢复并保持 P1b-7。

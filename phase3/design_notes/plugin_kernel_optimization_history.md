@@ -164,6 +164,7 @@ P1b 的目标边界是 `aggregation + cat + relu_linear_att`，只替换两个 `
 | P1b-9 probe | 在 P1b-7 基础上，把 grouped pointwise 16 个输出改为单线程内 16 个标量累加器，尝试减少 `depthwise[i]` 重读 | `52.431 ms` vs baseline `54.450 ms`，`1.0385x` | 未采集 Nsight；benchmark 已显示慢于 P1b-7 | 不适用 | 不采纳；该变体 correctness 通过且仍比 Phase 2 baseline 快，但慢于 P1b-7 的 `52.311 ms`，推测寄存器压力和展开指令数增加抵消了减少 depthwise 重读的收益 |
 | P1b-10 probe | 在 P1b-7 基础上，把 grouped pointwise 输出折中为每次 4 个标量累加器，尝试平衡 depthwise 复用与寄存器压力 | `54.197 ms` vs baseline `54.453 ms`，`1.0047x` | 未采集 Nsight；benchmark 已显示明显慢于 P1b-7 | 不适用 | 不采纳；4-output 分组比 16-output 全展开更温和，但仍显著慢于 P1b-7，说明当前 pointwise 输出映射方向不是有效主线 |
 | P1b-11a probe | 使用 `nvprof` 定位 P1b-7 `fusedAggregationCatKernel`，再把 shared row pitch 从 `132` 改为 `133` 测试 bank/stride 假设 | `52.268 ms` vs baseline `54.298 ms`，`1.0388x` | 未采集 Nsight；`nvprof` 显示 shared efficiency 几乎不变 | `shared_efficiency 41.7087% -> 41.7221%`，`global load transactions 2,423,810 -> 2,435,330` | 不采纳；p50 只快 `0.043 ms`，低于当前 MX250 噪声口径，且硬件指标没有支持 row-pitch padding 有效，主线保持 P1b-7 的 `kDepthwiseTileWidth=132` |
+| P1b-12a probe | 在 row-tile shared load 阶段为中间 spatial block 增加高度方向 fast path，只保留左右 halo 检查 | `52.510 ms` vs baseline `54.387 ms`，`1.0356x` | 未采集 Nsight；benchmark 已显示慢于 P1b-7 | 不适用 | 不采纳；减少高度边界比较没有换来收益，新增 uniform branch / 控制流复杂度反而让 p50 慢于 P1b-7 约 `0.199 ms` |
 
 P1b-2 的第一次热机 benchmark 曾显示明显负收益：baseline p50 `54.585 ms`，Plugin p50 `59.144 ms`。冷机重测后转为 baseline p50 `54.306 ms`，Plugin p50 `53.530 ms`。因此该热机样本只作为测量纪律提醒，不作为性能结论。
 
@@ -182,6 +183,7 @@ P1b 当前结论：
 11. **P1b-10 基本排除了当前线程内 pointwise 输出重映射方向**。折中为 4 个输出累加器后仍明显变慢，说明该方向的主要问题不是“16 个累加器太多”这么简单，而是当前编译器/寄存器/指令调度组合下，原始嵌套循环更合适。
 12. **P1b-7 fused kernel 不是纯 DRAM bandwidth-bound，也不是 occupancy-bound**。`nvprof` 显示 `achieved_occupancy ~= 0.496`、`sm_efficiency ~= 99.6%`、DRAM/L2 利用率不高、local memory overhead 为 0；最大 stall 是 `stall_exec_dependency ~= 53%`，更像 instruction / dependency scheduling 主导。
 13. **P1b-11a 排除了简单 row-pitch padding 方向**。把 shared tile width 从 `132` 改到 `133` 后，`shared_efficiency` 几乎不变，global load transactions 反而略增；端到端 p50 的 `0.043 ms` 改善不足以采纳。
+14. **P1b-12a 再次确认边界判断不是主瓶颈**。高度方向 fast path 与更早的 P1b-3 interior fast path 一样没有收益，说明当前问题更可能在 dependency chain / 指令调度，而不是单纯的边界条件比较。
 
 P1b-2 相关文件：
 
@@ -198,6 +200,7 @@ P1b-2 相关文件：
 - [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md)
 - [`../results/metrics/nvprof_p1b7_fused_summary.md`](../results/metrics/nvprof_p1b7_fused_summary.md)
 - [`../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md)
+- [`../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md)
 
 ---
 
@@ -218,7 +221,7 @@ P1b-2 相关文件：
 | P1b-8 | skip final sync | 省掉 row-tile 最后一个 chunk 后的冗余 CTA barrier | 已 probe，不采纳；端到端 p50 `53.123 ms`，慢于 P1b-7 |
 | P1b-9 | pointwise accumulator probe | 减少 grouped pointwise 输出阶段对 `depthwise[i]` 的重复读取 | 已 probe，不采纳；端到端 p50 `52.431 ms`，慢于 P1b-7 |
 | P1b-10 | pointwise accum4 probe | 在重用 depthwise 与降低寄存器压力之间取折中 | 已 probe，不采纳；端到端 p50 `54.197 ms`，明显慢于 P1b-7 |
-| P1b-11 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | 已用 `nvprof` 完成 P1b-7 fused kernel 定性：不是纯 DRAM bandwidth-bound / occupancy-bound，更像 instruction dependency 主导；P1b-11a row-pitch padding 已 probe，不采纳。下一步若继续，应考虑更大的线程职责重构或减少 dependency chain，而不是继续微调 shared pitch / barrier / 单线程 pointwise 累加器 |
+| P1b-11/12 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | 已用 `nvprof` 完成 P1b-7 fused kernel 定性：不是纯 DRAM bandwidth-bound / occupancy-bound，更像 instruction dependency 主导；P1b-11a row-pitch padding、P1b-12a height-boundary fast path 均已 probe，不采纳。下一步若继续，应考虑更大的线程职责重构或减少 dependency chain，而不是继续微调 shared pitch / barrier / 边界判断 / 单线程 pointwise 累加器 |
 | P1b-cooldown-rerun | 冷机重复 benchmark | 区分真实收益和热机/频率偏置 | MX250 整网 1ms 级差异敏感；P1b-2 已出现热机负、冷机正的反例 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。
