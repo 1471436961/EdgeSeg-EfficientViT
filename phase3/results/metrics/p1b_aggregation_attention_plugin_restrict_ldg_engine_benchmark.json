@@ -1,0 +1,505 @@
+{
+  "status": "ok",
+  "purpose": "phase3_step7_plugin_engine_benchmark",
+  "scope": "p1b_aggregation_attention_plugin_restrict_ldg_probe",
+  "precision": "fp32",
+  "benchmark_target": "both",
+  "input": {
+    "input_status": "image",
+    "input_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\data\\city_asset_cityscapes_like.png",
+    "input_sha256": "34a663391ddeed9bbcc98c605d881fadbf7bb05ff02a8ffe4136d52599efc630",
+    "input_tensor_sha256": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba",
+    "input_resolution": [
+      1024,
+      2048
+    ],
+    "batch_size": 1,
+    "dtype": "float32",
+    "preprocess": "PIL RGB resize to fixed resolution, scale to [0,1], no mean/std normalization",
+    "input_tensor_sha256_after_cuda": "453c3dbed53930fc78a33d5a876a5c49598a69d0b60a324b573f352fbda512ba"
+  },
+  "weights": {
+    "weights_status": "loaded",
+    "weights_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase1\\weights\\efficientvit_seg_b0_cityscapes.pt",
+    "weights_sha256": "923d6fdd5e93640cc0c2f3f213764f34e80b477cd98a6b294d870ea6df5acc50",
+    "zoo_key": "efficientvit-seg-b0-cityscapes",
+    "weights_load_msg": "create_efficientvit_seg_model(name='efficientvit-seg-b0-cityscapes', pretrained=True) loaded checkpoint"
+  },
+  "compat": {
+    "env_patches": [
+      "triton_stub",
+      "wandb_stub"
+    ],
+    "triton_stubbed": true,
+    "wandb_stubbed": true
+  },
+  "plugin": {
+    "name": "EdgesegAggregationReluLinearAttention_TRT",
+    "version": "1",
+    "namespace": "edgeseg",
+    "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
+    "dll_sha256": "9b80b60044869415063eb359116d737031df1d7e4f22bcf329b640cfe5255d66",
+    "creator_found": true,
+    "registered_creator_count": 66
+  },
+  "engines": {
+    "baseline": {
+      "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase2\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_fp32.engine",
+      "engine_sha256": "be1200ef379b3d4a1d05c9d643dbf1cb2421cb44c2b05743af23ab2b8615cb32",
+      "engine_size_bytes": 3674476,
+      "num_bindings": 2,
+      "num_layers": 155,
+      "has_implicit_batch_dimension": false
+    },
+    "plugin": {
+      "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_p1b_aggregation_attention_plugin_fp32.engine",
+      "engine_sha256": "4ec3ff25e55c5cc401754e9eca6165d39bd671f9eb38fb7bfa266b4ead2415ec",
+      "engine_size_bytes": 3605116,
+      "num_bindings": 2,
+      "num_layers": 144,
+      "has_implicit_batch_dimension": false
+    }
+  },
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "phase3_extra_dll_dirs_added": [
+      "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4\\bin"
+    ],
+    "phase3_extra_dll_dirs_missing": []
+  },
+  "tensorrt": {
+    "version": "8.6.1",
+    "plugin_creator_required": {
+      "name": "EdgesegAggregationReluLinearAttention_TRT",
+      "version": "1",
+      "namespace": "edgeseg"
+    }
+  },
+  "benchmark": {
+    "protocol": "same_process_same_input_cuda_events_execute_only",
+    "execution_order": [
+      "baseline",
+      "plugin"
+    ],
+    "baseline": {
+      "label": "phase2_tensorrt_fp32_baseline",
+      "bindings": [
+        {
+          "index": 0,
+          "name": "input",
+          "is_input": true,
+          "shape": [
+            1,
+            3,
+            1024,
+            2048
+          ],
+          "dtype": "DataType.FLOAT"
+        },
+        {
+          "index": 1,
+          "name": "segout",
+          "is_input": false,
+          "shape": [
+            1,
+            19,
+            128,
+            256
+          ],
+          "dtype": "DataType.FLOAT"
+        }
+      ],
+      "timing": {
+        "mode": "latency",
+        "clock": "cuda_events",
+        "scope": "engine_execute_only_no_preprocess_no_h2d_no_d2h",
+        "warmup": 20,
+        "measure": 100,
+        "stream_handle": 0,
+        "nvtx_enabled": false,
+        "latency_ms": {
+          "mean": 54.45656944274902,
+          "std": 0.19934504798009675,
+          "min": 54.19929504394531,
+          "max": 55.92166519165039,
+          "p50": 54.43123245239258,
+          "p95": 54.62978515625,
+          "p99": 55.13194320678711
+        },
+        "samples_ms": [
+          54.33446502685547,
+          54.26995086669922,
+          54.344703674316406,
+          54.19929504394531,
+          54.28633499145508,
+          54.342655181884766,
+          54.36006546020508,
+          54.28940963745117,
+          54.379520416259766,
+          54.33427047729492,
+          54.31808090209961,
+          54.26176071166992,
+          54.21363067626953,
+          54.34163284301758,
+          54.359039306640625,
+          54.437889099121094,
+          54.36723327636719,
+          54.379520416259766,
+          54.33241653442383,
+          54.42969512939453,
+          54.340606689453125,
+          54.412288665771484,
+          54.21772766113281,
+          54.29043197631836,
+          54.44812774658203,
+          54.29555130004883,
+          54.26483154296875,
+          54.3897590637207,
+          54.410240173339844,
+          54.28019332885742,
+          54.342655181884766,
+          54.36211013793945,
+          54.3928337097168,
+          54.386688232421875,
+          54.25971221923828,
+          54.26790237426758,
+          54.27199935913086,
+          55.92166519165039,
+          54.38054275512695,
+          54.331390380859375,
+          54.31296157836914,
+          54.3191032409668,
+          54.33651351928711,
+          54.38054275512695,
+          54.32012939453125,
+          54.390785217285156,
+          54.315006256103516,
+          54.31603240966797,
+          54.49929428100586,
+          54.54131317138672,
+          54.5167350769043,
+          54.50751876831055,
+          54.545406341552734,
+          54.4266242980957,
+          55.123966217041016,
+          54.48396682739258,
+          54.42252731323242,
+          54.61600112915039,
+          54.53004837036133,
+          54.54336166381836,
+          54.473697662353516,
+          54.545406341552734,
+          54.637569427490234,
+          54.50239944458008,
+          54.51878356933594,
+          54.58534240722656,
+          54.58534240722656,
+          54.62937545776367,
+          54.4983024597168,
+          54.52799987792969,
+          54.57612609863281,
+          54.391841888427734,
+          54.551551818847656,
+          54.5904655456543,
+          54.7061767578125,
+          54.59251022338867,
+          54.6058235168457,
+          54.552574157714844,
+          54.44607925415039,
+          54.615966796875,
+          54.53209686279297,
+          54.50751876831055,
+          54.45836639404297,
+          54.6058235168457,
+          54.51980972290039,
+          54.407169342041016,
+          54.644737243652344,
+          54.531070709228516,
+          54.5412483215332,
+          54.40812683105469,
+          54.49318313598633,
+          54.51571273803711,
+          54.582271575927734,
+          54.45529556274414,
+          54.597633361816406,
+          54.505470275878906,
+          54.51152038574219,
+          54.49417495727539,
+          54.432769775390625,
+          54.48294448852539
+        ]
+      },
+      "output": {
+        "shape": [
+          1,
+          19,
+          128,
+          256
+        ],
+        "sha256": "9d7788f706943db171b78f6244a26cd200a8835a9c270833c62ca13e706fb664"
+      }
+    },
+    "plugin": {
+      "label": "phase3_p1b_aggregation_attention_plugin_fp32_restrict_ldg",
+      "bindings": [
+        {
+          "index": 0,
+          "name": "input",
+          "is_input": true,
+          "shape": [
+            1,
+            3,
+            1024,
+            2048
+          ],
+          "dtype": "DataType.FLOAT"
+        },
+        {
+          "index": 1,
+          "name": "segout",
+          "is_input": false,
+          "shape": [
+            1,
+            19,
+            128,
+            256
+          ],
+          "dtype": "DataType.FLOAT"
+        }
+      ],
+      "timing": {
+        "mode": "latency",
+        "clock": "cuda_events",
+        "scope": "engine_execute_only_no_preprocess_no_h2d_no_d2h",
+        "warmup": 20,
+        "measure": 100,
+        "stream_handle": 0,
+        "nvtx_enabled": false,
+        "latency_ms": {
+          "mean": 53.4104426574707,
+          "std": 0.8682236160100889,
+          "min": 52.37964630126953,
+          "max": 55.36460876464844,
+          "p50": 53.355520248413086,
+          "p95": 54.85900707244873,
+          "p99": 55.31087978363037
+        },
+        "samples_ms": [
+          52.47283172607422,
+          52.46771240234375,
+          52.55372619628906,
+          52.47488021850586,
+          52.44316864013672,
+          52.45951843261719,
+          52.44723129272461,
+          52.47385787963867,
+          52.59571075439453,
+          52.56089782714844,
+          52.584449768066406,
+          52.50048065185547,
+          52.62540817260742,
+          52.47385787963867,
+          52.495361328125,
+          52.541439056396484,
+          52.44620895385742,
+          52.519935607910156,
+          52.52403259277344,
+          52.47078323364258,
+          52.50457763671875,
+          52.557823181152344,
+          52.58137512207031,
+          52.44416046142578,
+          52.543487548828125,
+          52.37964630126953,
+          52.45542526245117,
+          52.46361541748047,
+          52.501502990722656,
+          52.708351135253906,
+          52.4984016418457,
+          52.624385833740234,
+          52.76774215698242,
+          52.46566390991211,
+          52.573184967041016,
+          52.50048065185547,
+          52.54345703125,
+          52.399105072021484,
+          53.23673629760742,
+          53.797889709472656,
+          53.69855880737305,
+          53.62995147705078,
+          53.66783905029297,
+          53.44870376586914,
+          53.54489517211914,
+          53.30329513549805,
+          53.30944061279297,
+          53.407745361328125,
+          53.32070541381836,
+          53.42310333251953,
+          53.35142517089844,
+          53.28169631958008,
+          53.5203857421875,
+          53.403648376464844,
+          53.35347366333008,
+          53.357566833496094,
+          53.365760803222656,
+          53.339134216308594,
+          53.30636978149414,
+          53.405696868896484,
+          53.42720031738281,
+          53.42192077636719,
+          53.3647346496582,
+          53.39750289916992,
+          53.48857498168945,
+          53.32070541381836,
+          53.210113525390625,
+          53.35859298706055,
+          53.41798400878906,
+          53.368831634521484,
+          53.29510498046875,
+          53.36064147949219,
+          53.823486328125,
+          55.23148727416992,
+          55.36460876464844,
+          55.31033706665039,
+          55.28166580200195,
+          54.88332748413086,
+          54.85772705078125,
+          54.772735595703125,
+          54.602752685546875,
+          54.59455871582031,
+          54.47884750366211,
+          54.52083206176758,
+          54.46451187133789,
+          54.505470275878906,
+          54.48396682739258,
+          54.46656036376953,
+          54.47679901123047,
+          54.53926467895508,
+          54.49625778198242,
+          54.439937591552734,
+          54.471614837646484,
+          54.42559814453125,
+          54.545406341552734,
+          54.45836639404297,
+          54.54336166381836,
+          54.50649642944336,
+          54.50751876831055,
+          54.44095993041992
+        ]
+      },
+      "output": {
+        "shape": [
+          1,
+          19,
+          128,
+          256
+        ],
+        "sha256": "1adab346b6b4a1dbbd538cae55a53fbcef7bc375a97dc6b22875ccf9b71d8e2d"
+      }
+    },
+    "speedup": {
+      "baseline": "phase2_tensorrt_fp32_baseline",
+      "candidate": "phase3_p1b_aggregation_attention_plugin_fp32_restrict_ldg",
+      "p50_speedup_baseline_over_plugin": 1.0201612166645773,
+      "mean_speedup_baseline_over_plugin": 1.0195865589803719,
+      "p50_delta_ms_plugin_minus_baseline": -1.0757122039794922,
+      "mean_delta_ms_plugin_minus_baseline": -1.046126785278318,
+      "plugin_is_faster_by_p50": true,
+      "plugin_is_faster_by_mean": true
+    }
+  },
+  "comparisons": {
+    "plugin_vs_baseline_trt": {
+      "comparison_target": "phase2_tensorrt_fp32_baseline",
+      "output_shape": [
+        1,
+        19,
+        128,
+        256
+      ],
+      "max_abs_diff": 4.4345855712890625e-05,
+      "mean_abs_diff": 5.7077852099945105e-06,
+      "max_rel_diff": 0.2352092352092352,
+      "cosine_similarity": 0.9999999999989956,
+      "allclose_pass": true,
+      "allclose_pass_atol_1e_3_rtol_1e_3": true,
+      "argmax_pixel_agreement": 1.0,
+      "argmax_mismatch_pixels": 0,
+      "argmax_total_pixels": 32768,
+      "atol": 0.0001,
+      "rtol": 0.0001
+    },
+    "baseline_trt_vs_pytorch": {
+      "comparison_target": "pytorch_cuda",
+      "output_shape": [
+        1,
+        19,
+        128,
+        256
+      ],
+      "max_abs_diff": 0.0002689361572265625,
+      "mean_abs_diff": 2.5423425543785445e-05,
+      "max_rel_diff": 0.6496815286624203,
+      "cosine_similarity": 0.999999999983229,
+      "allclose_pass": false,
+      "allclose_pass_atol_1e_3_rtol_1e_3": true,
+      "argmax_pixel_agreement": 1.0,
+      "argmax_mismatch_pixels": 0,
+      "argmax_total_pixels": 32768,
+      "atol": 0.0001,
+      "rtol": 0.0001
+    },
+    "plugin_trt_vs_pytorch": {
+      "comparison_target": "pytorch_cuda",
+      "output_shape": [
+        1,
+        19,
+        128,
+        256
+      ],
+      "max_abs_diff": 0.0002818107604980469,
+      "mean_abs_diff": 2.517513391203944e-05,
+      "max_rel_diff": 0.8550955414012739,
+      "cosine_similarity": 0.9999999999832837,
+      "allclose_pass": false,
+      "allclose_pass_atol_1e_3_rtol_1e_3": true,
+      "argmax_pixel_agreement": 1.0,
+      "argmax_mismatch_pixels": 0,
+      "argmax_total_pixels": 32768,
+      "atol": 0.0001,
+      "rtol": 0.0001
+    }
+  },
+  "memory": {
+    "scope": "pytorch_cuda_allocator_only_not_tensorrt_internal",
+    "torch_max_memory_allocated_mb": 37.259765625,
+    "torch_max_memory_reserved_mb": 228.0
+  },
+  "versions": {
+    "python": "3.10.20",
+    "torch": "2.4.1+cu124",
+    "tensorrt": "8.6.1",
+    "numpy": "1.26.4"
+  },
+  "known_risks": [
+    "plugin_engine_replaces_tensorRT_internal_implementation_for_target_subgraph",
+    "latency_excludes_preprocess_h2d_d2h",
+    "execution_order_is_baseline_then_plugin_order_bias_possible",
+    "engine_is_specific_to_gpu_and_tensorrt_version"
+  ],
+  "_runtime_keepalive": true,
+  "timestamp_utc": "2026-06-16T05:52:31.801678+00:00",
+  "script_version": "benchmark_plugin_engine.py@d4db8f5"
+}

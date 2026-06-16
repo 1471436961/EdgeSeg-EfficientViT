@@ -929,3 +929,37 @@ attentionInput[channelBase + n] = depthwiseInputTile[centerIndex];
 | Plugin TRT vs baseline TRT allclose | `true` |
 
 判断：P1b-13a 不采纳。虽然它减少了一部分 global load，但新增 shared load、地址计算和 dependency chain 明显不划算；原始 global qkv copy 很可能已经是 coalesced 且相对便宜的路径。该结果进一步说明，当前 P1b 后续优化不应继续做局部“看起来少一次 load”的替换，而应考虑更大的线程职责重构或重新划分 depthwise / pointwise 的并行方式。
+
+## 27. P1b-14a Probe：`__restrict__` + `__ldg` Read-Only Hint（不采纳）
+
+P1b-14a 是一个低风险编译器/读路径 hint probe：给 `fusedAggregationCatKernel` 的输入指针增加 `__restrict__`，并把只读 global load 改为 `__ldg()`：
+
+```cpp
+__global__ void fusedAggregationCatKernel(
+    float const* __restrict__ input,
+    float const* __restrict__ depthwiseWeight,
+    float const* __restrict__ pointwiseWeight,
+    float* __restrict__ attentionInput,
+    ...
+)
+```
+
+示例读路径：
+
+```cpp
+pointwiseTile[idx] = __ldg(pointwiseWeight + offset);
+value = __ldg(input + offset);
+depthwiseWeightTile[idx] = __ldg(depthwiseWeight + offset);
+```
+
+动机是减少编译器 alias 保守假设，并让 Pascal `sm_61` 使用 read-only load path。该变体编译通过，block-level validation 通过，但端到端 benchmark 明显慢于 P1b-7：
+
+| 指标 | 数值 |
+|---|---:|
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.431 ms` |
+| P1b-14a probe p50 | `53.356 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+
+判断：P1b-14a 不采纳。`__restrict__` / `__ldg` 没有缓解当前瓶颈，反而让端到端 p50 慢约 `1.045 ms`。这与 `nvprof` 对 P1b-7 的判断一致：当前主要问题不是普通 global load 带宽不足，而更像 instruction / dependency scheduling；改变 read-only load path 不能解决 dependency chain，甚至可能破坏原本较好的缓存/调度形态。
