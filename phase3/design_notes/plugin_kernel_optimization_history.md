@@ -167,6 +167,7 @@ P1b 的目标边界是 `aggregation + cat + relu_linear_att`，只替换两个 `
 | P1b-12a probe | 在 row-tile shared load 阶段为中间 spatial block 增加高度方向 fast path，只保留左右 halo 检查 | `52.510 ms` vs baseline `54.387 ms`，`1.0356x` | 未采集 Nsight；benchmark 已显示慢于 P1b-7 | 不适用 | 不采纳；减少高度边界比较没有换来收益，新增 uniform branch / 控制流复杂度反而让 p50 慢于 P1b-7 约 `0.199 ms` |
 | P1b-13a probe | 用 shared tile 的中心值替代 qkv copy 的 global load，尝试减少每线程 16 次原始通道 copy load | `52.889 ms` vs baseline `54.483 ms`，`1.0301x` | 未采集 Nsight；benchmark 已显示明显慢于 P1b-7 | 不适用 | 不采纳；shared center 复用减少了 global load，但新增 shared load、地址计算和 dependency chain 更贵；原始 qkv copy 可能已经足够 coalesced |
 | P1b-14a probe | 给 `fusedAggregationCatKernel` 输入指针增加 `__restrict__`，并把只读 global load 改为 `__ldg()` read-only path | `53.356 ms` vs baseline `54.431 ms`，`1.0201x` | 未采集 Nsight；benchmark 已显示明显慢于 P1b-7 | 不适用 | 不采纳；read-only load / alias hint 没有解决 dependency chain，反而可能破坏当前较好的缓存与调度形态 |
+| P1b-15a probe | 半个 warp 负责一个 spatial pixel：16 个 lane 分摊 16 个 channel 的 depthwise，再用 `__shfl_sync(width=16)` 计算 pointwise output | `67.613 ms` vs baseline `54.668 ms`，`0.8085x` | 未采集 Nsight；benchmark 已足够显示严重退化 | 不适用 | 不采纳；虽然减少单线程长依赖链，但 CTA 数从 `192` 增到 `3072`，horizontal halo 重复加载和 block scheduling 代价远超收益 |
 
 P1b-2 的第一次热机 benchmark 曾显示明显负收益：baseline p50 `54.585 ms`，Plugin p50 `59.144 ms`。冷机重测后转为 baseline p50 `54.306 ms`，Plugin p50 `53.530 ms`。因此该热机样本只作为测量纪律提醒，不作为性能结论。
 
@@ -188,6 +189,7 @@ P1b 当前结论：
 14. **P1b-12a 再次确认边界判断不是主瓶颈**。高度方向 fast path 与更早的 P1b-3 interior fast path 一样没有收益，说明当前问题更可能在 dependency chain / 指令调度，而不是单纯的边界条件比较。
 15. **P1b-13a 说明 qkv copy 的 global load 不是值得优先替换的成本**。shared center copy 看似减少 global load，但端到端明显慢于 P1b-7；当前局部 load 替换容易增加地址计算和依赖链。
 16. **P1b-14a 说明 read-only load hint 不是当前主线**。`__restrict__` / `__ldg()` 不仅没有改善 `fusedAggregationCatKernel`，还让端到端 p50 从 P1b-7 的 `52.311 ms` 退化到 `53.356 ms`；当前瓶颈更像 dependency chain / 指令调度，而不是普通 global load path 选择。
+17. **P1b-15a 说明线程职责重构必须保留 tile reuse**。half-warp-per-pixel 确实把单线程长依赖链拆短，但它把 spatial tile 从 `512` pixels 缩到 `32` pixels，导致 CTA 数和 halo 重复加载大幅上升；P1b 后续不能只追求“每像素更多 lane”，必须同时守住 P1b-7 的大 tile 数据复用。
 
 P1b-2 相关文件：
 
@@ -207,6 +209,7 @@ P1b-2 相关文件：
 - [`../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md)
 - [`../results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md)
 - [`../results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md)
+- [`../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md)
 
 ---
 
@@ -227,7 +230,7 @@ P1b-2 相关文件：
 | P1b-8 | skip final sync | 省掉 row-tile 最后一个 chunk 后的冗余 CTA barrier | 已 probe，不采纳；端到端 p50 `53.123 ms`，慢于 P1b-7 |
 | P1b-9 | pointwise accumulator probe | 减少 grouped pointwise 输出阶段对 `depthwise[i]` 的重复读取 | 已 probe，不采纳；端到端 p50 `52.431 ms`，慢于 P1b-7 |
 | P1b-10 | pointwise accum4 probe | 在重用 depthwise 与降低寄存器压力之间取折中 | 已 probe，不采纳；端到端 p50 `54.197 ms`，明显慢于 P1b-7 |
-| P1b-11/12/13/14 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | 已用 `nvprof` 完成 P1b-7 fused kernel 定性：不是纯 DRAM bandwidth-bound / occupancy-bound，更像 instruction dependency 主导；P1b-11a row-pitch padding、P1b-12a height-boundary fast path、P1b-13a shared-center qkv copy、P1b-14a restrict/ldg read-only hint 均已 probe，不采纳。下一步若继续，应考虑更大的线程职责重构或减少 dependency chain，而不是继续微调 shared pitch / barrier / 边界判断 / 局部 load 替换 / read-only load hint / 单线程 pointwise 累加器 |
+| P1b-11/12/13/14/15 | 继续优化 `fusedAggregationCatKernel` | 降低当前 P1b 内部主瓶颈 | 已用 `nvprof` 完成 P1b-7 fused kernel 定性：不是纯 DRAM bandwidth-bound / occupancy-bound，更像 instruction dependency 主导；P1b-11a row-pitch padding、P1b-12a height-boundary fast path、P1b-13a shared-center qkv copy、P1b-14a restrict/ldg read-only hint、P1b-15a half-warp-per-pixel 均已 probe，不采纳。下一步若继续，应考虑能保留大 spatial tile reuse 的线程职责重构，而不是继续微调 shared pitch / barrier / 边界判断 / 局部 load 替换 / read-only load hint / 单线程 pointwise 累加器 / 每像素半 warp 映射 |
 | P1b-cooldown-rerun | 冷机重复 benchmark | 区分真实收益和热机/频率偏置 | MX250 整网 1ms 级差异敏感；P1b-2 已出现热机负、冷机正的反例 |
 
 关键提醒：两阶段合并并不是“直接把两个 kernel 写进一个 kernel”就能正确，因为 `computeOutputKernel` 依赖完整 VK 归约结果，而完整 VK 结果通常需要跨 CTA 同步。若要合并，需要重新设计每个 CTA 的职责范围，或接受重复计算 VK 的代价。

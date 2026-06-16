@@ -963,3 +963,33 @@ depthwiseWeightTile[idx] = __ldg(depthwiseWeight + offset);
 | Plugin TRT vs baseline TRT allclose | `true` |
 
 判断：P1b-14a 不采纳。`__restrict__` / `__ldg` 没有缓解当前瓶颈，反而让端到端 p50 慢约 `1.045 ms`。这与 `nvprof` 对 P1b-7 的判断一致：当前主要问题不是普通 global load 带宽不足，而更像 instruction / dependency scheduling；改变 read-only load path 不能解决 dependency chain，甚至可能破坏原本较好的缓存/调度形态。
+
+## 28. P1b-15a Probe：Half-Warp Per Pixel Thread Mapping（不采纳）
+
+P1b-15a 是一个结构性 probe，不再做局部 hint 或边界判断微调，而是尝试改变 `fusedAggregationCatKernel` 的线程职责：
+
+- P1b-7：一个线程负责一个 spatial pixel，并串行计算 16 个 depthwise channel + 16 个 grouped pointwise output。
+- P1b-15a：半个 warp 负责一个 spatial pixel，16 个 lane 分别负责 16 个 channel；每个 lane 先计算自己的 depthwise channel，再通过 `__shfl_sync(..., width=16)` 交换 depthwise 值，计算对应 output channel。
+
+动机是直接攻击 P1b-7 `nvprof` 指出的 `stall_exec_dependency ~= 53%`：把单线程长依赖链拆成 16 lane 并行，减少每个 lane 的串行 FMA 链长度。
+
+该 probe 的代价也很明确：
+
+- CTA 从 P1b-7 的 `4x128 = 512` spatial pixels 缩小为 `32` spatial pixels。
+- spatial blocks 从 `16 * 12 = 192` 增加到 `256 * 12 = 3072`。
+- 每个 CTA 只缓存 `32` columns 的局部 halo，跨 CTA horizontal halo 重复加载显著增加。
+- qkv center copy 也顺手复用 shared tile center，这等价于再次引入 P1b-13a 已证明不划算的局部 shared load 路径。
+
+该变体编译通过，block-level validation 通过，但真实 engine benchmark 明显慢于 baseline 和 P1b-7：
+
+| 指标 | 数值 |
+|---|---:|
+| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_build.json) |
+| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md) |
+| Baseline TRT p50 | `54.668 ms` |
+| P1b-15a probe p50 | `67.613 ms` |
+| P1b-7 p50 | `52.311 ms` |
+| Plugin TRT vs baseline TRT allclose | `true` |
+| Argmax agreement | `1.0` |
+
+判断：P1b-15a 不采纳。该结果说明“减少单线程依赖链”这个方向本身是合理问题，但 half-warp-per-pixel 的映射粒度太小，严重破坏了 P1b-7 的大 tile / halo 复用优势，并把 block scheduling 数量放大约 16 倍。P1b 后续如果继续做线程职责重构，不能简单把一个像素分给一个半 warp，而应保留更大的 spatial tile 复用，或者寻找能同时保持 tile reuse 与减少 dependency chain 的混合映射。

@@ -7,7 +7,7 @@
     "version": "1",
     "namespace": "edgeseg",
     "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
-    "dll_sha256": "f7ec1e4ca1ffdde0291dac3eb90eb474422af6f5289be5fb0d457aecf2639f12",
+    "dll_sha256": "ba54fcda107c62ff6cdb0d52f472a6855bc6921f6cc1fd7a25b7748c75314cc9",
     "creator_found": true,
     "registered_creator_count": 66
   },
@@ -275,6 +275,6 @@
     "Each block gets its own toy ONNX/engine because aggregation weights differ.",
     "This is not an end-to-end EfficientViT latency benchmark."
   ],
-  "timestamp_utc": "2026-06-16T05:54:08.547161+00:00",
-  "script_version": "validate_p1b_aggregation_attention_plugin.py@d4db8f5"
+  "timestamp_utc": "2026-06-16T06:15:49.039458+00:00",
+  "script_version": "validate_p1b_aggregation_attention_plugin.py@7792631"
 }
