@@ -58,6 +58,19 @@ Artifacts:
 - [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_build.json`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_build.json)
 - [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark.json`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark.json)
 - [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md)
+- [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_nsys_attribution_summary.md`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_nsys_attribution_summary.md)
+
+Nsight attribution:
+
+| Item | Result |
+|---|---:|
+| `trt/execute` kernel avg | `50.680 ms / iter` |
+| `trt/execute` launches | `163.0 / iter` |
+| selected context total | `6.436 ms / iter` |
+| selected context launches | `92.0 / iter` |
+| `relu_linear_att_plugin` total | `1.950 ms / iter` |
+| stage2 Plugin layers | `0.655 + 0.654 ms / iter` |
+| stage3 Plugin layers | `0.320 + 0.321 ms / iter` |
 
 Interpretation:
 

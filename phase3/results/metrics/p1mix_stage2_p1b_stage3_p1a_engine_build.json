@@ -1,0 +1,100 @@
+{
+  "status": "ok",
+  "purpose": "phase3_step6_relu_linear_attention_plugin_engine_build",
+  "scope": "real_efficientvit_graph_p1mix_stage2_p1b_stage3_p1a",
+  "plugin": {
+    "name": "EdgesegReluLinearAttention_TRT",
+    "version": "1",
+    "namespace": "edgeseg",
+    "dll_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\plugin\\build\\edgeseg_relu_linear_attention_plugin.dll",
+    "dll_sha256": "ba54fcda107c62ff6cdb0d52f472a6855bc6921f6cc1fd7a25b7748c75314cc9",
+    "creator_found": true,
+    "registered_creator_count": 66,
+    "extra_creators": [
+      {
+        "name": "EdgesegAggregationReluLinearAttention_TRT",
+        "version": "1",
+        "namespace": "edgeseg",
+        "creator_found": true
+      }
+    ]
+  },
+  "onnx": {
+    "onnx_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\onnx\\efficientvit_seg_b0_cityscapes_1024x2048_p1mix_stage2_p1b_stage3_p1a.onnx",
+    "onnx_sha256": "e0de47237bc7c8d8f647b3989980e688f502d069680797b0713b8992afff3770",
+    "onnx_size_bytes": 2853983
+  },
+  "engine": {
+    "engine_path": "E:\\EdgeSeg-EfficientViT\\EdgeSeg-EfficientViT\\phase3\\results\\engines\\efficientvit_seg_b0_cityscapes_1024x2048_p1mix_stage2_p1b_stage3_p1a_fp32.engine",
+    "engine_sha256": "922a03526e64be35cd8be83e416d88fa9018f57c43a6eb96ef17f048b27710f4",
+    "engine_size_bytes": 3492044
+  },
+  "tensorrt": {
+    "version": "8.6.1",
+    "workspace_mib": 1024,
+    "workspace_bytes": 1073741824,
+    "workspace_method": "set_memory_pool_limit",
+    "network_definition": "explicit_batch",
+    "parser_errors": [],
+    "precision": "fp32"
+  },
+  "network": {
+    "inputs": [
+      {
+        "name": "input",
+        "shape": [
+          1,
+          3,
+          1024,
+          2048
+        ],
+        "dtype": "DataType.FLOAT"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "segout",
+        "shape": [
+          1,
+          19,
+          128,
+          256
+        ],
+        "dtype": "DataType.FLOAT"
+      }
+    ],
+    "num_layers": 129
+  },
+  "runtime_paths": {
+    "trt_root": "E:\\NVIDIA\\TensorRT-8.6.1.6",
+    "dll_dirs_added": [
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\lib",
+      "E:\\NVIDIA\\TensorRT-8.6.1.6\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\lib\\site-packages\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "candidate_dirs_missing": [
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cudnn\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cublas\\bin",
+      "D:\\software\\anaconda3\\envs\\efficientvit\\nvidia\\cuda_nvrtc\\bin"
+    ],
+    "phase3_extra_dll_dirs_added": [
+      "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4\\bin"
+    ],
+    "phase3_extra_dll_dirs_missing": []
+  },
+  "versions": {
+    "python": "3.10.20",
+    "tensorrt": "8.6.1",
+    "numpy": "1.26.4"
+  },
+  "notes": [
+    "This validates Plugin-patched ONNX parser/build integration only.",
+    "Step 7 must validate end-to-end correctness and latency.",
+    "Engine is specific to the current TensorRT version and GPU."
+  ],
+  "_dll_handle_alive": true,
+  "timestamp_utc": "2026-06-16T09:50:56.058853+00:00",
+  "script_version": "build_plugin_engine.py@60dcc5f-dirty"
+}

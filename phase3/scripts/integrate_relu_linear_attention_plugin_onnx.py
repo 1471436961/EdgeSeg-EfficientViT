@@ -84,7 +84,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eps", type=float, default=1.0e-15)
     p.add_argument(
         "--target-scope",
-        choices=("stage2", "stage2-stage3"),
+        choices=("stage2", "stage3", "stage2-stage3"),
         default="stage2",
         help="Which LiteMLA relu_linear_att blocks to replace.",
     )
@@ -95,6 +95,8 @@ def parse_args() -> argparse.Namespace:
 def target_specs(scope: str) -> List[Dict[str, Any]]:
     if scope == "stage2":
         return list(STAGE2_TARGETS)
+    if scope == "stage3":
+        return list(STAGE3_TARGETS)
     if scope == "stage2-stage3":
         return list(STAGE2_TARGETS) + list(STAGE3_TARGETS)
     raise ValueError(f"Unsupported target scope: {scope}")
@@ -321,7 +323,7 @@ def integrate(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "notes": [
             "This is P1a relu_linear_att-only graph surgery.",
-            "target_scope=stage2 keeps the original Phase 3 P1a behavior; target_scope=stage2-stage3 also replaces the smaller stage3 context blocks.",
+            "target_scope=stage2 keeps the original Phase 3 P1a behavior; target_scope=stage3 is used for P1mix after P1b replaces stage2; target_scope=stage2-stage3 replaces all four context blocks.",
             "It preserves qkv, aggregation, concat, proj, and residual add.",
             "Numerical correctness and latency are Step 7 responsibilities.",
         ],

@@ -53,6 +53,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--trt-root", type=Path, default=DEFAULT_TRT_ROOT, help="TensorRT zip root directory.")
     p.add_argument("--workspace-mib", type=int, default=DEFAULT_WORKSPACE_MIB)
     p.add_argument("--scope", default="real_efficientvit_graph_p1a_relu_linear_att_only")
+    p.add_argument(
+        "--extra-plugin-name",
+        action="append",
+        default=[],
+        help="Additional Plugin creator names that must be registered, using the same version/namespace.",
+    )
     p.add_argument("--verbose", action="store_true", help="Use verbose TensorRT logger.")
     return p.parse_args()
 
@@ -103,6 +109,22 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
         raise RuntimeError(
             f"Plugin creator not found: name={PLUGIN_NAME}, version={PLUGIN_VERSION}, namespace={PLUGIN_NAMESPACE}"
         )
+    extra_creators = []
+    for plugin_name in args.extra_plugin_name:
+        extra_creator = registry.get_plugin_creator(plugin_name, PLUGIN_VERSION, PLUGIN_NAMESPACE)
+        if extra_creator is None:
+            raise RuntimeError(
+                "Extra Plugin creator not found: "
+                f"name={plugin_name}, version={PLUGIN_VERSION}, namespace={PLUGIN_NAMESPACE}"
+            )
+        extra_creators.append(
+            {
+                "name": plugin_name,
+                "version": PLUGIN_VERSION,
+                "namespace": PLUGIN_NAMESPACE,
+                "creator_found": True,
+            }
+        )
 
     builder = trt.Builder(logger)
     explicit_batch = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
@@ -138,6 +160,7 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
             "dll_sha256": sha256_of_file(plugin_dll),
             "creator_found": True,
             "registered_creator_count": len(registered_creators),
+            "extra_creators": extra_creators,
         },
         "onnx": {
             "onnx_path": str(onnx_path),

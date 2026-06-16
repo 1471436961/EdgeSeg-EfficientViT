@@ -351,3 +351,43 @@ $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\extras\CUP
 - [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_onnx_integration.json`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_onnx_integration.json)
 - [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_build.json`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_build.json)
 - [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md)
+
+---
+
+## 12. P1mix Stage2=P1b-7 + Stage3=P1a-3b 记录
+
+P1mix 的目标是验证：stage2 使用覆盖更大的 P1b-7，stage3 使用已验证有效的 P1a-3b，是否能打败当前最强的 `P1a stage2+stage3`。
+
+结果摘要：
+
+| Experiment | p50 / execute metric | 判断 |
+|---|---:|---|
+| P1a stage2+stage3 `both` plugin p50 | `50.838 ms` | 当前主线 |
+| P1mix `both` plugin p50 | `57.296 ms` | 受执行顺序/频率漂移影响且明显不合格 |
+| P1a stage2+stage3 plugin-only p50 | `50.769 ms` | 公平 plugin-only 参照 |
+| P1mix plugin-only p50 | `50.674 ms` | 只快 `0.095 ms`，低于可信差异阈值 |
+| P1a stage2+stage3 Nsight execute avg | `50.680 ms` | attribution 参照 |
+| P1mix Nsight execute avg | `50.784 ms` | 反而略慢 `0.104 ms` |
+
+P1mix attribution：
+
+| Component | Avg kernel ms / iter | Launches / iter |
+|---|---:|---:|
+| P1b stage2 Plugin (`aggregation_attention_p1b_plugin`) | `3.097` | `6.0` |
+| P1a stage3 Plugin (`relu_linear_att_plugin`) | `0.640` | `4.0` |
+| remaining stage3 aggregation | `0.969` | `50.0` |
+| selected context total | `6.624` | `71.0` |
+
+判断：
+
+1. P1mix 技术链路成立：final ONNX 中有 2 个 P1b node 与 2 个 P1a node；TensorRT build、deserialize、benchmark、allclose 均通过。
+2. P1mix 没有稳定打败 `P1a stage2+stage3`。它确实减少 launch 数，但 P1b stage2 Plugin layer 更重，selected context total 从 P1a all-context 的 `6.436 ms` 增到 `6.624 ms`。
+3. 因此 P1mix 记录为 **evaluated, not adopted as mainline**。当前 Phase 3 主线仍是 `P1a stage2+stage3`。
+4. 若后续继续 P1b，必须先显著降低 stage2 P1b fused aggregation kernel，而不是继续扩大 P1mix 边界。
+
+相关文件：
+
+- [`p1mix_stage2_p1b_stage3_p1a_design.md`](p1mix_stage2_p1b_stage3_p1a_design.md)
+- [`../results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_summary.md`](../results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_summary.md)
+- [`../results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_plugin_only_summary.md`](../results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_plugin_only_summary.md)
+- [`../results/metrics/p1mix_stage2_p1b_stage3_p1a_nsys_attribution_summary.md`](../results/metrics/p1mix_stage2_p1b_stage3_p1a_nsys_attribution_summary.md)

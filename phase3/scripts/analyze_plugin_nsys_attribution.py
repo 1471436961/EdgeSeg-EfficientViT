@@ -40,9 +40,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out-md", required=True, type=Path, help="Markdown summary output.")
     parser.add_argument("--out-json", default=None, type=Path, help="Optional JSON summary output.")
     parser.add_argument("--plugin-layer-name", default=DEFAULT_PLUGIN_LAYER_NAME)
+    parser.add_argument(
+        "--extra-plugin-layer-name",
+        action="append",
+        default=[],
+        help="Additional Plugin layer/op names to count as Plugin components.",
+    )
     parser.add_argument("--plugin-component", default=DEFAULT_PLUGIN_COMPONENT)
     parser.add_argument("--plugin-boundary-name", default="relu_linear_att_plugin_only")
     parser.add_argument("--combined-boundary-name", default="aggregation_plus_plugin_proxy")
+    parser.add_argument(
+        "--context-stages",
+        nargs="+",
+        default=["2"],
+        help="Backbone stages to include in the primary Plugin context detail, e.g. 2 3.",
+    )
     parser.add_argument(
         "--baseline-summary-json",
         default=Path("phase2/results/metrics/trt_nsys_attribution_summary.json"),
@@ -72,12 +84,28 @@ def adapt_metrics(raw: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def stage2_context_component(name: str, plugin_layer_name: str, plugin_component: str) -> str:
+def extra_plugin_component(layer_name: str) -> str:
+    if layer_name == "EdgesegAggregationReluLinearAttention_TRT":
+        return "aggregation_attention_p1b_plugin"
+    return "extra_plugin"
+
+
+def context_component(
+    name: str,
+    plugin_layer_name: str,
+    plugin_component: str,
+    extra_plugin_layer_names: Sequence[str],
+    stages: Sequence[str],
+) -> str:
     text = base_attr.normalize_layer_path(name)
-    if "/backbone/stages.2/" not in text or "/context_module/" not in text:
+    stage_match = re.search(r"/backbone/stages\.(\d+)/", text)
+    if not stage_match or stage_match.group(1) not in set(stages) or "/context_module/" not in text:
         return ""
     if plugin_layer_name in text:
         return plugin_component
+    for extra_name in extra_plugin_layer_names:
+        if extra_name in text:
+            return extra_plugin_component(extra_name)
     if "/qkv/" in text:
         return "qkv"
     if "/aggreg." in text:
@@ -93,22 +121,29 @@ def stage2_context_component(name: str, plugin_layer_name: str, plugin_component
     return "other_context"
 
 
-def stage2_plugin_context_summary(
+def plugin_context_summary(
     summary: Dict[str, Any],
     plugin_layer_name: str,
     plugin_component: str,
+    extra_plugin_layer_names: Sequence[str],
     plugin_boundary_name: str,
     combined_boundary_name: str,
+    stages: Sequence[str],
 ) -> Dict[str, Any]:
     rows = []
     for row in summary["layers"]:
-        component = stage2_context_component(row["name"], plugin_layer_name, plugin_component)
+        component = context_component(row["name"], plugin_layer_name, plugin_component, extra_plugin_layer_names, stages)
         if not component:
             continue
         enriched = dict(row)
         enriched["component"] = component
-        block_match = re.search(r"/backbone/stages\.2/op_list\.(\d+)/context_module/", row["name"])
-        enriched["block"] = f"op_list.{block_match.group(1)}" if block_match else "unknown"
+        block_match = re.search(r"/backbone/stages\.(\d+)/op_list\.(\d+)/context_module/", row["name"])
+        if block_match:
+            enriched["stage"] = f"stage{block_match.group(1)}"
+            enriched["block"] = f"stage{block_match.group(1)}/op_list.{block_match.group(2)}"
+        else:
+            enriched["stage"] = "unknown"
+            enriched["block"] = "unknown"
         rows.append(enriched)
 
     component_map: Dict[str, Dict[str, Any]] = {}
@@ -150,6 +185,7 @@ def stage2_plugin_context_summary(
 
     components = sorted(component_map.values(), key=lambda item: item["avg_kernel_ms"], reverse=True)
     component_by_name = {item["component"]: item for item in components}
+    plugin_components = [plugin_component] + [extra_plugin_component(name) for name in extra_plugin_layer_names]
 
     def boundary(name: str, includes: Sequence[str]) -> Dict[str, Any]:
         selected = [component_by_name[item] for item in includes if item in component_by_name]
@@ -163,14 +199,16 @@ def stage2_plugin_context_summary(
         }
 
     candidate_boundaries = [
-        boundary(plugin_boundary_name, [plugin_component]),
+        boundary(plugin_boundary_name, plugin_components),
         boundary("aggregation_only", ["aggregation"]),
-        boundary(combined_boundary_name, ["aggregation", plugin_component]),
+        boundary(combined_boundary_name, ["aggregation", *plugin_components]),
         boundary("qkv_proj_overhead", ["qkv", "proj_add"]),
-        boundary("full_stage2_context_plugin_path", ["qkv", "aggregation", plugin_component, "proj_add"]),
+        boundary("full_stage2_context_plugin_path", ["qkv", "aggregation", *plugin_components, "proj_add"]),
     ]
 
     return {
+        "stages": [f"stage{stage}" for stage in stages],
+        "plugin_components": plugin_components,
         "total_avg_kernel_ms": sum(row["avg_kernel_ms"] for row in rows),
         "total_launches_per_iter": sum(row["launches_per_iter"] for row in rows),
         "total_share_of_execute_kernel_pct": sum(row["share_of_execute_kernel_pct"] for row in rows),
@@ -280,14 +318,15 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
             f"{row['launches_per_iter']:.1f} | {row['layer_count']} |"
         )
 
-    ctx = summary["stage2_plugin_context"]
+    ctx = summary["plugin_context"]
+    context_label = " + ".join(ctx.get("stages", []))
     lines.extend(
         [
             "",
-            "## Stage2 Context Plugin Detail",
+            f"## Plugin Context Detail ({context_label})",
             "",
-            f"- Total stage2 context kernel avg: {ctx['total_avg_kernel_ms']:.3f} ms / iter",
-            f"- Total stage2 context launches: {ctx['total_launches_per_iter']:.1f} / iter",
+            f"- Total selected context kernel avg: {ctx['total_avg_kernel_ms']:.3f} ms / iter",
+            f"- Total selected context launches: {ctx['total_launches_per_iter']:.1f} / iter",
             f"- Share of execute kernel time: {ctx['total_share_of_execute_kernel_pct']:.2f}%",
             "",
             "| Component | Avg kernel ms / iter | Share of execute kernel | Launches / iter | Layer count |",
@@ -325,8 +364,8 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
             "|---|---|---:|---:|---:|",
         ]
     )
-    plugin_component = summary.get("plugin_component", DEFAULT_PLUGIN_COMPONENT)
-    for row in [item for item in ctx["layers"] if item["component"] == plugin_component]:
+    plugin_components = set(ctx.get("plugin_components", [summary.get("plugin_component", DEFAULT_PLUGIN_COMPONENT)]))
+    for row in [item for item in ctx["layers"] if item["component"] in plugin_components]:
         name = row["name"].replace("|", "\\|")
         lines.append(
             f"| `{row['block']}` | `{name}` | {row['avg_kernel_ms']:.3f} | "
@@ -352,7 +391,7 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
     lines.extend(
         [
             "",
-            "## Baseline TensorRT Comparison",
+            "## Baseline TensorRT Comparison (Stage2 Only)",
             "",
             "| Boundary | Before ms | After ms | Delta ms | Speedup | Before launches | After launches |",
             "|---|---:|---:|---:|---:|---:|---:|",
@@ -391,9 +430,9 @@ def render_markdown(summary: Dict[str, Any], sqlite_path: Path, metrics_path: Pa
             "## Interpretation Notes",
             "",
             "- This Plugin engine trace executes only the Phase 3 Plugin engine, not the Phase 2 baseline engine.",
-            f"- `{summary.get('plugin_boundary_name')}` is the runtime cost of the two custom Plugin layers after TensorRT graph replacement.",
+            f"- `{summary.get('plugin_boundary_name')}` is the runtime cost of the selected custom Plugin layers after TensorRT graph replacement.",
             f"- `{summary.get('combined_boundary_name')}` is the Phase 3 proxy for the previous middle-boundary candidate; `cat` may no longer be a separate TensorRT layer at this boundary.",
-            "- The comparison table uses Phase 2 TensorRT baseline attribution as the before state and this Plugin engine attribution as the after state.",
+            "- The comparison table uses Phase 2 TensorRT baseline stage2 attribution as the before state; for `--context-stages 2 3`, stage3 is reported in the Plugin Context Detail but is not mixed into the stage2 baseline comparison.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -410,18 +449,33 @@ def main() -> None:
     summary["memory"] = base_attr.memory_summary(con, summary["measure"], execute_intervals)
     summary["benchmark_target"] = metrics.get("benchmark_target")
     summary["plugin_layer_name"] = args.plugin_layer_name
+    summary["extra_plugin_layer_names"] = list(args.extra_plugin_layer_name)
     summary["plugin_component"] = args.plugin_component
     summary["plugin_boundary_name"] = args.plugin_boundary_name
     summary["combined_boundary_name"] = args.combined_boundary_name
-    summary["stage2_plugin_context"] = stage2_plugin_context_summary(
+    context_stages = [str(stage) for stage in args.context_stages]
+    summary["context_stages"] = context_stages
+    summary["plugin_context"] = plugin_context_summary(
         summary,
         args.plugin_layer_name,
         args.plugin_component,
+        args.extra_plugin_layer_name,
         args.plugin_boundary_name,
         args.combined_boundary_name,
+        context_stages,
     )
+    summary["stage2_plugin_context"] = plugin_context_summary(
+        summary,
+        args.plugin_layer_name,
+        args.plugin_component,
+        args.extra_plugin_layer_name,
+        args.plugin_boundary_name,
+        args.combined_boundary_name,
+        ["2"],
+    )
+    plugin_components = set(summary["plugin_context"].get("plugin_components", [args.plugin_component]))
     plugin_layers = [
-        row for row in summary["stage2_plugin_context"]["layers"] if row["component"] == args.plugin_component
+        row for row in summary["plugin_context"]["layers"] if row["component"] in plugin_components
     ]
     summary["plugin_kernel_types"] = plugin_kernel_types(con, summary["measure"], plugin_layers)
     summary["baseline_comparison"] = baseline_comparison(

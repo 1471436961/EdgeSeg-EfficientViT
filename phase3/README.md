@@ -260,3 +260,22 @@ Phase 3 的一次有效 Plugin 实验至少需要同时满足：
 - [`design_notes/p1a_all_context_design.md`](design_notes/p1a_all_context_design.md)
 - [`design_notes/plugin_kernel_optimization_history.md`](design_notes/plugin_kernel_optimization_history.md)
 - [`results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md)
+
+## 8. 最新补充实验：P1mix
+
+2026-06-16 继续评估 `stage2=P1b-7 + stage3=P1a-3b` 的 P1mix。
+
+| Experiment | Metric | Result |
+|---|---|---:|
+| P1a stage2+stage3 | plugin-only p50 | `50.769 ms` |
+| P1mix | plugin-only p50 | `50.674 ms` |
+| P1a stage2+stage3 | Nsight execute kernel avg | `50.680 ms` |
+| P1mix | Nsight execute kernel avg | `50.784 ms` |
+
+结论：P1mix 构建、运行和 correctness 都通过，但没有稳定优于 `P1a stage2+stage3`。它减少 launch 数，却让 selected context total 从 `6.436 ms` 增到 `6.624 ms`；当前不采纳为主线，Phase 3 MVP 仍保留 `P1a stage2+stage3`。
+
+相关记录：
+
+- [`design_notes/p1mix_stage2_p1b_stage3_p1a_design.md`](design_notes/p1mix_stage2_p1b_stage3_p1a_design.md)
+- [`results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_summary.md`](results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_summary.md)
+- [`results/metrics/p1mix_stage2_p1b_stage3_p1a_nsys_attribution_summary.md`](results/metrics/p1mix_stage2_p1b_stage3_p1a_nsys_attribution_summary.md)

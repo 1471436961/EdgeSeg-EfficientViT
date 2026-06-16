@@ -78,6 +78,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--plugin-name", default=DEFAULT_PLUGIN_NAME)
     parser.add_argument("--plugin-version", default=DEFAULT_PLUGIN_VERSION)
     parser.add_argument("--plugin-namespace", default=DEFAULT_PLUGIN_NAMESPACE)
+    parser.add_argument(
+        "--extra-plugin-name",
+        action="append",
+        default=[],
+        help="Additional Plugin creator names that must be registered, using the same version/namespace.",
+    )
     parser.add_argument("--plugin-label", default=DEFAULT_PLUGIN_LABEL)
     parser.add_argument("--scope", default=DEFAULT_SCOPE)
     parser.add_argument("--trt-root", type=Path, default=DEFAULT_TRT_ROOT)
@@ -129,6 +135,22 @@ def register_plugin_runtime(args: argparse.Namespace) -> Tuple[Any, Dict[str, An
             "Plugin creator not found: "
             f"name={args.plugin_name}, version={args.plugin_version}, namespace={args.plugin_namespace}"
         )
+    extra_creators = []
+    for plugin_name in args.extra_plugin_name:
+        extra_creator = registry.get_plugin_creator(plugin_name, args.plugin_version, args.plugin_namespace)
+        if extra_creator is None:
+            raise RuntimeError(
+                "Extra Plugin creator not found: "
+                f"name={plugin_name}, version={args.plugin_version}, namespace={args.plugin_namespace}"
+            )
+        extra_creators.append(
+            {
+                "name": plugin_name,
+                "version": args.plugin_version,
+                "namespace": args.plugin_namespace,
+                "creator_found": True,
+            }
+        )
 
     plugin_meta = {
         "name": args.plugin_name,
@@ -138,6 +160,7 @@ def register_plugin_runtime(args: argparse.Namespace) -> Tuple[Any, Dict[str, An
         "dll_sha256": sha256_of_file(plugin_dll),
         "creator_found": True,
         "registered_creator_count": len(registered_creators),
+        "extra_creators": extra_creators,
     }
     return trt, runtime_meta, plugin_meta
 
