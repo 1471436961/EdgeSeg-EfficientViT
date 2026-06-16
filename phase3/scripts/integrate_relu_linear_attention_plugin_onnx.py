@@ -1,11 +1,11 @@
-"""Replace EfficientViT stage2 relu_linear_att subgraphs with the Phase 3 Plugin.
+"""Replace EfficientViT relu_linear_att subgraphs with the Phase 3 Plugin.
 
 This script performs only P1a graph surgery:
 
     Concat_output_0 -> Cast_1_output_0
 
-for the two `backbone.stages.2` LiteMLA context blocks. It keeps qkv,
-aggregation, concat, proj, and residual add untouched.
+for the selected LiteMLA context blocks. It keeps qkv, aggregation, concat,
+proj, and residual add untouched.
 """
 
 from __future__ import annotations
@@ -44,9 +44,34 @@ DEFAULT_PATCHED_ONNX = Path(
 DEFAULT_METADATA = Path("phase3/results/metrics/relu_linear_attention_plugin_onnx_integration.json")
 
 
-TARGET_BLOCKS = [
-    "/backbone/stages.2/op_list.1/context_module/main",
-    "/backbone/stages.2/op_list.2/context_module/main",
+STAGE2_TARGETS = [
+    {
+        "block_prefix": "/backbone/stages.2/op_list.1/context_module/main",
+        "input_c": 384,
+        "height": 64,
+        "width": 128,
+    },
+    {
+        "block_prefix": "/backbone/stages.2/op_list.2/context_module/main",
+        "input_c": 384,
+        "height": 64,
+        "width": 128,
+    },
+]
+
+STAGE3_TARGETS = [
+    {
+        "block_prefix": "/backbone/stages.3/op_list.1/context_module/main",
+        "input_c": 768,
+        "height": 32,
+        "width": 64,
+    },
+    {
+        "block_prefix": "/backbone/stages.3/op_list.2/context_module/main",
+        "input_c": 768,
+        "height": 32,
+        "width": 64,
+    },
 ]
 
 
@@ -57,11 +82,22 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--metadata", type=Path, default=DEFAULT_METADATA, help="Integration metadata JSON path.")
     p.add_argument("--dim", type=int, default=16)
     p.add_argument("--eps", type=float, default=1.0e-15)
-    p.add_argument("--input-c", type=int, default=384)
-    p.add_argument("--height", type=int, default=64)
-    p.add_argument("--width", type=int, default=128)
+    p.add_argument(
+        "--target-scope",
+        choices=("stage2", "stage2-stage3"),
+        default="stage2",
+        help="Which LiteMLA relu_linear_att blocks to replace.",
+    )
     p.add_argument("--skip-checker", action="store_true", help="Skip ONNX checker.")
     return p.parse_args()
+
+
+def target_specs(scope: str) -> List[Dict[str, Any]]:
+    if scope == "stage2":
+        return list(STAGE2_TARGETS)
+    if scope == "stage2-stage3":
+        return list(STAGE2_TARGETS) + list(STAGE3_TARGETS)
+    raise ValueError(f"Unsupported target scope: {scope}")
 
 
 def build_producer_map(nodes) -> Dict[str, Any]:
@@ -100,9 +136,10 @@ def collect_reverse_subgraph(producers: Dict[str, Any], output_tensor: str, stop
     return remove
 
 
-def make_plugin_node(onnx, block_prefix: str, args: argparse.Namespace):
+def make_plugin_node(onnx, target: Dict[str, Any], args: argparse.Namespace):
     from onnx import helper
 
+    block_prefix = str(target["block_prefix"])
     return helper.make_node(
         PLUGIN_NAME,
         inputs=[f"{block_prefix}/Concat_output_0"],
@@ -112,9 +149,9 @@ def make_plugin_node(onnx, block_prefix: str, args: argparse.Namespace):
         plugin_namespace=PLUGIN_NAMESPACE,
         dim=int(args.dim),
         eps=float(args.eps),
-        input_c=int(args.input_c),
-        height=int(args.height),
-        width=int(args.width),
+        input_c=int(target["input_c"]),
+        height=int(target["height"]),
+        width=int(target["width"]),
     )
 
 
@@ -131,13 +168,15 @@ def replace_blocks(model, onnx, args: argparse.Namespace) -> Tuple[List[Dict[str
     original_nodes = list(model.graph.node)
     producers = build_producer_map(original_nodes)
     consumers = build_consumer_map(original_nodes)
+    targets = target_specs(args.target_scope)
 
     remove_names: Set[str] = set()
     removed_tensors: Set[str] = set()
     insertions: Dict[int, Any] = {}
     block_meta: List[Dict[str, Any]] = []
 
-    for block_prefix in TARGET_BLOCKS:
+    for target in targets:
+        block_prefix = str(target["block_prefix"])
         plugin_input = f"{block_prefix}/Concat_output_0"
         plugin_output = f"{block_prefix}/Cast_1_output_0"
 
@@ -152,7 +191,7 @@ def replace_blocks(model, onnx, args: argparse.Namespace) -> Tuple[List[Dict[str
 
         block_indices = [i for i, node in enumerate(original_nodes) if node.name in block_remove]
         insert_index = min(block_indices)
-        plugin_node = make_plugin_node(onnx, block_prefix, args)
+        plugin_node = make_plugin_node(onnx, target, args)
         insertions[insert_index] = plugin_node
         remove_names.update(block_remove)
 
@@ -165,6 +204,13 @@ def replace_blocks(model, onnx, args: argparse.Namespace) -> Tuple[List[Dict[str
                 "block_prefix": block_prefix,
                 "plugin_input": plugin_input,
                 "plugin_output": plugin_output,
+                "plugin_attrs": {
+                    "dim": int(args.dim),
+                    "eps": float(args.eps),
+                    "input_c": int(target["input_c"]),
+                    "height": int(target["height"]),
+                    "width": int(target["width"]),
+                },
                 "insert_index": insert_index,
                 "removed_node_count": len(block_removed_nodes),
                 "removed_nodes": [
@@ -192,7 +238,7 @@ def replace_blocks(model, onnx, args: argparse.Namespace) -> Tuple[List[Dict[str
     removed_value_info = remove_value_info_for_removed_tensors(
         model,
         removed_tensors,
-        preserved_tensors={f"{prefix}/Cast_1_output_0" for prefix in TARGET_BLOCKS},
+        preserved_tensors={f"{target['block_prefix']}/Cast_1_output_0" for target in targets},
     )
     return block_meta, removed_value_info
 
@@ -248,15 +294,22 @@ def integrate(args: argparse.Namespace) -> Dict[str, Any]:
             "plugin_namespace": PLUGIN_NAMESPACE,
             "dim": int(args.dim),
             "eps": float(args.eps),
-            "input_c": int(args.input_c),
-            "height": int(args.height),
-            "width": int(args.width),
+            "target_scope": args.target_scope,
+            "target_specs": [
+                {
+                    "block_prefix": str(target["block_prefix"]),
+                    "input_c": int(target["input_c"]),
+                    "height": int(target["height"]),
+                    "width": int(target["width"]),
+                }
+                for target in target_specs(args.target_scope)
+            ],
         },
         "graph": {
             "original_node_count": original_node_count,
             "patched_node_count": len(model.graph.node),
             "plugin_node_count": plugin_node_count,
-            "target_block_count": len(TARGET_BLOCKS),
+            "target_block_count": len(target_specs(args.target_scope)),
             "removed_value_info": removed_value_info,
         },
         "blocks": block_meta,
@@ -268,6 +321,7 @@ def integrate(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "notes": [
             "This is P1a relu_linear_att-only graph surgery.",
+            "target_scope=stage2 keeps the original Phase 3 P1a behavior; target_scope=stage2-stage3 also replaces the smaller stage3 context blocks.",
             "It preserves qkv, aggregation, concat, proj, and residual add.",
             "Numerical correctness and latency are Step 7 responsibilities.",
         ],
@@ -282,6 +336,7 @@ def save_failure_metadata(args: argparse.Namespace, error: Exception) -> None:
     payload = {
         "status": "failed",
         "purpose": "phase3_step6_relu_linear_attention_plugin_onnx_integration",
+        "target_scope": args.target_scope,
         "onnx": str(args.onnx.expanduser().resolve()),
         "output": str(args.output.expanduser().resolve()),
         "error_type": type(error).__name__,

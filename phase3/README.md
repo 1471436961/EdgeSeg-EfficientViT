@@ -241,3 +241,22 @@ Phase 3 的一次有效 Plugin 实验至少需要同时满足：
   - Plugin 覆盖的 layer / kernel 范围；
   - 数值误差；
   - 工程风险与 fallback 路线。
+
+---
+
+## 7. 最新补充实验：P1a Stage2+Stage3
+
+2026-06-16 补充完成 `relu_linear_att-only` P1a-3b 在 stage2+stage3 四个 LiteMLA context block 上的覆盖实验。
+
+| Experiment | Baseline TRT p50 | Plugin TRT p50 | p50 speedup | Correctness |
+|---|---:|---:|---:|---|
+| P1a stage2-only | `54.394 ms` | `52.168 ms` | `1.043x` | allclose=True |
+| P1a stage2+stage3 | `54.3995 ms` | `50.8380 ms` | `1.0701x` | allclose=True |
+
+结论：P1a-3b 不只适用于 stage2；在不改变 Plugin 边界的前提下扩展到 stage3 后，端到端收益进一步扩大。后续如果尝试 `stage2=P1b-7 + stage3=P1a-3b` 的 P1mix，必须以当前 `50.838 ms` 作为更强参照，而不是旧的 stage2-only P1a。
+
+相关记录：
+
+- [`design_notes/p1a_all_context_design.md`](design_notes/p1a_all_context_design.md)
+- [`design_notes/plugin_kernel_optimization_history.md`](design_notes/plugin_kernel_optimization_history.md)
+- [`results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md`](results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md)

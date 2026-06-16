@@ -314,3 +314,40 @@ $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\extras\CUP
 因此当前 `computeVkKernelDim16Warp4` 更接近 **memory-dependency / load-latency dominated**，而不是 pure DRAM bandwidth-bound、occupancy-bound、sync/reduction-barrier-bound 或 compute-pipe-bound。
 
 设计影响：下一轮如果继续 P1a，应优先考虑减少或隐藏 K/V 读取依赖，例如小步尝试“单个 warp 同时累加 4 个 `d`”来复用 `V[row,n]` load；但这会改变并行粒度，必须用 microbenchmark + Nsight Systems/nvprof 再验证。
+
+---
+
+## 11. P1a Stage2+Stage3 All-Context 记录
+
+2026-06-16 在 P1a-3b 主线不改变 kernel 数学边界的前提下，扩展 ONNX surgery 范围：
+
+- 原 stage2-only：替换 `/backbone/stages.2/op_list.{1,2}/context_module/main` 两个 `relu_linear_att` 子图。
+- 新 stage2+stage3：额外替换 `/backbone/stages.3/op_list.{1,2}/context_module/main` 两个 `relu_linear_att` 子图。
+
+新增 stage3 Plugin attrs：
+
+| Stage | input_c | height | width | dim |
+|---|---:|---:|---:|---:|
+| stage2 | 384 | 64 | 128 | 16 |
+| stage3 | 768 | 32 | 64 | 16 |
+
+结果：
+
+| Experiment | Baseline TRT p50 | Plugin TRT p50 | p50 speedup | Correctness |
+|---|---:|---:|---:|---|
+| P1a-3b stage2-only cold rerun | `54.394 ms` | `52.168 ms` | `1.043x` | allclose=True |
+| P1a-3b stage2+stage3 cold rerun | `54.3995 ms` | `50.8380 ms` | `1.0701x` | allclose=True |
+
+结论：
+
+1. **先做 stage2+stage3 P1a 是正确消融**。它只扩大同一 Plugin 边界的覆盖范围，没有混入 P1b aggregation/cat 边界变化。
+2. **stage3 `relu_linear_att` 也值得覆盖**。尽管 stage3 feature map 更小，额外两个 context block 仍把端到端 p50 从 stage2-only P1a 的约 `52.168 ms` 推到 `50.838 ms`。
+3. **P1mix 的下一步基线应以 stage2+stage3 P1a 为参照**。如果后续尝试 `stage2=P1b-7 + stage3=P1a-3b`，必须证明它优于当前 `50.838 ms`，而不是只优于旧的 stage2-only P1a 或 Phase 2 baseline。
+4. **温度纪律仍然关键**。同一 stage2+stage3 engine 在热机样本中曾测到 `1.000x`，冷机重测才得到 `1.070x`；MX250 上 1-4ms 级差异必须以冷机、单任务、同口径复测为准。
+
+相关文件：
+
+- [`p1a_all_context_design.md`](p1a_all_context_design.md)
+- [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_onnx_integration.json`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_onnx_integration.json)
+- [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_build.json`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_build.json)
+- [`../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md`](../results/metrics/relu_linear_attention_plugin_stage2_stage3_engine_benchmark_summary.md)

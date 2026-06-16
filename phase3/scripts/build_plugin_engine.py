@@ -52,6 +52,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--plugin-dll", type=Path, default=default_plugin_dll(), help="Plugin DLL path.")
     p.add_argument("--trt-root", type=Path, default=DEFAULT_TRT_ROOT, help="TensorRT zip root directory.")
     p.add_argument("--workspace-mib", type=int, default=DEFAULT_WORKSPACE_MIB)
+    p.add_argument("--scope", default="real_efficientvit_graph_p1a_relu_linear_att_only")
     p.add_argument("--verbose", action="store_true", help="Use verbose TensorRT logger.")
     return p.parse_args()
 
@@ -128,7 +129,7 @@ def build_engine(args: argparse.Namespace) -> Dict[str, Any]:
     metadata = {
         "status": "ok",
         "purpose": "phase3_step6_relu_linear_attention_plugin_engine_build",
-        "scope": "real_efficientvit_graph_p1a_relu_linear_att_only",
+        "scope": args.scope,
         "plugin": {
             "name": PLUGIN_NAME,
             "version": PLUGIN_VERSION,
@@ -181,7 +182,7 @@ def save_failure_metadata(args: argparse.Namespace, error: Exception) -> None:
     payload = {
         "status": "failed",
         "purpose": "phase3_step6_relu_linear_attention_plugin_engine_build",
-        "scope": "real_efficientvit_graph_p1a_relu_linear_att_only",
+        "scope": args.scope,
         "plugin_dll": str(args.plugin_dll.expanduser().resolve()),
         "onnx": str(args.onnx.expanduser().resolve()),
         "engine": str(args.engine.expanduser().resolve()),
