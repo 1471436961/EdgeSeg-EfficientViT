@@ -1,7 +1,7 @@
 # Phase 3 Plugin Engine Nsight Attribution Summary
 
 - SQLite: `phase3/results/nsight/p1b_aggregation_attention_plugin_weight_shared_fullres.sqlite`
-- Metrics: `phase3/results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_nsys.json`
+- Metrics: `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_nsys.json`
 - Precision: `fp32`
 - Benchmark target: `plugin`
 - Warmup / measure: 20 / 100

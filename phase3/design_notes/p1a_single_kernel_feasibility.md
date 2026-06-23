@@ -3,6 +3,8 @@
 > **状态**：Phase 3 P1a-4 可行性评估。
 >
 > **结论先行**：当前不建议把 `relu_linear_att-only` 正式重构为单 kernel。P1a-4 值得作为设计反证记录，但不应抢占 P1b `aggregation + cat + relu_linear_att` 的主线优先级。
+>
+> **后续结果说明**：本文写于 P1b 系统消融之前，因此“下一主线转向 P1b”是当时的探索顺序。后续 P1b-7 与 P1mix 均已完成，最终 Phase 3 MVP 收敛为 P1a `relu_linear_att-only` 覆盖 stage2+stage3；P1b 保留为重要消融和后续候选。
 
 ---
 
@@ -124,4 +126,3 @@ P1a-4 的评估结论是：
 ```text
 evaluated, not adopted as mainline
 ```
-

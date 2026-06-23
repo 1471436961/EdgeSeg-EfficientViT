@@ -3,6 +3,8 @@
 > **状态**：v0.1，Phase 3 Step 2 产物。
 >
 > **目的**：基于 ONNX graph、TensorRT EngineInspector 和 EfficientViT 源码，确定 `stage2/context` LiteMLA Plugin 候选的真实输入输出边界。本文只定义 tensor contract，不开始写 Plugin / CUDA kernel。
+>
+> **后续结果说明**：本文中的 P1a/P1b/P1c 边界定义仍有效，但“主性能边界”排序是 Step 2 阶段的设计假设。后续完整实验表明，最终 Phase 3 MVP 采用的是 P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block；P1b `aggregation + cat + relu_linear_att` 保留为重要消融和后续候选，而不是当前主交付线。
 
 ---
 
@@ -183,4 +185,3 @@ ONNX shape inference 对部分 `Pad/MatMul/Slice` 输出保留了 `unk__*` 符�
 2. **`aggregation-only` 保留为 fallback / 对照实验**。它的真实 contract 是 `[1,192,64,128] -> [1,192,64,128]`，但属于标准卷积类路径，展示区分度较低。
 3. **主性能边界是 P1b：`aggregation + cat + relu_linear_att`**。它的真实 contract 是 `[1,192,64,128] -> [1,128,64,128]`，是 MVP 成功后的优先扩展方向。
 4. **当前 contract 是固定 shape contract**。它只承诺 batch=1、Cityscapes `1024x2048`、FP32、TensorRT 8.6.1 engine；动态 shape / FP16 / batch>1 需要另立 contract。
-

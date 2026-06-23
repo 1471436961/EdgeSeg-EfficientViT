@@ -3,6 +3,8 @@
 > **关联阶段**：[`../README.md`](../README.md)
 >
 > **状态**：v1.1。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution，以及 P1b-1 到 P1b-7 的 kernel 优化均已完成。当前结论是：naive P1b 数学正确但性能退化；P1b-1 fused aggregation+cat 修复了主要退化点；P1b-2 / P1b-4 / P1b-5 / P1b-7 通过 shared-memory weight/input tile 复用和 CTA layout A/B 继续降低 `fusedAggregationCatKernel`。当前采纳版本 P1b-7 的 Plugin layer 为 `3.043ms/iter`、`6 launches/iter`，对比 Phase 2 baseline `aggregation + attention_core` `5.443ms/iter`、`38 launches/iter` 达到 `1.789x` kernel-time speedup；冷机端到端 p50 为 baseline `54.380ms` vs P1b-7 `52.311ms`，speedup `1.040x`。
+>
+> **当前定位**：P1b-7 是有效的中段扩大边界消融，但后续 P1a stage2+stage3 实验与 P1mix 对照显示，当前 Phase 3 主交付线应采用 P1a `relu_linear_att-only` 覆盖 stage2+stage3。本文保留 P1b 的完整设计和优化历史，用于解释为什么 P1b 仍有工程价值、为什么它当前不替代 P1a 主线。
 
 ---
 
@@ -177,17 +179,17 @@ P1b 相关产物：
 - `phase3/scripts/benchmark_plugin_engine.py`
 - `phase3/results/metrics/p1b_aggregation_attention_toy_build.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_build.json`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json`
 - `phase3/results/metrics/p1b_stage2_reference_capture.json`
 - `phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_engine_benchmark_nsys.json`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`
-- `phase3/results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.json`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark.json`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_fused_engine_benchmark_nsys.json`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`
+- `phase3/results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.json`
 
 当前 P1b 验收口径已经从 parser/build feasibility 推进到 block-level Plugin correctness、真实 engine 端到端 cold-run benchmark、Nsight attribution 和 fused aggregation+cat 后续优化。结论是：P1b 边界本身有价值；naive aggregation 版本不采纳；当前采纳版本是 P1b-7 CTA512 / 4-row tile，它已接近 P1a proxy 水平，但继续优化仍应以小步 A/B 和冷机复核为准。
 
@@ -227,7 +229,7 @@ P1b skeleton / parser toy 已通过：
 | ONNX surgery script | [`../scripts/integrate_p1b_aggregation_attention_plugin_onnx.py`](../scripts/integrate_p1b_aggregation_attention_plugin_onnx.py) |
 | Engine build script | [`../scripts/build_p1b_plugin_engine.py`](../scripts/build_p1b_plugin_engine.py) |
 | Integration metadata | [`../results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json`](../results/metrics/p1b_aggregation_attention_plugin_onnx_integration.json) |
-| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_build.json) |
+| Engine build metadata | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json) |
 | Patched graph | `393 -> 256` nodes |
 | Plugin node count | `2` |
 | Removed subgraph | block1: `58` nodes，block2: `81` nodes |
@@ -321,9 +323,9 @@ phase3/results/metrics/p1b_aggregation_attention_plugin_validation.json
 
 | 项 | 结果 |
 |---|---|
-| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_build.json) |
-| Benchmark metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark.json) |
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md) |
+| Engine build metadata | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json) |
+| Benchmark metadata | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark.json) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_summary.md) |
 | Protocol | `warmup=20`、`measure=100`、CUDA Events execute-only |
 | Baseline TRT p50 | `54.4532 ms` |
 | P1b Plugin TRT p50 | `56.3395 ms` |
@@ -355,9 +357,9 @@ P1b Plugin engine 已完成正式 Nsight Systems 采集和 SQLite correlationId 
 
 | 项 | 结果 |
 |---|---|
-| Benchmark metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json) |
-| Attribution summary | [`../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.md) |
-| Attribution JSON | [`../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`](../results/metrics/p1b_aggregation_attention_plugin_nsys_attribution_summary.json) |
+| Benchmark metadata | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_nsys.json) |
+| Attribution summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_nsys_attribution_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_nsys_attribution_summary.md) |
+| Attribution JSON | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_nsys_attribution_summary.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_nsys_attribution_summary.json) |
 | Protocol | `warmup=20`、`measure=100`、CUDA/NVTX trace |
 | CUDA Events latency mean / p50 | `56.180 ms` / `56.124 ms` |
 | `trt/execute` kernel avg | `54.902 ms / iter` |
@@ -456,8 +458,8 @@ Block-level correctness：
 
 | 项 | 结果 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_engine_benchmark_summary.md) |
-| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_engine_build.json) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_benchmark_summary.md) |
+| Engine build metadata | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_engine_build.json) |
 | Baseline TRT p50 | `54.3314 ms` |
 | P1b fused Plugin TRT p50 | `53.6100 ms` |
 | p50 delta | `-0.7214 ms` |
@@ -471,7 +473,7 @@ Nsight attribution：
 
 | 项 | 结果 |
 |---|---:|
-| Attribution summary | [`../results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md) |
+| Attribution summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_fused_nsys_attribution_summary.md) |
 | P1b fused Plugin layer | `4.848 ms / iter` |
 | P1b fused Plugin launches | `6 launches / iter` |
 | `fusedAggregationCatKernel` | `3.536 ms / iter` |
@@ -518,8 +520,8 @@ P1b-1 中，每个空间线程在计算当前 group 的 16 个 grouped pointwise
 |---|---:|
 | Block-level validation | [`../results/metrics/p1b_aggregation_attention_plugin_validation.json`](../results/metrics/p1b_aggregation_attention_plugin_validation.json) |
 | Overall pass | `true` |
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md) |
-| Nsight attribution | [`../results/metrics/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_weight_shared_engine_benchmark_summary.md) |
+| Nsight attribution | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_weight_shared_nsys_attribution_summary.md) |
 | Baseline TRT p50 | `54.306 ms` |
 | P1b-2 Plugin TRT p50 | `53.530 ms` |
 | p50 speedup | `1.0145x` |
@@ -571,7 +573,7 @@ else:
 
 | 项 | 结果 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_interior_fastpath_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.312 ms` |
 | P1b-3 probe p50 | `54.710 ms` |
 | p50 speedup | `0.9927x` |
@@ -609,8 +611,8 @@ P1b-4 继续保留 P1b-2 的 grouped pointwise shared weight cache，同时把 d
 
 | 项 | 结果 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_engine_benchmark_summary.md) |
-| Nsight attribution | [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_nsys_attribution_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_engine_benchmark_summary.md) |
+| Nsight attribution | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_nsys_attribution_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_nsys_attribution_summary.md) |
 | Baseline TRT p50 | `54.411 ms` |
 | P1b-4 Plugin TRT p50 | `52.725 ms` |
 | p50 speedup | `1.0320x` |
@@ -651,8 +653,8 @@ constexpr int32_t kDepthwiseTileChannels = 8;
 
 | 产物 | 文件 |
 |---|---|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_ch8_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_ch8_engine_benchmark_summary.md) |
-| Nsight attribution | [`../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_ch8_nsys_attribution_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_depthwise_tile_ch8_nsys_attribution_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_ch8_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_ch8_engine_benchmark_summary.md) |
+| Nsight attribution | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_ch8_nsys_attribution_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_depthwise_tile_ch8_nsys_attribution_summary.md) |
 
 | 指标 | 数值 |
 |---|---:|
@@ -767,7 +769,7 @@ if (channelChunk + kDepthwiseTileChannels < kChannelsPerAggregationGroup) {
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_skip_final_sync_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_skip_final_sync_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_skip_final_sync_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_skip_final_sync_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.380 ms` |
 | P1b-8 probe p50 | `53.123 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -796,7 +798,7 @@ for (int32_t i = 0; i < kChannelsPerAggregationGroup; ++i) {
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_pointwise_accum_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.450 ms` |
 | P1b-9 probe p50 | `52.431 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -828,7 +830,7 @@ for (int32_t outputBase = 0; outputBase < kChannelsPerAggregationGroup; outputBa
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_pointwise_accum4_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.453 ms` |
 | P1b-10 probe p50 | `54.197 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -848,7 +850,7 @@ constexpr int32_t kDepthwiseTileWidth = 133;
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_shared_pitch133_engine_benchmark_summary.md) |
 | P1b-7 benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md) |
 | P1b-11a probe p50 | `52.268 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -894,7 +896,7 @@ if (globalW >= 0 && globalW < width) {
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_height_fastpath_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.387 ms` |
 | P1b-12a probe p50 | `52.510 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -922,7 +924,7 @@ attentionInput[channelBase + n] = depthwiseInputTile[centerIndex];
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.483 ms` |
 | P1b-13a probe p50 | `52.889 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -956,7 +958,7 @@ depthwiseWeightTile[idx] = __ldg(depthwiseWeight + offset);
 
 | 指标 | 数值 |
 |---|---:|
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.431 ms` |
 | P1b-14a probe p50 | `53.356 ms` |
 | P1b-7 p50 | `52.311 ms` |
@@ -984,8 +986,8 @@ P1b-15a 是一个结构性 probe，不再做局部 hint 或边界判断微调，
 
 | 指标 | 数值 |
 |---|---:|
-| Engine build metadata | [`../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_build.json`](../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_build.json) |
-| Benchmark summary | [`../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md`](../results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md) |
+| Engine build metadata | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_p1b15a_engine_build.json`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_p1b15a_engine_build.json) |
+| Benchmark summary | [`../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md`](../results/metrics/archive/p1b_probes/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md) |
 | Baseline TRT p50 | `54.668 ms` |
 | P1b-15a probe p50 | `67.613 ms` |
 | P1b-7 p50 | `52.311 ms` |
