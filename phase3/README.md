@@ -15,6 +15,7 @@ Phase 3 做：
 - 将 Plugin 集成到 TensorRT engine 构建 / runtime 路径中。
 - 复用 Phase 2 benchmark 与 C++ runtime demo 验证 correctness、latency 和 Nsight attribution。
 - 在成功 MVP 基础上评估 `aggregation + cat + relu_linear_att` 中段组合边界。
+- 为最终采用的 Plugin engine 补充 Cityscapes mIoU / semantic regression accuracy gate，避免只用固定样图 logits 对齐替代数据集级精度验证。
 
 Phase 3 暂不做：
 
@@ -34,6 +35,7 @@ Phase 3 暂不做：
 | Phase 2 TensorRT report | [`../phase2/tensorrt_baseline_report.md`](../phase2/tensorrt_baseline_report.md) | 复核 TensorRT 后 LiteMLA residual runtime |
 | TensorRT engine inspection | [`../phase2/results/metrics/trt_engine_inspection_summary.md`](../phase2/results/metrics/trt_engine_inspection_summary.md) | 说明 TensorRT 未把 LiteMLA 自动融合成单一算子 |
 | TensorRT C++ demo | [`../phase2/cpp_demo/README.md`](../phase2/cpp_demo/README.md) | 作为后续 Plugin engine runtime 验证起点 |
+| Cityscapes mIoU evaluation design | [`design_notes/cityscapes_miou_evaluation_design.md`](design_notes/cityscapes_miou_evaluation_design.md) | 定义最终 Plugin accuracy gate、Cityscapes 本地数据布局、official/deployment 预处理口径与 H/8 logits resize 口径 |
 | Stage2 tensor contract | [`design_notes/stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md) | 确认 P1a/P1b/P1c 的真实输入输出 shape 与替换边界 |
 | Plugin API / CMake design | [`design_notes/plugin_api_cmake_design.md`](design_notes/plugin_api_cmake_design.md) | 确认第一版 Plugin 接口、序列化字段、DLL 构建与加载策略 |
 | Plugin toy engine build | [`results/metrics/relu_linear_attention_toy_build.json`](results/metrics/relu_linear_attention_toy_build.json) | 证明 Step 4 skeleton DLL 可注册并能构建含 Plugin 的 toy engine |
@@ -124,6 +126,7 @@ Phase 3 暂不做：
 - [x] Step 8.27：评估 P1b-13a shared-center qkv copy probe。产物：[`results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md`](results/metrics/p1b_aggregation_attention_plugin_shared_center_copy_engine_benchmark_summary.md)。结论：用 shared tile center 替代 qkv copy 的 global load 后 correctness 通过，但 p50 为 `52.889ms`，明显慢于 P1b-7；局部 load 替换增加了地址计算和依赖链，不采纳，主线恢复 P1b-7。
 - [x] Step 8.28：评估 P1b-14a `__restrict__` + `__ldg()` read-only hint probe。产物：[`results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md`](results/metrics/p1b_aggregation_attention_plugin_restrict_ldg_engine_benchmark_summary.md)。结论：给 `fusedAggregationCatKernel` 输入指针加 alias hint 并把只读 global load 改为 read-only path 后 correctness 通过，但 p50 为 `53.356ms`，明显慢于 P1b-7；该 probe 未缓解 dependency chain，反而破坏当前调度/缓存形态，不采纳，主线恢复 P1b-7。
 - [x] Step 8.29：评估 P1b-15a half-warp-per-pixel 线程职责重构 probe。产物：[`results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md`](results/metrics/p1b_aggregation_attention_plugin_p1b15a_engine_benchmark_summary.md)。结论：半个 warp 分摊一个 spatial pixel 的 16 channel 计算后 correctness 通过，但 p50 为 `67.613ms`，严重慢于 baseline 和 P1b-7；CTA 数和 halo 重复加载被放大，不能采纳，主线恢复 P1b-7。
+- [x] Step 8.30：落盘 Cityscapes mIoU accuracy gate 脚本与设计说明。产物：[`design_notes/cityscapes_miou_evaluation_design.md`](design_notes/cityscapes_miou_evaluation_design.md)、[`scripts/prepare_cityscapes_eval_manifest.py`](scripts/prepare_cityscapes_eval_manifest.py)、[`scripts/evaluate_cityscapes_miou.py`](scripts/evaluate_cityscapes_miou.py)。结论：脚本会验证本地 `leftImg8bit/val` 与 `gtFine/val` 布局，正式 mIoU 采用上游一致的 ImageNet mean/std 预处理，并将 engine 输出的 H/8 logits bicubic resize 到 label 分辨率后再 argmax。Cityscapes 数据集受授权限制，不入库；当前仓库只提供 manifest / eval 工具和缺失态记录。
 - [ ] Step 9：撰写 `integration_validation_report.md`。
 
 ---
@@ -134,6 +137,7 @@ Phase 3 暂不做：
 phase3/
 |-- README.md
 |-- design_notes/
+|   |-- cityscapes_miou_evaluation_design.md
 |   |-- plugin_api_cmake_design.md
 |   |-- plugin_fusion_design.md
 |   |-- plugin_graph_integration_design.md
@@ -163,11 +167,16 @@ phase3/
 |   |-- build_p1b_plugin_engine.py
 |   |-- build_p1b_plugin_toy_engine.py
 |   |-- capture_p1b_stage2_reference.py
+|   |-- evaluate_cityscapes_miou.py
 |   |-- integrate_relu_linear_attention_plugin_onnx.py
 |   |-- integrate_p1b_aggregation_attention_plugin_onnx.py
+|   |-- prepare_cityscapes_eval_manifest.py
 |   |-- analyze_plugin_nsys_attribution.py
 |   |-- validate_p1b_aggregation_attention_plugin.py
 |   `-- validate_relu_linear_attention_plugin.py
+|-- data/
+|   |-- .gitkeep
+|   `-- README.md
 |-- results/
 |   |-- engines/
 |   |   `-- .gitkeep
@@ -236,6 +245,7 @@ Phase 3 的一次有效 Plugin 实验至少需要同时满足：
 - 输出与 TensorRT FP32 baseline / PyTorch reference 在约定阈值内对齐。
 - latency 使用 Phase 2 相同的 CUDA Events execute-only 口径。
 - Nsight attribution 能看到 Plugin 前后 residual hotspot 的变化。
+- 最终采用的 Plugin 主线还需要 Cityscapes mIoU / semantic regression 证据：正式 mIoU 使用 `official` 预处理；`deployment` 预处理只作为与既有 benchmark 输入口径一致的回归检查。
 - 报告中清楚区分：
   - 端到端 latency 改善；
   - Plugin 覆盖的 layer / kernel 范围；

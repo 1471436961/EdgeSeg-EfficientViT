@@ -149,6 +149,7 @@
   - 将自定义算子集成到 ONNX 模型或直接通过 TensorRT Network API 构建网络
   - 使用阶段二的 C++ 推理 Demo 加载含 Plugin 的引擎，验证正确性和加速效果
   - 对比集成前后的延迟、吞吐量，以及与 PyTorch baseline 的精度差异
+  - 对最终采用的 Plugin engine 增加 Cityscapes mIoU / semantic regression accuracy gate：正式 mIoU 使用上游一致的 ImageNet mean/std 预处理；此前 Phase 2/3 的 `[0,1]` 输入口径只用于 latency 和 deployment-style 回归检查，不能替代数据集级精度结论。
 
 **2. 量化探索（辅助任务，20-30%精力）**
 
@@ -171,6 +172,7 @@
 - **`phase3/plugin_fusion_design.md`**（算子融合设计文档）
 - **`phase3/lite_mla_plugin.cu/.h`**（自定义算子源码，文件名按主选目标定，默认 `lite_mla_plugin`）
 - **`phase3/integration_validation_report.md`**（集成验证报告，含性能对比、精度对齐数据）
+- `phase3/design_notes/cityscapes_miou_evaluation_design.md` 与 `phase3/scripts/evaluate_cityscapes_miou.py`（Cityscapes mIoU 验收口径与执行脚本；数据集本体因授权和体积原因不入库）
 - `phase3/quantization_exploration.md`（量化探索报告）
 - `phase3/jetson_migration_plan.md`（Jetson 迁移方案）
 - （可选）ROS 2 节点源码

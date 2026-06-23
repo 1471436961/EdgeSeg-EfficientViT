@@ -57,6 +57,12 @@ cmake-build-*/
 phase3/results/tensors/*
 !phase3/results/tensors/.gitkeep
 
+# Cityscapes is license-gated and large; keep it outside git or under this local-only directory.
+phase3/data/*
+!phase3/data/.gitkeep
+!phase3/data/README.md
+phase3/results/metrics/cityscapes_val_manifest_missing.json
+
 # 目标文件与中间产物
 *.o
 *.obj
