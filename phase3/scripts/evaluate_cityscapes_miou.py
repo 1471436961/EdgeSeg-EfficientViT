@@ -19,8 +19,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-import torch
-import torch.nn.functional as F
 from PIL import Image
 
 
@@ -95,6 +93,8 @@ LABEL_ID_TO_TRAIN_ID = np.array(
     dtype=np.int16,
 )
 _PLUGIN_DLL_HANDLES: List[object] = []
+torch = None
+F = None
 
 
 def repo_root() -> Path:
@@ -125,7 +125,18 @@ from phase3.scripts.build_plugin_toy_engine import (  # noqa: E402
 )
 
 
-phase2_bench.torch = torch
+def import_torch_after_tensorrt() -> None:
+    """Import torch after TensorRT to avoid Windows DLL load-order conflicts."""
+    global torch, F
+    if torch is not None:
+        return
+    import torch as torch_module
+    import torch.nn.functional as functional_module
+
+    torch = torch_module
+    F = functional_module
+    phase2_bench.torch = torch_module
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -321,6 +332,7 @@ def evaluate(args: argparse.Namespace) -> Dict[str, Any]:
         trt, runtime_meta, plugin_meta = register_plugin_runtime(args)
     else:
         trt, runtime_meta, _runtime, _engine = load_serialized_engine(args.baseline_engine, args.trt_root)
+    import_torch_after_tensorrt()
 
     runners: Dict[str, Dict[str, Any]] = {}
     if args.target in ("baseline", "both"):

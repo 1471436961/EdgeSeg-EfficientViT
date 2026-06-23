@@ -14,10 +14,15 @@ _DLL_DIRECTORY_HANDLES: List[object] = []
 
 def candidate_runtime_dirs(trt_root: Path) -> List[Path]:
     dirs = [trt_root / "lib", trt_root / "bin"]
+    for env_name in ("CUDA_PATH", "CUDA_HOME"):
+        env_value = os.environ.get(env_name)
+        if env_value:
+            dirs.append(Path(env_value) / "bin")
     for site_dir in site.getsitepackages():
         base = Path(site_dir) / "nvidia"
         dirs.extend(
             [
+                base / "cuda_runtime" / "bin",
                 base / "cudnn" / "bin",
                 base / "cublas" / "bin",
                 base / "cuda_nvrtc" / "bin",
