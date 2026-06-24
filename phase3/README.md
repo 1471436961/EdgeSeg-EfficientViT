@@ -41,6 +41,7 @@ Phase 3 暂不做：
 
 | 类别 | 文件 | 作用 |
 |---|---|---|
+| Phase 3 最终验收报告 | [`integration_validation_report.md`](integration_validation_report.md) | 汇总 P1a stage2+stage3 Plugin 的集成、正确性、latency、Nsight attribution、mIoU 与最终分支决策 |
 | Design notes index | [`design_notes/README.md`](design_notes/README.md) | 给出 Phase 3 设计文档阅读顺序，区分主线、P1b 消融和历史反证 |
 | Phase 1 瓶颈分析 | [`../phase1/bottleneck_analysis_report.md`](../phase1/bottleneck_analysis_report.md) | 给出 PyTorch 路径下的热点与 Plugin 候选边界 |
 | Phase 2 TensorRT baseline | [`../phase2/tensorrt_baseline_report.md`](../phase2/tensorrt_baseline_report.md) | 复核 TensorRT 后 LiteMLA residual runtime，证明 TensorRT 没有自动整体融合 LiteMLA |
@@ -59,6 +60,7 @@ Phase 3 暂不做：
 
 | 产物 | 文件 |
 |---|---|
+| Phase 3 integration validation report | [`integration_validation_report.md`](integration_validation_report.md) |
 | P1a Plugin skeleton / toy build | [`results/metrics/relu_linear_attention_toy_build.json`](results/metrics/relu_linear_attention_toy_build.json) |
 | P1a 单层 correctness | [`results/metrics/relu_linear_attention_plugin_validation.json`](results/metrics/relu_linear_attention_plugin_validation.json) |
 | P1a 单层 microbenchmark | [`results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md`](results/metrics/relu_linear_attention_plugin_microbenchmark_summary.md) |
@@ -132,7 +134,7 @@ phase3/
 - [x] Step 8.6：完成 P1a 单 kernel 合并可行性反证。
 - [x] Step 8.7-8.29：完成 P1b parser/build、CUDA 数学、Nsight 与 P1b-1..15 消融。
 - [x] Step 8.30：完成 Cityscapes mIoU accuracy gate。
-- [ ] Step 9：撰写 `integration_validation_report.md`。
+- [x] Step 9：撰写 `integration_validation_report.md`。
 
 ---
 
