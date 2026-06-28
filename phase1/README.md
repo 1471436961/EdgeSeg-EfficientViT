@@ -97,7 +97,7 @@ phase1/
 ### 决策 4：阶段一不测精度
 - 阶段一聚焦"剖析与融合机会发现"。
 - 固定输入图只用于 latency/profiling，不用于 mIoU 或视觉质量结论。
-- 精度对齐推迟到阶段二（PyTorch ↔ TRT 对齐）和阶段三（融合 Plugin ↔ 原始算子对齐）；若未来需要 Cityscapes mIoU，应另起 `evaluate.py` 并单独确认设计。
+- 精度对齐推迟到阶段二（PyTorch ↔ TRT 对齐）和阶段三（融合 Plugin ↔ 原始算子对齐）；Phase 3 已另起 `evaluate_cityscapes_miou.py` 并完成 Cityscapes val mIoU gate，Phase 1 本身仍不把 mIoU 作为完成条件。
 
 ---
 

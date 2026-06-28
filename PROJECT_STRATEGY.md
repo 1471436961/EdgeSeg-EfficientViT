@@ -117,18 +117,18 @@
 
 ---
 
-### 阶段三：TensorRT 自定义算子开发（6月中旬–7月下旬，下一主线）
+### 阶段三：TensorRT 自定义算子开发（截至 2026-06-28，主线已完成）
 
 > **核心定位**: 这是整个项目最具区分度的部分。基于阶段一的剖析报告，选择一个既有数据支撑、又能展示 C++/CUDA/TensorRT Plugin 能力的融合目标。LiteMLA 仍是默认主线，因为它是非标准线性注意力、TensorRT 难以自动高效融合；但报告必须明确：在当前 B0/MX250 profile 下，LiteMLA 不是全模型最大瓶颈，stage0/head 也是重要优化候选。Plan D 用于把 `stage2/context` LiteMLA 从"整体模块候选"细化为"具体可融合子路径候选"。
 >
-> **Phase 3 实测修正（2026-06-23）**：当前主交付线已收敛为 **P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block**。P1b-7 是 stage2-only 扩大边界实验，证明 `aggregation + cat + relu_linear_att` 能显著降低 stage2 中段 kernel time / launch 数；它不应被直接拿来和覆盖范围更大的 P1a stage2+stage3 做公平对照。真正的全范围取舍由 P1mix（stage2=P1b-7、stage3=P1a）验证，P1mix 未稳定优于 P1a stage2+stage3。因此 P1b/P1mix 保留为消融和后续优化候选，不作为当前主交付线。
+> **Phase 3 实测修正（2026-06-28）**：当前主交付线已收敛为 **P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block**。P1b-7 是 stage2-only 扩大边界实验，证明 `aggregation + cat + relu_linear_att` 能显著降低 stage2 中段 kernel time / launch 数；它不应被直接拿来和覆盖范围更大的 P1a stage2+stage3 做公平对照。真正的全范围取舍由 P1mix（stage2=P1b-7、stage3=P1a）验证，P1mix 未稳定优于 P1a stage2+stage3。因此 P1b/P1mix 保留为消融和后续优化候选，不作为当前主交付线。Phase 3 已完成 `integration_validation_report.md`、`phase3_decision_corrections.md`、Cityscapes mIoU gate 与 Phase 3 学习/纠偏复盘。
 
 **任务**:
 
 **1. 自定义算子设计与实现（核心任务，60-70%精力）**
 
 - **目标算子选择（按"求职展示价值"与"端到端收益"双维度排序）**：
-  - 🥇 **P1：stage2 LiteMLA Plugin 主线**（默认主交付物） —— LiteMLA 是论文核心创新，也是 TensorRT 难以自动融合的非标准线性注意力结构；它不一定是当前 PyTorch profile 的最大端到端瓶颈，但最能展示非标准算子分析、CUDA kernel 设计和 TensorRT Plugin 集成能力。
+  - 🥇 **P1：stage2+stage3 LiteMLA Plugin 主线**（当前主交付物） —— LiteMLA 是论文核心创新，也是 TensorRT 难以自动融合的非标准线性注意力结构；它不一定是当前 PyTorch profile 的最大端到端瓶颈，但最能展示非标准算子分析、CUDA kernel 设计和 TensorRT Plugin 集成能力。
     - **P1a：局部单段 Plugin（当前主交付线）** —— Phase 3 已把 `relu_linear_att-only` 从 stage2 两个 block 扩展到 stage2+stage3 四个 LiteMLA context block；真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`，不需要 Plugin 权重，已完成 TensorRT Plugin 接入、数值对齐、engine 替换、Nsight attribution 和 Cityscapes mIoU gate。Phase 2 中的 `attention_core = relu_qk + pad + matmul + norm_add_div` 只是 TensorRT layer-name 视角下对 `relu_linear_att` 内部残余路径的 proxy，不反向改写 Phase 1 的 MVP 定义。
     - **P1b：中段组合 Plugin（重要消融 / 后续候选）** —— Phase 1/2 的主性能边界仍支持 `aggregation + cat + relu_linear_att` 作为值得探索的扩大边界；Phase 3 Step 2 确认该边界真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。P1b-7 已把 stage2 中段 proxy 降到 `3.043 ms / iter`、`6` launches / iter，证明 stage2-only 扩大边界有效；但最终全范围主线需要看 P1mix 是否优于 P1a stage2+stage3，当前 P1mix 未稳定胜出，因此 P1b 当前不作为主交付线。
     - **P1c：整体 LiteMLA Plugin（fallback / 上限方案）** —— 若单段或中段组合方案收益不足、TensorRT 图集成边界不合适，或希望最大化融合空间，再考虑整体 LiteMLA 级 Plugin。它不是优先 MVP，而是复杂度更高的兜底/上限方案。
@@ -170,14 +170,17 @@
 - 在 Docker 环境中运行，接收图像消息并发布分割结果
 - 成本极低，但能显著提升项目的"机器人系统感"
 
-**产出物**:
+**已完成产出物**:
 - **`phase3/design_notes/plugin_fusion_design.md`**（算子融合设计文档）
 - **`phase3/plugin/`**（P1a/P1b TensorRT Plugin C++/CUDA 源码）
-- **`phase3/integration_validation_report.md`**（集成验证报告，含性能对比、精度对齐数据；待撰写）
+- **`phase3/integration_validation_report.md`**（集成验证报告，含性能对比、精度对齐数据）
+- **`phase3/design_notes/phase3_decision_corrections.md`**（Phase 3 决策纠偏记录）
 - `phase3/design_notes/cityscapes_miou_evaluation_design.md` 与 `phase3/scripts/evaluate_cityscapes_miou.py`（Cityscapes mIoU 验收口径与执行脚本；数据集本体因授权和体积原因不入库）
-- `phase3/quantization_exploration.md`（量化探索报告）
-- `phase3/jetson_migration_plan.md`（Jetson 迁移方案）
-- （可选）ROS 2 节点源码
+
+**后续可选扩展**（不属于当前 Phase 3 主线完成条件）：
+- `phase3/quantization_exploration.md`（量化探索报告，可在需要时另起设计）
+- `phase3/jetson_migration_plan.md`（Jetson 迁移方案，可在具备目标硬件或明确投递叙事时补）
+- ROS 2 节点源码（可选系统化展示项，不阻塞当前 Plugin 主线结论）
 
 ---
 
@@ -189,10 +192,10 @@
 | :--- | :--- | :--- | :--- |
 | **阶段一** | 6月上旬，已完成 | 架构精读 + PyTorch baseline + Nsight attribution + 瓶颈分析报告（含双维度候选排序） | 可作为项目第一版经历写入简历草稿 |
 | **阶段二** | 6月上旬至 6月10 日，已完成 | ONNX 导出 + TensorRT FP32/FP16 baseline + TensorRT Nsight 复核 + EngineInspector + C++ Runtime Demo + Phase 2 报告 | 更新 GitHub README 与简历项目描述，准备讲清 PyTorch→TensorRT 全链路 |
-| **阶段三** | 6月中旬–7月下旬，主线验证与集成报告已完成 | **P1a stage2+stage3 LiteMLA TensorRT Plugin MVP** + P1b/P1mix 消融 + mIoU gate + 集成验证报告 | 用 Phase 1/2/3 阶段成果更新简历与 GitHub 项目入口 |
-| **扩展与收尾** | 7月下旬–8月中旬 | 量化探索、Jetson 迁移方案、可选 ROS 2 Demo、技术博客与最终 README polish | 面向重点岗位集中投递，并根据面试反馈补强文档和实验 |
+| **阶段三** | 6月中旬至 2026-06-28，主线验证与集成报告已完成 | **P1a stage2+stage3 LiteMLA TensorRT Plugin MVP** + P1b/P1mix 消融 + mIoU gate + 集成验证报告 | 用 Phase 1/2/3 阶段成果更新简历与 GitHub 项目入口 |
+| **扩展与收尾** | 待定，可按投递/面试反馈选择 | 量化探索、Jetson 迁移方案、可选 ROS 2 Demo、技术博客与最终 README polish | 面向重点岗位集中投递，并根据反馈决定是否继续补实验 |
 
-Phase 3 的优先级顺序：
+Phase 3 之后的优先级顺序：
 
 1. 已完成 `integration_validation_report.md`，把 P1a stage2+stage3 主线、P1b/P1mix 消融、mIoU gate 和 MX250 测量纪律汇总成最终叙事。
 2. 后续若继续优化，优先基于报告判断是否继续 P1b、尝试 P1c，或转向 stage0/head 标准算子链的工程优化候选；P1b-7 的 stage2-only 结果不得直接作为否定/替代 P1a stage2+stage3 的公平对照，必须通过 P1mix 或同覆盖范围实验判断。
@@ -219,7 +222,7 @@ Phase 3 的优先级顺序：
 
 - 本项目受限于 MX250 2GB 显存，所有任务设计已将硬件限制转化为展示系统分析能力的优势。
 - **自定义算子开发是本项目的核心亮点**，务必投入足够精力做深做透。一个完整、有数据支撑的自定义算子（比如 LiteMLA Plugin），远胜过多个浅尝辄止的优化尝试。但报告中要区分"高区分度 Plugin 目标"与"最大端到端瓶颈"，不要把 LiteMLA 叙述成当前 profile 的最大热点。
-- TensorRT FP16 已实测可构建且语义一致，但在 MX250 上慢于 FP32；本机主 baseline 采用 FP32。后续 FP16/混合精度只作为 Phase 3 Plugin 数值策略问题继续讨论。
+- TensorRT FP16 已实测可构建且语义一致，但在 MX250 上慢于 FP32；本机主 baseline 采用 FP32。若后续继续做量化或混合精度扩展，需作为独立实验重新验证 Plugin 数值语义和 mIoU，不应直接套用当前 FP32 主线结论。
 - 每份报告和源码都是面试中的核心论据，请务必详尽、专业、体现思考深度。
 
 ---
@@ -235,10 +238,10 @@ Phase 3 的优先级顺序：
 | 5 | §4 阶段一未提 NVTX 策略 | 新增 **四档 NVTX 策略**（A 干净 latency、B 全模型 stage 级归因、C 热点组件级归因、D LiteMLA 内部子路径归因） | 避免 NVTX 开销污染主基线测量，同时给 Plugin 候选提供多层证据，详见 `phase1/README.md` 决策 2 |
 | 6 | §4 阶段一产出物未含架构分析 | 新增 `phase1/architecture_analysis.md`| 反映已完成工作 |
 | 7 | §4 阶段二未提 ONNX 导出风险 | 新增 **形状自适应分支** 与 **bicubic Upsample** 两个风险点 | 两个点不提前知道，阶段二大概率会卡壳 |
-| 8 | §4 阶段三 1.目标算子选择 "MatMul+Softmax+Scale / LayerNorm+残差" | 替换为 **双维度候选融合目标排序**（P1 stage2 LiteMLA 主线：局部单段 MVP / `aggregation+cat+relu_linear_att` 中段组合 / 整体 fallback；P2 stage0/head/stage2-local 标准算子链工程候选；P3 低优先探索项） | 同 #4，纠错；同时吸收 Phase 1 Nsight attribution 的真实结论 |
+| 8 | §4 阶段三 1.目标算子选择 "MatMul+Softmax+Scale / LayerNorm+残差" | 替换为 **双维度候选融合目标排序**（P1 LiteMLA 主线：局部单段 MVP / `aggregation+cat+relu_linear_att` 中段组合 / 整体 fallback；Phase 3 最终扩展到 stage2+stage3；P2 stage0/head/stage2-local 标准算子链工程候选；P3 低优先探索项） | 同 #4，纠错；同时吸收 Phase 1 Nsight attribution 的真实结论 |
 | 9 | §4 阶段三产出物 `fused_attention_plugin.cu/.h` | 重命名为 `lite_mla_plugin.cu/.h` | 更精确反映模块名，便于面试讲解 |
 | 10 | §4 阶段三 2.量化探索 "敏感层 FP16/INT8 混合" | 明确为 **"LiteMLA 注意力段 FP16/FP32，纯卷积 INT8"** | 基于架构精读，量化敏感区段已明确 |
 | 11 | §5 阶段一核心产出 | 加上 "架构精读 + 双维度候选排序" | 同步阶段一任务变化 |
 | 12 | 文末缺少修订纪要 | 新增 **§8 修订纪要** | 保证文档可追溯，方便后续 V3.2+ |
 
-**后续更新**：时间规划已在 2026-06-10 根据 Phase 1/2 实际完成情况更新，详见 §5；项目定位、技术栈大方向、协作方式、自定义算子作为核心亮点的战略保持不变。
+**后续更新**：时间规划已在 2026-06-28 根据 Phase 1/2/3 实际完成情况更新，详见 §5；项目定位、技术栈大方向、协作方式、自定义算子作为核心亮点的战略保持不变。

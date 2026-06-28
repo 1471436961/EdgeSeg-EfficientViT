@@ -186,7 +186,7 @@ TensorRT baseline 验收：
 
 - Phase 2 不做完整 Cityscapes mIoU，不把数据集精度评测作为阶段完成条件。
 - Phase 2 验证的是部署转换一致性：logits diff、relaxed allclose、cosine similarity、argmax pixel agreement。
-- 完整 mIoU 或更大样本集评估放到 Phase 3 Plugin 集成验证或最终验收阶段。
+- 完整 mIoU 或更大样本集评估不属于 Phase 2 完成条件；后续已在 Phase 3 P1a stage2+stage3 Plugin 集成验证中完成 Cityscapes val mIoU gate。
 
 当前 TensorRT 构建环境口径：
 

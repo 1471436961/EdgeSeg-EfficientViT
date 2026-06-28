@@ -1,6 +1,6 @@
 # P1a Stage2+Stage3 All-Context Design
 
-> 目的：在进入更复杂的 P1mix（stage2=P1b、stage3=P1a）之前，先验证当前最稳定的 P1a-3b `relu_linear_att-only` Plugin 是否可以同时作用于 `stage2/context` 和 `stage3/context` 四个 LiteMLA block。
+> 目的：在进入更复杂的 P1mix（stage2=P1b-7、stage3=P1a）之前，先验证当前最稳定的 P1a-3b `relu_linear_att-only` Plugin 是否可以同时作用于 `stage2/context` 和 `stage3/context` 四个 LiteMLA block。
 
 ## 1. 为什么先做这个实验
 

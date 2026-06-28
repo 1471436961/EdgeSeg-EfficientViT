@@ -113,7 +113,7 @@
 
 - Phase 2 使用 logits diff、relaxed allclose、cosine similarity、argmax pixel agreement 验证转换一致性。
 - 不把 Cityscapes 全量 mIoU 作为 Phase 2 完成条件。
-- 完整 mIoU 或更大样本集评估放到 Phase 3 Plugin 集成验证或最终验收阶段。
+- 完整 mIoU 或更大样本集评估不作为 Phase 2 完成条件；后续已在 Phase 3 P1a stage2+stage3 Plugin 集成验证中完成 Cityscapes val mIoU gate。
 
 **影响**：避免 Phase 2 被数据集评测流程拖偏，同时保留部署转换的数值安全检查。
 

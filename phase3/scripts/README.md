@@ -40,7 +40,7 @@
 
 ## 4. 后续整理建议
 
-如果 Phase 3 报告完成后还要继续清理脚本目录，建议顺序是：
+Phase 3 集成报告已经完成。若后续还要继续清理脚本目录，建议顺序是：
 
 1. 抽出 `phase3/scripts/_common.py`，集中管理 repo root、TensorRT runtime path、metadata writer、hash/version helper。
 2. 再考虑把 P1b 消融脚本移到 `phase3/scripts/experiments/p1b/`。

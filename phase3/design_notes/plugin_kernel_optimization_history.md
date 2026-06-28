@@ -242,7 +242,7 @@ P1a-4 的完整分析见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_
 1. 当前两阶段 kernel boundary 不是纯开销，它同时提供了 `computeVk -> computeOutput` 之间的全局同步。
 2. VK workspace 只有约 `8704 bytes`，workspace global write/read 本身不是最大开销。
 3. naive single-kernel 方案要么降低 output 并行度，要么重复大量 VK 归约，要么引入高风险 device-side barrier / cooperative launch。
-4. 因此 P1a-4 记录为 `evaluated, not adopted as mainline`；下一主线应优先评估 P1b `aggregation + cat + relu_linear_att`。
+4. 因此 P1a-4 记录为 `evaluated, not adopted as mainline`；当时的下一步应优先评估 P1b `aggregation + cat + relu_linear_att`。后续 P1b-7 与 P1mix 已完成，最终主线仍收敛为 P1a stage2+stage3。
 
 ---
 

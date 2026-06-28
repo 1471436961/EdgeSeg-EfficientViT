@@ -212,7 +212,7 @@ Step 6 已完成真实 EfficientViT graph replacement：
 
 5.5. **P1a-4 single-kernel feasibility**
    - 在继续扩大 P1a 内部优化前，先评估两阶段 kernel 是否值得合并。
-   - 结论见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)：当前两阶段边界承担全局同步语义，naive single-kernel 方案风险高、收益上限有限，不作为下一主线。
+   - 结论见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_feasibility.md)：当前两阶段边界承担全局同步语义，naive single-kernel 方案风险高、收益上限有限，不作为当前主线；后续 P1b-7 / P1mix 已完成验证，最终主线收敛为 P1a stage2+stage3。
 
 5.6. **P1b parser/build feasibility design**
    - 在开始 P1b CUDA 实现前，先确定 `aggregation + cat + relu_linear_att` 的替换边界、权重输入方式和 TensorRT parser 风险。

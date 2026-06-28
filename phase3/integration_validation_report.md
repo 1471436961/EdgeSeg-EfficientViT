@@ -1,4 +1,4 @@
-# Phase 3 Integration Validation Report
+# Phase 3 集成验证报告
 
 > **报告目的**：验证 Phase 3 TensorRT Plugin 是否已经完成真实 EfficientViT-Seg-B0 图集成、数值对齐、端到端性能验证、Nsight runtime attribution 和 Cityscapes mIoU accuracy gate，并给出 Phase 3 最终采用边界。
 >
@@ -81,7 +81,7 @@ P1a stage2+stage3 的 ONNX surgery 结果显示，四个 LiteMLA context block �
 
 ---
 
-## 5. Correctness Validation
+## 5. 正确性验证
 
 端到端 benchmark 同时比较了 Plugin TRT 与 Phase 2 TensorRT FP32 baseline / PyTorch reference：
 
@@ -98,7 +98,7 @@ P1a stage2+stage3 的 ONNX surgery 结果显示，四个 LiteMLA context block �
 
 ---
 
-## 6. Latency Validation
+## 6. 延迟验证
 
 Phase 3 延续 Phase 2 的 execute-only latency 口径：
 
@@ -121,7 +121,7 @@ P1a stage2+stage3 benchmark：
 
 ---
 
-## 7. Nsight Runtime Attribution
+## 7. Nsight 运行时归因
 
 Nsight attribution 使用：
 
@@ -201,7 +201,7 @@ relu_linear_att_plugin = EdgesegReluLinearAttention_TRT
 
 ---
 
-## 9. Cityscapes mIoU Validation
+## 9. Cityscapes mIoU 验证
 
 P1a stage2+stage3 通过 Cityscapes val 500 张图的 mIoU gate：
 

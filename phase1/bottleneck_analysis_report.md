@@ -83,7 +83,7 @@ Phase 1 使用四档 profiling plan：
 
 ---
 
-## 4. 端到端 Baseline
+## 4. 端到端基线
 
 | Run | Mean ms | P50 ms | P95 ms | P99 ms | Peak allocated MB | 说明 |
 |---|---:|---:|---:|---:|---:|---|
@@ -241,9 +241,11 @@ Plan D 显示 `aggregation` 与 `relu_linear_att` 都重，且中间存在 `cat`
 
 ## 9. Phase 3 优化候选排序
 
-### P1：stage2 LiteMLA Plugin 主线
+### P1：stage2 LiteMLA Plugin 主线（Phase 3 已扩展到 stage2+stage3）
 
 这是 Phase 3 默认的高区分度主线。
+
+> Phase 3 回填：最终主交付线采用 P1a `relu_linear_att-only`，覆盖范围从 Phase 1 候选中的 stage2 扩展到 stage2+stage3 四个 LiteMLA context block；P1b/P1mix 已作为消融保留。
 
 #### P1a：局部单段 Plugin
 
@@ -401,7 +403,7 @@ Phase 2 TensorRT baseline 前，不建议直接为 P2 手写 Plugin。应先看 
 
 ---
 
-## Appendix A：源数据与证据
+## 附录 A：源数据与证据
 
 Metrics:
 

@@ -1,4 +1,4 @@
-# Phase 2 TensorRT Baseline Report
+# Phase 2 TensorRT 基线报告
 
 > **报告目标**：总结 EfficientViT-Seg-B0 从 PyTorch 到 ONNX / TensorRT 的部署结果，量化 TensorRT baseline 相对 Phase 1 PyTorch baseline 的收益，并复核 Phase 1 的 Phase 3 Plugin 候选在 TensorRT 优化后是否仍然成立。
 >
@@ -6,7 +6,7 @@
 
 ---
 
-## 1. Executive Summary
+## 1. 结论摘要
 
 Phase 2 已完成固定 shape `1x3x1024x2048` 的 `PyTorch -> ONNX -> TensorRT` 基础部署链路。
 
@@ -21,7 +21,7 @@ Phase 2 已完成固定 shape `1x3x1024x2048` 的 `PyTorch -> ONNX -> TensorRT` 
 
 ---
 
-## 2. Scope and Measurement Protocol
+## 2. 阶段范围与测量协议
 
 ### 2.1 阶段范围
 
@@ -55,7 +55,7 @@ Phase 2 不做：
 
 ---
 
-## 3. Evidence Index
+## 3. 证据索引
 
 | 证据 | 文件 |
 |---|---|
@@ -74,7 +74,7 @@ Phase 2 不做：
 
 ---
 
-## 4. ONNX Export and Runtime Alignment
+## 4. ONNX 导出与运行时对齐
 
 ONNX 导出结果：
 
@@ -100,7 +100,7 @@ PyTorch CUDA vs ONNXRuntime CPU 对齐结果：
 
 ---
 
-## 5. TensorRT Engine Build Results
+## 5. TensorRT Engine 构建结果
 
 当前可用 TensorRT 环境：
 
@@ -128,9 +128,9 @@ Engine 构建结果：
 
 ---
 
-## 6. Latency and Output Alignment
+## 6. 延迟与输出对齐
 
-### 6.1 Latency
+### 6.1 延迟
 
 | 路径 | mean ms | p50 ms | p95 ms | p99 ms | 相对 PyTorch p50 |
 |---|---:|---:|---:|---:|---:|
@@ -144,7 +144,7 @@ Engine 构建结果：
 - FP16 在 MX250 上没有速度收益，p50 比 FP32 慢约 `9.1%`。这符合 Pascal MX250 没有 Tensor Core、FP16 不一定加速的预期。
 - FP16 可作为“可构建且语义一致”的风险实验记录，但不应包装成性能优化主线。
 
-### 6.2 Output Alignment
+### 6.2 输出对齐
 
 TensorRT FP32 vs PyTorch CUDA：
 
@@ -160,11 +160,11 @@ TensorRT FP32 vs PyTorch CUDA：
 
 TensorRT FP16 当前固定输入下得到同样的 relaxed alignment 与 `100%` argmax pixel agreement。
 
-结论：TensorRT 输出不能表述为“逐元素严格一致”，但可以表述为“logits 数值接近，语义输出一致”。Phase 2 不做完整 mIoU，完整精度回归应放到 Phase 3 Plugin 集成验证或最终验收阶段。
+结论：TensorRT 输出不能表述为“逐元素严格一致”，但可以表述为“logits 数值接近，语义输出一致”。Phase 2 不做完整 mIoU；后续已在 Phase 3 P1a stage2+stage3 Plugin 集成验证中完成 Cityscapes val mIoU gate。
 
 ---
 
-## 7. What TensorRT Optimized
+## 7. TensorRT 自动优化了什么
 
 EngineInspector 结构证据：
 
@@ -195,7 +195,7 @@ EngineInspector 结构证据：
 
 ---
 
-## 8. TensorRT Runtime Attribution
+## 8. TensorRT 运行时归因
 
 ![TensorRT Nsight timeline overview](results/figures/trt_timeline_overview.png)
 
@@ -254,7 +254,7 @@ Group summary：
 
 ---
 
-## 9. Stage2 Context and LiteMLA Candidate Mapping
+## 9. Stage2 Context 与 LiteMLA 候选映射
 
 TensorRT 后 `stage2/context` 细粒度 runtime：
 
@@ -286,7 +286,7 @@ TensorRT 侧 proxy boundary：
 
 ---
 
-## 10. Impact on Phase 1 Conclusions
+## 10. 对 Phase 1 结论的影响
 
 Phase 1 的核心结论在 TensorRT 后需要这样调整：
 
@@ -299,7 +299,7 @@ Phase 1 的核心结论在 TensorRT 后需要这样调整：
 
 ---
 
-## 11. Phase 3 Candidate Ranking
+## 11. Phase 3 候选排序
 
 Phase 3 不应按“当前耗时最大”单一标准选目标。排序应同时看：
 
@@ -311,9 +311,11 @@ Phase 3 不应按“当前耗时最大”单一标准选目标。排序应同时
 
 建议候选排序：
 
-### P1：stage2 LiteMLA Plugin 主线
+### P1：stage2 LiteMLA Plugin 主线（Phase 3 已扩展到 stage2+stage3）
 
 LiteMLA 不是全模型最大热点，但它是最适合展示自定义 TensorRT Plugin 能力的非标准线性注意力结构。
+
+> Phase 3 回填：最终主交付线采用 P1a `relu_linear_att-only`，覆盖 stage2+stage3 四个 LiteMLA context block；P1b `aggregation + cat + relu_linear_att` 与 P1mix 已完成消融，但未替代 P1a stage2+stage3 主线。
 
 | 优先级 | 边界 | 角色 | 理由 |
 |---|---|---|---|
@@ -337,11 +339,11 @@ Phase 2 对应复核：
 
 ---
 
-## 12. Known Limitations
+## 12. 已知限制
 
-1. **不做完整 mIoU**
+1. **Phase 2 本身不做完整 mIoU**
 
-   Phase 2 只验证固定输入下 PyTorch / ONNXRuntime / TensorRT 的转换一致性，不声称完整 Cityscapes 精度。
+   Phase 2 只验证固定输入下 PyTorch / ONNXRuntime / TensorRT 的转换一致性，不声称完整 Cityscapes 精度。数据集级 mIoU 已在 Phase 3 P1a stage2+stage3 Plugin 集成验证中补齐。
 
 2. **TensorRT layer-name mapping 是 heuristic**
 
@@ -365,17 +367,17 @@ Phase 2 对应复核：
 
 ---
 
-## 13. Next Steps
+## 13. Phase 3 回填状态
 
-1. 进入 Phase 3 前，先写 `phase3/plugin_fusion_design.md`，明确 P1a / P1b / P1c 的输入输出 tensor contract。
-2. 第一版 Plugin 建议从 `relu_linear_att-only` 或 `aggregation-only` 开始，目标是验证接入链路和数值对齐。
-3. 若 P1a 接入成功，再评估 `aggregation + cat + relu_linear_att` 中段组合的收益。
-4. Plugin 设计阶段需要单独处理 FP32 / FP16 / FP32 accumulate 策略，不能直接套用 TensorRT FP16 engine 结果。
-5. 保留 P2 工程优化候选，但不要把标准 MBConv / Conv 链作为首个高区分度 Plugin 主线。
+1. `phase3/plugin_fusion_design.md`、P1a / P1b / P1c tensor contract 和真实 ONNX graph surgery 均已完成。
+2. Phase 3 最终主线采用 P1a `relu_linear_att-only`，覆盖 stage2+stage3 四个 LiteMLA context block。
+3. P1b `aggregation + cat + relu_linear_att` 已作为 stage2-only 扩大边界消融完成；P1mix 未稳定优于 P1a stage2+stage3，因此不采纳为当前主线。
+4. P1a stage2+stage3 Plugin 已完成 TensorRT build、runtime correctness、Nsight attribution、latency benchmark 和 Cityscapes val mIoU gate。
+5. P2 工程优化候选仍保留为后续可选方向，但不改变当前 P1a Plugin 主交付结论。
 
 ---
 
-## Appendix A: Reproducibility Snapshot
+## 附录 A：复现快照
 
 | 项目 | 值 |
 |---|---|
@@ -392,6 +394,6 @@ Phase 2 对应复核：
 
 ---
 
-## Appendix B: Report Boundary
+## 附录 B：报告边界
 
 本报告是 Phase 2 的阶段结论文档。它可以指导 Phase 3 的 Plugin 设计优先级，但不替代 Phase 3 的 Plugin 设计文档、CUDA kernel microbenchmark、Plugin 集成验证或最终精度评估。

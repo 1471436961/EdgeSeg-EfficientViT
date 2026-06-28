@@ -4,6 +4,21 @@ EdgeSeg-EfficientViT 是一个基于 MIT Han Lab EfficientViT-Seg-B0 的边缘�
 
 本仓库 fork 自 EfficientViT。原上游 README 已完整保留在 [`UPSTREAM_README.md`](./UPSTREAM_README.md)。
 
+## 结果速览
+
+一句话：本项目把 EfficientViT-Seg-B0 从 PyTorch profiling 推进到 TensorRT baseline，再落到可运行的 LiteMLA TensorRT Plugin；最终证明 TensorRT 未自动整体融合的非标准线性注意力子路径可以被自定义 CUDA/TensorRT Plugin 正确替换，并在 MX250 上获得稳定正收益。
+
+| 维度 | 结果 |
+|---|---:|
+| PyTorch FP32 baseline p50 | 85.70 ms |
+| TensorRT FP32 baseline p50 | 54.44 ms |
+| TensorRT vs PyTorch p50 speedup | 1.57x |
+| P1a stage2+stage3 Plugin p50 | 50.8380 ms |
+| Plugin vs TensorRT p50 speedup | 1.0701x |
+| stage2 `relu_linear_att` proxy speedup | 2.819x |
+| Cityscapes val baseline mIoU | 75.6463126% |
+| Cityscapes val Plugin mIoU | 75.6463248% |
+
 ## 项目目标
 
 本项目面向 AI 推理优化 / 机器人边缘部署相关岗位，重点展示：
@@ -20,6 +35,14 @@ EdgeSeg-EfficientViT 是一个基于 MIT Han Lab EfficientViT-Seg-B0 的边缘�
 | Phase 1：PyTorch baseline + Nsight 剖析 | 已完成 | [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md) |
 | Phase 2：ONNX / TensorRT baseline | 已完成 | [`phase2/tensorrt_baseline_report.md`](./phase2/tensorrt_baseline_report.md) |
 | Phase 3：TensorRT Plugin | 已完成主线验证与集成报告 | P1a stage2+stage3 Plugin、P1b/P1mix 消融、Cityscapes mIoU gate、集成验证报告 |
+
+## 推荐阅读路径
+
+- **30 秒看结果**：先读本文件的“结果速览”和“当前进度”。
+- **5 分钟看闭环**：继续读三段 Phase 摘要，再跳到 [`phase3/integration_validation_report.md`](./phase3/integration_validation_report.md)。
+- **技术深挖**：按顺序读 [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)、[`phase2/tensorrt_baseline_report.md`](./phase2/tensorrt_baseline_report.md)、[`phase3/integration_validation_report.md`](./phase3/integration_validation_report.md)。
+- **工程过程与取舍**：读 [`PROJECT_DECISION_CORRECTIONS.md`](./PROJECT_DECISION_CORRECTIONS.md) 和 [`phase3/design_notes/plugin_kernel_optimization_history.md`](./phase3/design_notes/plugin_kernel_optimization_history.md)。
+- **学习沉淀**：读 [`LEARNING_LOG.md`](./LEARNING_LOG.md)。
 
 ## Phase 1 摘要
 
@@ -42,7 +65,7 @@ Phase 1 在 NVIDIA GeForce MX250 上，以 Cityscapes 分辨率 `1024x2048` 剖�
 - Plan D 将 LiteMLA Plugin 候选细化为三类边界；Phase 3 实测后，当前主线收敛为 P1a stage2+stage3：
   - `relu_linear_att-only`：Phase 3 最终 MVP，stage2+stage3 四个 LiteMLA context block 均已覆盖，真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`。
   - `aggregation-only`：保留为 fallback / 对照实验。
-  - `aggregation + cat + relu_linear_att`：P1b 重要消融和后续候选，真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。P1b-7 是 stage2-only 扩大边界实验，应优先和 stage2-only / 中段 proxy 口径比较；最终主线取舍由 P1mix（stage2=P1b、stage3=P1a）对照 P1a stage2+stage3 决定。
+  - `aggregation + cat + relu_linear_att`：P1b 重要消融和后续候选，真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。P1b-7 是 stage2-only 扩大边界实验，应优先和 stage2-only / 中段 proxy 口径比较；最终主线取舍由 P1mix（stage2=P1b-7、stage3=P1a）对照 P1a stage2+stage3 决定。
   - 整体 LiteMLA：复杂度更高的 fallback / 上限方案。
 
 完整报告见 [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)。
@@ -68,6 +91,32 @@ Phase 2 的关键复核结论：
 - Phase 3 已围绕 LiteMLA 完成 P1a Plugin 主线验证，并补充 P1b/P1mix 消融与 `phase3/integration_validation_report.md`。
 
 Phase 2 不以完整 Cityscapes mIoU 为验收条件；当前精度口径是 PyTorch / ONNXRuntime / TensorRT 的转换一致性验证，包括 logits diff、relaxed allclose 和 argmax pixel agreement。
+
+## Phase 3 摘要
+
+Phase 3 已完成 LiteMLA TensorRT Plugin 主线验证。最终主线是 P1a `relu_linear_att-only` Plugin，覆盖 `stage2+stage3` 四个 LiteMLA `context_module/main` block，并真实集成到 EfficientViT-Seg-B0 TensorRT engine 中。
+
+这条 Plugin 主线的价值不只在端到端 `1.0701x` 收益，而在于完整证明了：TensorRT 未自动融合的 LiteMLA 非标准子路径可以被手写 CUDA/TensorRT Plugin 替换，且能同时通过 latency、Nsight attribution 和 Cityscapes mIoU gate。它更适合展示“非标准算子分析 + CUDA kernel 设计 + TensorRT Plugin 集成”的能力，而不是单纯追求最大端到端加速。
+
+核心结果：
+
+| 项目 | 结果 |
+|---|---:|
+| TensorRT FP32 baseline p50 | 54.3995 ms |
+| P1a stage2+stage3 Plugin p50 | 50.8380 ms |
+| 端到端 p50 speedup | 1.0701x |
+| stage2 `relu_linear_att` proxy speedup | 2.819x |
+| Cityscapes val baseline mIoU | 75.6463126% |
+| Cityscapes val Plugin mIoU | 75.6463248% |
+
+Phase 3 的关键结论：
+
+- P1a Plugin 通过 TensorRT build / runtime correctness / Nsight attribution / Cityscapes mIoU gate。
+- TensorRT 没有把 LiteMLA 自动融合成单一算子，`relu_linear_att` 仍有可优化 residual path。
+- P1b-7 证明 `aggregation + cat + relu_linear_att` 在 stage2-only 中段边界上有价值，但不能直接替代 P1a stage2+stage3。
+- P1mix（stage2=P1b-7，stage3=P1a）未稳定优于 P1a stage2+stage3，因此 P1b/P1mix 保留为消融和后续候选。
+
+完整报告见 [`phase3/integration_validation_report.md`](./phase3/integration_validation_report.md)。
 
 ## 我的新增工作
 
@@ -96,6 +145,15 @@ Phase 2 实现与部署：
 - [`phase2/design_notes/trt_nsys_attribution_design.md`](./phase2/design_notes/trt_nsys_attribution_design.md)：TensorRT 后候选复核的 Nsight attribution 设计。
 - [`phase2/design_notes/phase2_decision_corrections.md`](./phase2/design_notes/phase2_decision_corrections.md)：Phase 2 关键设计纠偏记录。
 
+Phase 3 Plugin 实现与验证：
+
+- [`phase3/README.md`](./phase3/README.md)：Phase 3 任务清单、当前主线、P1a/P1b/P1mix 口径与验证状态。
+- [`phase3/plugin/`](./phase3/plugin/)：TensorRT Plugin C++ / CUDA 实现，包含 P1a `relu_linear_att-only` 与 P1b 扩大边界消融代码。
+- [`phase3/scripts/`](./phase3/scripts/)：Plugin engine 构建、benchmark、Nsight attribution、mIoU gate 与结果汇总脚本。
+- [`phase3/integration_validation_report.md`](./phase3/integration_validation_report.md)：Phase 3 集成验证报告，汇总 latency、Nsight、mIoU 与候选取舍。
+- [`phase3/design_notes/plugin_kernel_optimization_history.md`](./phase3/design_notes/plugin_kernel_optimization_history.md)：P1a/P1b kernel 优化历程与实测记录。
+- [`phase3/design_notes/phase3_decision_corrections.md`](./phase3/design_notes/phase3_decision_corrections.md)：Phase 3 关键设计纠偏记录。
+
 ## 仓库结构
 
 ```text
@@ -108,6 +166,7 @@ Phase 2 实现与部署：
 ├── LEARNING_LOG.md                   # 学习笔记与技术问答沉淀
 ├── phase1/                           # Phase 1 profiling、报告、截图、脚本
 ├── phase2/                           # Phase 2 ONNX / TensorRT 部署、benchmark 与 Nsight 复核
+├── phase3/                           # Phase 3 TensorRT Plugin、CUDA kernel、mIoU gate 与集成报告
 ├── efficientvit/                     # 上游 EfficientViT 源码
 ├── applications/                     # 上游应用示例与文档
 ├── assets/                           # 上游资源与文档资产
@@ -121,7 +180,7 @@ Phase 2 实现与部署：
 
 - 保留 `efficientvit/`、`applications/`、`assets/`、`setup.py`、`pyproject.toml`、`requirements.txt` 和 `LICENSE`，用于复现、溯源和保留上游上下文。
 - 不为了让仓库变小而删除上游其它 application；这些内容说明了模型来源，也避免破坏潜在 import / 示例路径。
-- 将 `phase1/`、`phase2/`、`PROJECT_STRATEGY.md`、`PROJECT_CONVENTIONS.md`、`PROJECT_DECISION_CORRECTIONS.md`、`LEARNING_LOG.md` 作为个人工作主入口。
+- 将 `phase1/`、`phase2/`、`phase3/`、`PROJECT_STRATEGY.md`、`PROJECT_CONVENTIONS.md`、`PROJECT_DECISION_CORRECTIONS.md`、`LEARNING_LOG.md` 作为个人工作主入口。
 - 如果后续需要做更干净的作品集发布包，应作为单独 release / packaging 步骤处理，而不是在开发仓库中静默删除上游上下文。
 
 一句话：默认入口展示 EdgeSeg 的个人工作，上游来源保留且可追溯。
@@ -132,6 +191,9 @@ Phase 2 实现与部署：
 - Phase 1 瓶颈分析报告：[`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)
 - Phase 2 计划与进度：[`phase2/README.md`](./phase2/README.md)
 - Phase 2 TensorRT baseline 报告：[`phase2/tensorrt_baseline_report.md`](./phase2/tensorrt_baseline_report.md)
+- Phase 3 计划与进度：[`phase3/README.md`](./phase3/README.md)
+- Phase 3 集成验证报告：[`phase3/integration_validation_report.md`](./phase3/integration_validation_report.md)
+- Phase 3 kernel 优化历史：[`phase3/design_notes/plugin_kernel_optimization_history.md`](./phase3/design_notes/plugin_kernel_optimization_history.md)
 - 设计纠偏总账：[`PROJECT_DECISION_CORRECTIONS.md`](./PROJECT_DECISION_CORRECTIONS.md)
 - baseline 脚本设计：[`phase1/design_notes/baseline_inference_design.md`](./phase1/design_notes/baseline_inference_design.md)
 - Nsight attribution 汇总：[`phase1/results/metrics/`](./phase1/results/metrics/)
