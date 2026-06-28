@@ -2,7 +2,7 @@
 
 > **阶段目标**：在 Phase 1 PyTorch/Nsight attribution 与 Phase 2 TensorRT baseline 的证据基础上，实现并验证 EfficientViT-Seg-B0 LiteMLA 的 TensorRT Plugin，判断自定义 C++/CUDA/TensorRT Plugin 是否能进一步优化 TensorRT 未自动整体融合的非标准线性注意力路径。
 >
-> **当前主线**：最终采用的 Phase 3 MVP 是 **P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block**。P1b `aggregation + cat + relu_linear_att` 已完成较完整消融，证明扩大边界能降低中段 kernel time / launch 数，但端到端没有稳定优于 P1a stage2+stage3；因此 P1b 保留为实验分支与后续优化候选，不作为当前主交付线。
+> **当前主线**：最终采用的 Phase 3 MVP 是 **P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block**。P1b `aggregation + cat + relu_linear_att` 已完成较完整消融，证明 stage2-only 扩大边界能降低中段 kernel time / launch 数；但 P1b-7 不应直接和覆盖范围更大的 P1a stage2+stage3 做公平对照。最终主线取舍由 P1mix（stage2=P1b-7、stage3=P1a）对照 P1a stage2+stage3，P1mix 未稳定胜出，因此 P1b 保留为实验分支与后续优化候选，不作为当前主交付线。
 
 ---
 
@@ -12,7 +12,7 @@
 |---|---|
 | P1a stage2+stage3 是当前最稳主线 | `relu_linear_att-only` 从 stage2 两个 block 扩到 stage2+stage3 四个 block 后，端到端 p50 从 Phase 2 baseline 约 `54.40ms` 降到 `50.84ms`，speedup 约 `1.07x` |
 | P1a 数值语义通过数据集级验收 | Cityscapes val baseline mIoU `75.6463126%`，Plugin mIoU `75.6463248%`，delta 约 `+0.000012` percentage point，argmax agreement `0.999999918` |
-| P1b 是重要消融但不是当前主线 | P1b-7 中段 `aggregation + attention_core` proxy 达到 `1.789x` kernel-time speedup，但端到端 p50 约 `52.31ms`，未稳定打败 P1a stage2+stage3 |
+| P1b 是重要消融但不是当前主线 | P1b-7 中段 `aggregation + attention_core` proxy 达到 `1.789x` kernel-time speedup；它是 stage2-only 扩大边界证据，最终全范围取舍由 P1mix 对照 P1a stage2+stage3 |
 | P1mix 不采纳 | `stage2=P1b-7 + stage3=P1a-3b` 技术链路通过，但 Nsight execute avg 与 selected context total 未稳定优于 P1a stage2+stage3 |
 | P1a/P1b 代码都保留 | P1a 是主线；P1b 记录了扩大边界、shared-memory 数据复用、MX250 约束下的正反例，属于有价值消融证据 |
 
@@ -76,7 +76,7 @@ Phase 3 暂不做：
 
 | 分支 | 结论 | 文件 |
 |---|---|---|
-| P1b-7 | 中段 kernel-time/launch 明显改善，但端到端未打败 P1a stage2+stage3 | [`results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md`](results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md), [`results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md`](results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md) |
+| P1b-7 | stage2-only 中段 kernel-time/launch 明显改善；不直接作为 P1a stage2+stage3 的公平对照 | [`results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md`](results/metrics/p1b_aggregation_attention_plugin_cta512_engine_benchmark_summary.md), [`results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md`](results/metrics/p1b_aggregation_attention_plugin_cta512_nsys_attribution_summary.md) |
 | P1mix | 技术链路通过，但没有稳定优于 P1a stage2+stage3 | [`results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_summary.md`](results/metrics/p1mix_stage2_p1b_stage3_p1a_engine_benchmark_summary.md), [`results/metrics/p1mix_stage2_p1b_stage3_p1a_nsys_attribution_summary.md`](results/metrics/p1mix_stage2_p1b_stage3_p1a_nsys_attribution_summary.md) |
 | P1b 中间 probe | 作为优化历程和反例保留，不放在 metrics 顶层 | [`results/metrics/archive/p1b_probes/README.md`](results/metrics/archive/p1b_probes/README.md) |
 

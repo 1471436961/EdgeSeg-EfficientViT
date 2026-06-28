@@ -121,7 +121,7 @@
 
 > **核心定位**: 这是整个项目最具区分度的部分。基于阶段一的剖析报告，选择一个既有数据支撑、又能展示 C++/CUDA/TensorRT Plugin 能力的融合目标。LiteMLA 仍是默认主线，因为它是非标准线性注意力、TensorRT 难以自动高效融合；但报告必须明确：在当前 B0/MX250 profile 下，LiteMLA 不是全模型最大瓶颈，stage0/head 也是重要优化候选。Plan D 用于把 `stage2/context` LiteMLA 从"整体模块候选"细化为"具体可融合子路径候选"。
 >
-> **Phase 3 实测修正（2026-06-23）**：当前主交付线已收敛为 **P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block**。P1b-7 证明 `aggregation + cat + relu_linear_att` 扩大边界能显著降低中段 kernel time / launch 数，但端到端没有稳定打败 P1a stage2+stage3；P1mix 也未稳定优于 P1a。因此 P1b/P1mix 保留为消融和后续优化候选，不作为当前主交付线。
+> **Phase 3 实测修正（2026-06-23）**：当前主交付线已收敛为 **P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block**。P1b-7 是 stage2-only 扩大边界实验，证明 `aggregation + cat + relu_linear_att` 能显著降低 stage2 中段 kernel time / launch 数；它不应被直接拿来和覆盖范围更大的 P1a stage2+stage3 做公平对照。真正的全范围取舍由 P1mix（stage2=P1b-7、stage3=P1a）验证，P1mix 未稳定优于 P1a stage2+stage3。因此 P1b/P1mix 保留为消融和后续优化候选，不作为当前主交付线。
 
 **任务**:
 
@@ -130,7 +130,7 @@
 - **目标算子选择（按"求职展示价值"与"端到端收益"双维度排序）**：
   - 🥇 **P1：stage2 LiteMLA Plugin 主线**（默认主交付物） —— LiteMLA 是论文核心创新，也是 TensorRT 难以自动融合的非标准线性注意力结构；它不一定是当前 PyTorch profile 的最大端到端瓶颈，但最能展示非标准算子分析、CUDA kernel 设计和 TensorRT Plugin 集成能力。
     - **P1a：局部单段 Plugin（当前主交付线）** —— Phase 3 已把 `relu_linear_att-only` 从 stage2 两个 block 扩展到 stage2+stage3 四个 LiteMLA context block；真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`，不需要 Plugin 权重，已完成 TensorRT Plugin 接入、数值对齐、engine 替换、Nsight attribution 和 Cityscapes mIoU gate。Phase 2 中的 `attention_core = relu_qk + pad + matmul + norm_add_div` 只是 TensorRT layer-name 视角下对 `relu_linear_att` 内部残余路径的 proxy，不反向改写 Phase 1 的 MVP 定义。
-    - **P1b：中段组合 Plugin（重要消融 / 后续候选）** —— Phase 1/2 的主性能边界仍支持 `aggregation + cat + relu_linear_att` 作为值得探索的扩大边界；Phase 3 Step 2 确认该边界真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。P1b-7 已把对应中段 proxy 降到 `3.043 ms / iter`、`6` launches / iter，但端到端没有稳定优于 P1a stage2+stage3，因此当前不作为主交付线。
+    - **P1b：中段组合 Plugin（重要消融 / 后续候选）** —— Phase 1/2 的主性能边界仍支持 `aggregation + cat + relu_linear_att` 作为值得探索的扩大边界；Phase 3 Step 2 确认该边界真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。P1b-7 已把 stage2 中段 proxy 降到 `3.043 ms / iter`、`6` launches / iter，证明 stage2-only 扩大边界有效；但最终全范围主线需要看 P1mix 是否优于 P1a stage2+stage3，当前 P1mix 未稳定胜出，因此 P1b 当前不作为主交付线。
     - **P1c：整体 LiteMLA Plugin（fallback / 上限方案）** —— 若单段或中段组合方案收益不足、TensorRT 图集成边界不合适，或希望最大化融合空间，再考虑整体 LiteMLA 级 Plugin。它不是优先 MVP，而是复杂度更高的兜底/上限方案。
   - 🥈 **P2：标准算子链工程优化候选（stage0 / head / stage2-local）** —— 这些区域在 PyTorch Nsight 结果中占比高，端到端收益潜力更直接；Phase 2 TensorRT Nsight 仍显示 `stage0` 是最大 residual hotspot、`stage2` 第二，但这类区域主要由 MBConv / Conv / BN / activation / upsample / add 等标准算子链构成，是否值得手写 Plugin 仍需按展示价值和 TensorRT 已优化程度谨慎排序。
     - **P2a：stage0 early MBConv / Conv 堆叠** —— 当前 PyTorch 与 TensorRT 两条路径下都很重，主要受高分辨率 feature map 和 memory traffic 影响；端到端收益潜力高，但自定义 Plugin 展示区分度低于 LiteMLA。
@@ -183,19 +183,19 @@
 
 ## 5. 时间规划与秋招并行策略
 
-> **更新时间：2026-06-23。** Phase 1 与 Phase 2 已完成；Phase 3 已完成 P1a 主线验证、P1b/P1mix 消融和 Cityscapes mIoU gate，当前进入报告整理与后续路线收敛阶段。时间表以“完成状态 + 下一阶段优先级”为准，而不是继续沿用最初的粗略月份预估。
+> **更新时间：2026-06-28。** Phase 1 与 Phase 2 已完成；Phase 3 已完成 P1a 主线验证、P1b/P1mix 消融、Cityscapes mIoU gate 和集成验证报告。时间表以“完成状态 + 下一阶段优先级”为准，而不是继续沿用最初的粗略月份预估。
 
 | 阶段 | 时间 / 状态 | 核心产出 | 秋招投递动作 |
 | :--- | :--- | :--- | :--- |
 | **阶段一** | 6月上旬，已完成 | 架构精读 + PyTorch baseline + Nsight attribution + 瓶颈分析报告（含双维度候选排序） | 可作为项目第一版经历写入简历草稿 |
 | **阶段二** | 6月上旬至 6月10 日，已完成 | ONNX 导出 + TensorRT FP32/FP16 baseline + TensorRT Nsight 复核 + EngineInspector + C++ Runtime Demo + Phase 2 报告 | 更新 GitHub README 与简历项目描述，准备讲清 PyTorch→TensorRT 全链路 |
-| **阶段三** | 6月中旬–7月下旬，主线验证已完成，报告整理中 | **P1a stage2+stage3 LiteMLA TensorRT Plugin MVP** + P1b/P1mix 消融 + mIoU gate + 集成验证报告 | 用 Phase 1/2/3 阶段成果更新简历与 GitHub 项目入口 |
+| **阶段三** | 6月中旬–7月下旬，主线验证与集成报告已完成 | **P1a stage2+stage3 LiteMLA TensorRT Plugin MVP** + P1b/P1mix 消融 + mIoU gate + 集成验证报告 | 用 Phase 1/2/3 阶段成果更新简历与 GitHub 项目入口 |
 | **扩展与收尾** | 7月下旬–8月中旬 | 量化探索、Jetson 迁移方案、可选 ROS 2 Demo、技术博客与最终 README polish | 面向重点岗位集中投递，并根据面试反馈补强文档和实验 |
 
 Phase 3 的优先级顺序：
 
-1. 先完成 `integration_validation_report.md`，把 P1a stage2+stage3 主线、P1b/P1mix 消融、mIoU gate 和 MX250 测量纪律汇总成最终叙事。
-2. 后续若继续优化，优先基于报告判断是否继续 P1b、尝试 P1c，或转向 stage0/head 标准算子链的工程优化候选。
+1. 已完成 `integration_validation_report.md`，把 P1a stage2+stage3 主线、P1b/P1mix 消融、mIoU gate 和 MX250 测量纪律汇总成最终叙事。
+2. 后续若继续优化，优先基于报告判断是否继续 P1b、尝试 P1c，或转向 stage0/head 标准算子链的工程优化候选；P1b-7 的 stage2-only 结果不得直接作为否定/替代 P1a stage2+stage3 的公平对照，必须通过 P1mix 或同覆盖范围实验判断。
 3. `stage0/head` 等标准 MBConv/Conv 热点作为工程优化候选保留，但不抢占当前 P1a Plugin 主线交付。
 
 ---

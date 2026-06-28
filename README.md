@@ -19,7 +19,7 @@ EdgeSeg-EfficientViT 是一个基于 MIT Han Lab EfficientViT-Seg-B0 的边缘�
 |---|---|---|
 | Phase 1：PyTorch baseline + Nsight 剖析 | 已完成 | [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md) |
 | Phase 2：ONNX / TensorRT baseline | 已完成 | [`phase2/tensorrt_baseline_report.md`](./phase2/tensorrt_baseline_report.md) |
-| Phase 3：TensorRT Plugin | 主线验证已完成，报告整理中 | P1a stage2+stage3 Plugin、P1b/P1mix 消融、Cityscapes mIoU gate |
+| Phase 3：TensorRT Plugin | 已完成主线验证与集成报告 | P1a stage2+stage3 Plugin、P1b/P1mix 消融、Cityscapes mIoU gate、集成验证报告 |
 
 ## Phase 1 摘要
 
@@ -42,7 +42,7 @@ Phase 1 在 NVIDIA GeForce MX250 上，以 Cityscapes 分辨率 `1024x2048` 剖�
 - Plan D 将 LiteMLA Plugin 候选细化为三类边界；Phase 3 实测后，当前主线收敛为 P1a stage2+stage3：
   - `relu_linear_att-only`：Phase 3 最终 MVP，stage2+stage3 四个 LiteMLA context block 均已覆盖，真实 contract 为 `[1,384,64,128] -> [1,128,64,128]`。
   - `aggregation-only`：保留为 fallback / 对照实验。
-  - `aggregation + cat + relu_linear_att`：P1b 重要消融和后续候选，真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`，但当前端到端没有稳定优于 P1a stage2+stage3。
+  - `aggregation + cat + relu_linear_att`：P1b 重要消融和后续候选，真实 contract 为 `[1,192,64,128] -> [1,128,64,128]`。P1b-7 是 stage2-only 扩大边界实验，应优先和 stage2-only / 中段 proxy 口径比较；最终主线取舍由 P1mix（stage2=P1b、stage3=P1a）对照 P1a stage2+stage3 决定。
   - 整体 LiteMLA：复杂度更高的 fallback / 上限方案。
 
 完整报告见 [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md)。
@@ -65,7 +65,7 @@ Phase 2 的关键复核结论：
 
 - TensorRT Nsight Systems profiling / attribution 已完成，复核了 Phase 1 的 `stage0`、`stage2 LiteMLA`、`head` 候选在 TensorRT 自动优化后的 residual hotspot 排序。
 - TensorRT C++ Runtime Demo 已完成，验证 FP32 engine 能被 C++ Runtime API 加载和执行，为 Phase 3 Plugin 集成铺路。
-- Phase 3 已围绕 LiteMLA 完成 P1a Plugin 主线验证，并补充 P1b/P1mix 消融；下一步是整理 `phase3/integration_validation_report.md`。
+- Phase 3 已围绕 LiteMLA 完成 P1a Plugin 主线验证，并补充 P1b/P1mix 消融与 `phase3/integration_validation_report.md`。
 
 Phase 2 不以完整 Cityscapes mIoU 为验收条件；当前精度口径是 PyTorch / ONNXRuntime / TensorRT 的转换一致性验证，包括 logits diff、relaxed allclose 和 argmax pixel agreement。
 

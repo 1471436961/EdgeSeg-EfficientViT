@@ -239,7 +239,7 @@ P1b-7 证明扩大边界有价值：
 | `aggregation + attention_core` proxy | `5.443 ms` | `3.043 ms` | `1.789x` |
 | stage2 context total | `6.383 ms` | `4.002 ms` | `1.595x` |
 
-但 P1b-7 只覆盖 stage2 两个 context block，端到端 p50 仍未稳定优于 P1a stage2+stage3 的 `50.8380 ms`。因此 P1b 结论是：
+口径说明：P1b-7 只覆盖 stage2 两个 context block，因此它的公平价值应优先看 stage2 / 中段 proxy，而不是直接拿来和覆盖 stage2+stage3 四个 context block 的 P1a 做一对一比较。最终全范围取舍应看 P1mix（stage2=P1b-7、stage3=P1a）是否优于 P1a stage2+stage3。因此 P1b 结论是：
 
 - 作为融合路线和后续优化候选保留。
 - 不作为当前 Phase 3 主交付线。
@@ -272,7 +272,7 @@ P1mix 技术链路和 correctness 通过，但未带来正向端到端收益，�
 | MX250 温度、频率和 Windows 调度会影响 1ms 级差异 | 使用冷机/重复 benchmark 与 Nsight attribution 共同判断，不用单次热机结果定结论 |
 | 原始 TensorRT 中没有单一 `relu_linear_att` layer | 使用 `attention_core` proxy，并在报告中显式说明映射 |
 | P1a 仍是两阶段 kernel | 已记录单 kernel 可行性反证，见 [`p1a_single_kernel_feasibility.md`](design_notes/p1a_single_kernel_feasibility.md) |
-| P1b 有中段收益但端到端未胜出 | 保留为后续候选，不作为当前主线 |
+| P1b 有 stage2 中段收益，但单独 P1b-7 不是 P1a stage2+stage3 的公平对照 | 保留为后续候选；全范围取舍以 P1mix 对照 P1a stage2+stage3 |
 | FP16 / INT8 未纳入当前主交付 | Phase 3 当前只声明 FP32 Plugin 结果 |
 | Plugin engine 依赖 TensorRT 8.6.1、MX250 `sm_61` 与本机 DLL 路径 | 元数据与 design notes 记录环境约束 |
 
@@ -286,8 +286,8 @@ Phase 3 的有效结论是：
 2. **P1a 通过 correctness、latency、Nsight attribution 和 Cityscapes mIoU gate**。
 3. **端到端 execute-only p50 speedup 为 `1.0701x`**，即 `54.3995 ms -> 50.8380 ms`。
 4. **`relu_linear_att-only` 子路径相对原始 TensorRT 的 stage2 attention-core proxy speedup 为 `2.819x`**；stage2+stage3 同规则估算约 `2.82x`。
-5. **P1b 证明扩大边界有潜力，但当前不优于 P1a stage2+stage3 主线**。
-6. **P1mix 不采纳**，因为端到端结果退化。
+5. **P1b-7 证明 stage2-only 扩大边界有潜力**，但它不能直接作为 P1a stage2+stage3 的公平对照。
+6. **P1mix 不采纳**，因为它作为全范围对照未稳定优于 P1a stage2+stage3。
 
 因此，Phase 3 当前可收敛为：
 
