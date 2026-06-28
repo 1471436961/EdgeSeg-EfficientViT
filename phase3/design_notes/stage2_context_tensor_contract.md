@@ -4,7 +4,7 @@
 >
 > **目的**：基于 ONNX graph、TensorRT EngineInspector 和 EfficientViT 源码，确定 `stage2/context` LiteMLA Plugin 候选的真实输入输出边界。本文只定义 tensor contract，不开始写 Plugin / CUDA kernel。
 >
-> **后续结果说明**：本文中的 P1a/P1b/P1c 边界定义仍有效，但“主性能边界”排序是 Step 2 阶段的设计假设。后续完整实验表明，最终 Phase 3 MVP 采用的是 P1a `relu_linear_att-only` 覆盖 stage2+stage3 四个 LiteMLA context block；P1b `aggregation + cat + relu_linear_att` 保留为重要消融和后续候选，而不是当前主交付线。
+> **后续结果说明**：本文中的 P1a/P1b/P1c 边界定义仍有效，但“主性能边界”排序是 Step 2 阶段的设计假设。后续完整实验表明，最终 Phase 3 MVP 采用的是 P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 Plugin，覆盖四个 LiteMLA context block；P1b `aggregation + cat + relu_linear_att` 保留为重要消融和后续候选，而不是当前主交付线。
 
 ---
 

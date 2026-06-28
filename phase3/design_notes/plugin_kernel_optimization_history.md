@@ -242,7 +242,7 @@ P1a-4 的完整分析见 [`p1a_single_kernel_feasibility.md`](p1a_single_kernel_
 1. 当前两阶段 kernel boundary 不是纯开销，它同时提供了 `computeVk -> computeOutput` 之间的全局同步。
 2. VK workspace 只有约 `8704 bytes`，workspace global write/read 本身不是最大开销。
 3. naive single-kernel 方案要么降低 output 并行度，要么重复大量 VK 归约，要么引入高风险 device-side barrier / cooperative launch。
-4. 因此 P1a-4 记录为 `evaluated, not adopted as mainline`；当时的下一步应优先评估 P1b `aggregation + cat + relu_linear_att`。后续 P1b-7 与 P1mix 已完成，最终主线仍收敛为 P1a stage2+stage3。
+4. 因此 P1a-4 记录为 `evaluated, not adopted as mainline`；当时的下一步应优先评估 P1b `aggregation + cat + relu_linear_att`。后续 P1b-7 与 P1mix 已完成，最终主线仍收敛为 P1a-3b stage2+stage3 两阶段 FP32 Plugin。
 
 ---
 
@@ -356,7 +356,7 @@ $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\extras\CUP
 
 ## 12. P1mix Stage2=P1b-7 + Stage3=P1a-3b 记录
 
-P1mix 的目标是验证：stage2 使用覆盖更大的 P1b-7，stage3 使用已验证有效的 P1a-3b，是否能打败当前最强的 `P1a stage2+stage3`。
+P1mix 的目标是验证：stage2 使用覆盖更大的 P1b-7，stage3 使用已验证有效的 P1a-3b，是否能打败当前最强的 `P1a-3b stage2+stage3`。
 
 结果摘要：
 
@@ -381,8 +381,8 @@ P1mix attribution：
 判断：
 
 1. P1mix 技术链路成立：final ONNX 中有 2 个 P1b node 与 2 个 P1a node；TensorRT build、deserialize、benchmark、allclose 均通过。
-2. P1mix 没有稳定打败 `P1a stage2+stage3`。它确实减少 launch 数，但 P1b stage2 Plugin layer 更重，selected context total 从 P1a all-context 的 `6.436 ms` 增到 `6.624 ms`。
-3. 因此 P1mix 记录为 **evaluated, not adopted as mainline**。当前 Phase 3 主线仍是 `P1a stage2+stage3`。
+2. P1mix 没有稳定打败 `P1a-3b stage2+stage3`。它确实减少 launch 数，但 P1b stage2 Plugin layer 更重，selected context total 从 P1a all-context 的 `6.436 ms` 增到 `6.624 ms`。
+3. 因此 P1mix 记录为 **evaluated, not adopted as mainline**。当前 Phase 3 主线仍是 `P1a-3b stage2+stage3`。
 4. 若后续继续 P1b，必须先显著降低 stage2 P1b fused aggregation kernel，而不是继续扩大 P1mix 边界。
 
 相关文件：

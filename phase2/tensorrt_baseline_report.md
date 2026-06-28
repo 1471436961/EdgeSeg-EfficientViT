@@ -315,7 +315,7 @@ Phase 3 不应按“当前耗时最大”单一标准选目标。排序应同时
 
 LiteMLA 不是全模型最大热点，但它是最适合展示自定义 TensorRT Plugin 能力的非标准线性注意力结构。
 
-> Phase 3 回填：最终主交付线采用 P1a `relu_linear_att-only`，覆盖 stage2+stage3 四个 LiteMLA context block；P1b `aggregation + cat + relu_linear_att` 与 P1mix 已完成消融，但未替代 P1a stage2+stage3 主线。
+> Phase 3 回填：最终主交付线采用 P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 Plugin，覆盖四个 LiteMLA context block；P1b `aggregation + cat + relu_linear_att` 与 P1mix 已完成消融，但未替代 P1a-3b stage2+stage3 主线。
 
 | 优先级 | 边界 | 角色 | 理由 |
 |---|---|---|---|
@@ -370,9 +370,9 @@ Phase 2 对应复核：
 ## 13. Phase 3 回填状态
 
 1. `phase3/plugin_fusion_design.md`、P1a / P1b / P1c tensor contract 和真实 ONNX graph surgery 均已完成。
-2. Phase 3 最终主线采用 P1a `relu_linear_att-only`，覆盖 stage2+stage3 四个 LiteMLA context block。
+2. Phase 3 最终主线采用 P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 Plugin，覆盖 stage2+stage3 四个 LiteMLA context block。
 3. P1b `aggregation + cat + relu_linear_att` 已作为 stage2-only 扩大边界消融完成；P1mix 未稳定优于 P1a stage2+stage3，因此不采纳为当前主线。
-4. P1a stage2+stage3 Plugin 已完成 TensorRT build、runtime correctness、Nsight attribution、latency benchmark 和 Cityscapes val mIoU gate。
+4. P1a-3b stage2+stage3 Plugin 已完成 TensorRT build、runtime correctness、Nsight attribution、latency benchmark 和 Cityscapes val mIoU gate。
 5. P2 工程优化候选仍保留为后续可选方向，但不改变当前 P1a Plugin 主交付结论。
 
 ---

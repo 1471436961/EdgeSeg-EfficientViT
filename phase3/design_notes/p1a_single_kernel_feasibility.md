@@ -2,9 +2,9 @@
 
 > **状态**：Phase 3 P1a-4 可行性评估。
 >
-> **结论先行**：当前不建议把 `relu_linear_att-only` 正式重构为单 kernel。P1a-4 值得作为设计反证记录；本文中“转向 P1b”的说法属于当时的探索顺序，后续最终主线已收敛为 P1a stage2+stage3。
+> **结论先行**：当前不建议把 `relu_linear_att-only` 正式重构为单 kernel。P1a-4 值得作为设计反证记录；本文中“转向 P1b”的说法属于当时的探索顺序，后续最终主线已收敛为 P1a-3b stage2+stage3 两阶段 FP32 Plugin。
 >
-> **后续结果说明**：本文写于 P1b 系统消融之前，因此“转向 P1b”是当时的探索顺序。后续 P1b-7 与 P1mix 均已完成，最终 Phase 3 MVP 收敛为 P1a `relu_linear_att-only` 覆盖 stage2+stage3；P1b 保留为重要消融和后续候选。
+> **后续结果说明**：本文写于 P1b 系统消融之前，因此“转向 P1b”是当时的探索顺序。后续 P1b-7 与 P1mix 均已完成，最终 Phase 3 MVP 收敛为 P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 Plugin；P1b 保留为重要消融和后续候选。
 
 ---
 
@@ -108,7 +108,7 @@ heads * (dim + 1) * dim * sizeof(float)
 2. **低并行度版本**：每个 head 一个 CTA / 少量 CTA 完成 VK + output，估算并行度损失。
 3. **只测 launch 开销版本**：保留两阶段数学，但用空 kernel 或极简 kernel 估算一次 launch 对当前 1ms 级 Plugin layer 的贡献。
 
-这些实验的目标是证明或反证 P1a-4，不应替代当时规划中的 P1b 探索实验；后续 P1b-7 / P1mix 已完成，最终未替代 P1a stage2+stage3 主线。
+这些实验的目标是证明或反证 P1a-4，不应替代当时规划中的 P1b 探索实验；后续 P1b-7 / P1mix 已完成，最终未替代 P1a-3b stage2+stage3 主线。
 
 ---
 
@@ -118,7 +118,7 @@ P1a-4 的评估结论是：
 
 1. 当前 P1a 两阶段结构虽然不完美，但同步语义清楚、数值风险低、已有正收益。
 2. 继续 P1a 小步优化可以做，但收益递减明显。
-3. 若按当时状态追求更可见的端到端收益，下一步应转向 P1b：`aggregation + cat + relu_linear_att`。后续结果显示 P1b-7 有 stage2-only 中段收益，但 P1mix 未稳定优于 P1a stage2+stage3。
+3. 若按当时状态追求更可见的端到端收益，下一步应转向 P1b：`aggregation + cat + relu_linear_att`。后续结果显示 P1b-7 有 stage2-only 中段收益，但 P1mix 未稳定优于 P1a-3b stage2+stage3。
 4. P1b 的核心价值不是“把 P1a 两个 kernel 合成一个”，而是扩大 fusion 边界，减少更多中间 tensor、更多 launch 和更多 TensorRT residual layer。
 
 因此，P1a-4 当前记录为：

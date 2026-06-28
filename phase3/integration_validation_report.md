@@ -2,7 +2,7 @@
 
 > **报告目的**：验证 Phase 3 TensorRT Plugin 是否已经完成真实 EfficientViT-Seg-B0 图集成、数值对齐、端到端性能验证、Nsight runtime attribution 和 Cityscapes mIoU accuracy gate，并给出 Phase 3 最终采用边界。
 >
-> **最终结论**：Phase 3 当前主交付线采用 **P1a `relu_linear_att-only` Plugin，覆盖 stage2+stage3 四个 LiteMLA context block**。该方案相对 Phase 2 TensorRT FP32 baseline 在 execute-only latency 上取得约 `1.07x` 端到端 p50 speedup，并通过 Cityscapes val mIoU gate。P1b 与 P1mix 保留为重要消融与后续候选，但不作为当前主线。
+> **最终结论**：Phase 3 当前主交付线采用 **P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 TensorRT Plugin**。它覆盖 stage2+stage3 四个 LiteMLA context block，只替换 `relu_linear_att` 子路径，不替换 `qkv Conv`、`aggregation`、`cat`、`proj Conv` 或 residual add。该方案相对 Phase 2 TensorRT FP32 baseline 在 execute-only latency 上取得约 `1.07x` 端到端 p50 speedup，并通过 Cityscapes val mIoU gate。P1b 与 P1mix 保留为重要消融与后续候选，但不作为当前主线。
 
 ---
 
@@ -46,8 +46,24 @@ target scope: stage2-stage3
 边界说明：
 
 - Plugin 只替换 `relu_linear_att-only` 子路径。
-- `qkv` Conv、`aggregation`、`proj` Conv、residual add 仍保留在 TensorRT 标准路径中。
+- `qkv` Conv、`aggregation`、`cat`、`proj` Conv、residual add 仍保留在 TensorRT 标准路径中。
 - 该边界与 [`stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md) 中的 P1a contract 一致。
+
+### 2.1 最终采用的实现方案
+
+本报告中的“P1a Plugin”具体指 **P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 实现**，而不只是一个抽象边界名：
+
+- **实现文件**：[`plugin/src/relu_linear_attention_kernel.cu`](plugin/src/relu_linear_attention_kernel.cu)。
+- **Plugin API**：`EdgesegReluLinearAttention_TRT`，无 Plugin 权重；attrs 记录 `input_c / height / width / dim / eps`。
+- **真实输入输出 contract**：
+  - stage2：`[1,384,64,128] -> [1,128,64,128]`，`heads=8, dim=16`。
+  - stage3：`[1,768,32,64] -> [1,256,32,64]`，`heads=16, dim=16`。
+- **CUDA kernel 结构**：保留两阶段执行，而不是单 kernel。
+  - `computeVkKernelDim16WarpD4`：对 `K/V` 沿空间维 `N` 做 `VK` 归约；单个 warp 同时累加 4 个连续 `d`，复用同一个 `V[row,n]` load，降低 P1a 内部主瓶颈。
+  - `computeOutputKernelDim16`：每个 CTA 将当前 head 的小型 `VK` 矩阵缓存到 shared memory，再对各 spatial position 计算 `Q @ VK / denominator`。
+- **workspace**：使用 TensorRT Plugin workspace 暂存 `VK`，大小为 `heads * (dim + 1) * dim * sizeof(float)`；这也是 P1a 仍保持两阶段结构的原因之一。
+- **精度口径**：当前主线只声明 FP32 Plugin。FP16 / INT8 未纳入本报告结论。
+- **采用理由**：P1a-3b 是 P1a 系列中经过 microbenchmark、Nsight attribution、端到端冷机复测和 Cityscapes mIoU gate 共同验证的最稳实现；P1a 单 kernel prototype 与 P1b/P1mix 均已评估但未作为当前主线。
 
 ---
 
@@ -282,7 +298,7 @@ P1mix 技术链路和 correctness 通过，但未带来正向端到端收益，�
 
 Phase 3 的有效结论是：
 
-1. **P1a `relu_linear_att-only` Plugin 已真实集成进 EfficientViT-Seg-B0 TensorRT engine**，覆盖 stage2+stage3 四个 LiteMLA context block。
+1. **P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 Plugin 已真实集成进 EfficientViT-Seg-B0 TensorRT engine**，覆盖 stage2+stage3 四个 LiteMLA context block。
 2. **P1a 通过 correctness、latency、Nsight attribution 和 Cityscapes mIoU gate**。
 3. **端到端 execute-only p50 speedup 为 `1.0701x`**，即 `54.3995 ms -> 50.8380 ms`。
 4. **`relu_linear_att-only` 子路径相对原始 TensorRT 的 stage2 attention-core proxy speedup 为 `2.819x`**；stage2+stage3 同规则估算约 `2.82x`。
@@ -293,7 +309,7 @@ Phase 3 的有效结论是：
 
 ```text
 Accepted MVP:
-  P1a relu_linear_att-only Plugin, stage2 + stage3
+  P1a-3b relu_linear_att-only two-stage FP32 Plugin, stage2 + stage3
 
 Archived / future candidates:
   P1b aggregation + cat + relu_linear_att

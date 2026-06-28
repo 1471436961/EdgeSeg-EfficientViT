@@ -22,7 +22,7 @@ P1mix:
   stage3 = P1a-3b
 ```
 
-P1mix 技术链路和 correctness 通过，但未稳定优于 P1a stage2+stage3。因此当前主交付线仍是 P1a stage2+stage3，P1b/P1mix 保留为消融证据和后续候选。
+P1mix 技术链路和 correctness 通过，但未稳定优于 P1a-3b stage2+stage3。因此当前主交付线仍是 P1a-3b stage2+stage3 `relu_linear_att-only` 两阶段 FP32 Plugin，P1b/P1mix 保留为消融证据和后续候选。
 
 ### 影响
 
@@ -104,7 +104,7 @@ Plugin correctness 初期主要看单图 allclose、cosine similarity 和 argmax
 
 ### 修正口径
 
-Phase 3 最终主线必须通过 Cityscapes val mIoU gate。mIoU 不用于证明 Plugin 更快，而用于证明 Plugin 替换后没有引入语义级回归。P1a stage2+stage3 最终通过了 Cityscapes val 500 张图 mIoU gate，因此可以作为主交付线。
+Phase 3 最终主线必须通过 Cityscapes val mIoU gate。mIoU 不用于证明 Plugin 更快，而用于证明 Plugin 替换后没有引入语义级回归。P1a-3b stage2+stage3 最终通过了 Cityscapes val 500 张图 mIoU gate，因此可以作为主交付线。
 
 ### 影响
 

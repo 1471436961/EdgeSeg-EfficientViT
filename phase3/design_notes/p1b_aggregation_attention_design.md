@@ -4,7 +4,7 @@
 >
 > **状态**：v1.1。P1b skeleton / parser toy、真实 EfficientViT ONNX surgery build smoke、PyTorch reference 捕获、第一版 CUDA 数学 block-level correctness、真实 P1b engine cold-run correctness / latency、P1b Nsight attribution，以及 P1b-1 到 P1b-7 的 kernel 优化均已完成。当前结论是：naive P1b 数学正确但性能退化；P1b-1 fused aggregation+cat 修复了主要退化点；P1b-2 / P1b-4 / P1b-5 / P1b-7 通过 shared-memory weight/input tile 复用和 CTA layout A/B 继续降低 `fusedAggregationCatKernel`。当前采纳版本 P1b-7 的 Plugin layer 为 `3.043ms/iter`、`6 launches/iter`，对比 Phase 2 baseline `aggregation + attention_core` `5.443ms/iter`、`38 launches/iter` 达到 `1.789x` kernel-time speedup；冷机端到端 p50 为 baseline `54.380ms` vs P1b-7 `52.311ms`，speedup `1.040x`。
 >
-> **当前定位**：P1b-7 是有效的中段扩大边界消融，但后续 P1a stage2+stage3 实验与 P1mix 对照显示，当前 Phase 3 主交付线应采用 P1a `relu_linear_att-only` 覆盖 stage2+stage3。本文保留 P1b 的完整设计和优化历史，用于解释为什么 P1b 仍有工程价值、为什么它当前不替代 P1a 主线。
+> **当前定位**：P1b-7 是有效的中段扩大边界消融，但后续 P1a-3b stage2+stage3 实验与 P1mix 对照显示，当前 Phase 3 主交付线应采用 P1a-3b `relu_linear_att-only` 两阶段 FP32 Plugin 覆盖 stage2+stage3。本文保留 P1b 的完整设计和优化历史，用于解释为什么 P1b 仍有工程价值、为什么它当前不替代 P1a 主线。
 
 ---
 
