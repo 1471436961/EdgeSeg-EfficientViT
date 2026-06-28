@@ -34,7 +34,7 @@ EdgeSeg-EfficientViT 是一个基于 MIT Han Lab EfficientViT-Seg-B0 的边缘�
 |---|---|---|
 | Phase 1：PyTorch baseline + Nsight 剖析 | 已完成 | [`phase1/bottleneck_analysis_report.md`](./phase1/bottleneck_analysis_report.md) |
 | Phase 2：ONNX / TensorRT baseline | 已完成 | [`phase2/tensorrt_baseline_report.md`](./phase2/tensorrt_baseline_report.md) |
-| Phase 3：TensorRT Plugin | 已完成主线验证与集成报告 | P1a stage2+stage3 Plugin、P1b/P1mix 消融、Cityscapes mIoU gate、集成验证报告 |
+| Phase 3：TensorRT Plugin | 已完成主线验证与集成报告 | [`phase3/integration_validation_report.md`](./phase3/integration_validation_report.md) |
 
 ## 推荐阅读路径
 
