@@ -6,6 +6,7 @@
 >
 > - [`phase1/design_notes/phase1_decision_corrections.md`](./phase1/design_notes/phase1_decision_corrections.md)
 > - [`phase2/design_notes/phase2_decision_corrections.md`](./phase2/design_notes/phase2_decision_corrections.md)
+> - [`phase3/design_notes/phase3_decision_corrections.md`](./phase3/design_notes/phase3_decision_corrections.md)
 >
 > [`LEARNING_LOG.md`](./LEARNING_LOG.md) 负责记录概念学习和技术笔记；本文负责记录项目级决策质量控制。
 
@@ -133,7 +134,33 @@ Phase 2 attribution 使用 TensorRT layer-name group，例如 `attention_core = 
 
 ---
 
-## 4. 跨阶段执行纪律：先排除沙盒 / 权限因素
+## 4. Phase 3 关键纠偏摘要
+
+完整记录见 [`phase3/design_notes/phase3_decision_corrections.md`](./phase3/design_notes/phase3_decision_corrections.md)。
+
+### 4.1 P1b-7 不能直接替代 P1a stage2+stage3
+
+P1b-7 是 `stage2-only` 扩大边界实验，证明 `aggregation + cat + relu_linear_att` 能显著降低 stage2 中段 kernel time / launch 数；但它不能直接和覆盖 stage2+stage3 四个 LiteMLA context block 的 P1a 做公平对照。真正的全范围判断必须看 P1mix（stage2=P1b-7、stage3=P1a）。P1mix 未稳定优于 P1a stage2+stage3，因此当前主交付线仍是 P1a stage2+stage3。
+
+### 4.2 扩大边界和减少 launch 数不是充分条件
+
+Phase 3 证明，Plugin 边界更大不必然更快。P1b naive 版本把标准 aggregation Conv 路径移入自写 Plugin 后反而退化，说明自定义 Plugin 可能绕开 TensorRT/cuDNN 的成熟优化。后续 P1b-1 到 P1b-7 修复了部分问题，但最终仍需要同覆盖范围的端到端结果、Nsight attribution 和 mIoU gate 共同判断。
+
+### 4.3 P1a 两阶段 kernel 是基于数学依赖的选择
+
+`relu_linear_att` 需要先完成跨完整 spatial 维度的 `VK/Z` 归约，每个 spatial position 才能使用完整 `VK/Z` 计算输出。普通 CUDA kernel 没有普通全 grid 同步，因此不能只凭“少一次 launch”就强行合并为单 kernel。Phase 3 的 single-kernel prototype 已作为反证记录，当前主线保持两阶段 kernel。
+
+### 4.4 MX250 测量纪律是结论可信度的一部分
+
+MX250 低功耗、少 SM、无 Tensor Core，且 Windows 笔记本环境容易受温度、功耗墙和调度影响。Phase 3 多次用冷机/同口径复测修正热机误导，因此 1ms 级收益必须结合 CUDA Events、Nsight attribution、温度状态和重复测量判断。
+
+### 4.5 mIoU gate 是最终主线采纳条件
+
+单图 allclose / argmax agreement 只能说明调试输入上的数值路径健康，不能代表完整语义安全。Phase 3 最终 P1a stage2+stage3 通过 Cityscapes val mIoU gate，才形成“性能有收益且语义无回归”的主线结论。
+
+---
+
+## 5. 跨阶段执行纪律：先排除沙盒 / 权限因素
 
 Phase 1/2/3 多次遇到同一类问题：命令本身需要访问 CUDA driver、CUPTI、Nsight Systems、TensorRT DLL、`.git` 或外部进程资源，但在 Codex 沙盒内表现为卡住、超时、权限错误或残留进程。人工 review 多次提醒后，最终形成跨阶段执行纪律：
 
@@ -146,7 +173,7 @@ Phase 1/2/3 多次遇到同一类问题：命令本身需要访问 CUDA driver�
 
 ---
 
-## 5. 对项目路线的总体影响
+## 6. 对项目路线的总体影响
 
 这些纠偏共同形成了当前项目路线：
 

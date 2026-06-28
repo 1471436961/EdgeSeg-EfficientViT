@@ -43,6 +43,7 @@ Phase 3 暂不做：
 |---|---|---|
 | Phase 3 最终验收报告 | [`integration_validation_report.md`](integration_validation_report.md) | 汇总 P1a stage2+stage3 Plugin 的集成、正确性、latency、Nsight attribution、mIoU 与最终分支决策 |
 | Design notes index | [`design_notes/README.md`](design_notes/README.md) | 给出 Phase 3 设计文档阅读顺序，区分主线、P1b 消融和历史反证 |
+| Phase 3 决策纠偏 | [`design_notes/phase3_decision_corrections.md`](design_notes/phase3_decision_corrections.md) | 记录 P1b/P1mix 公平比较、两阶段 kernel、冷机复测和 mIoU gate 等路线修正 |
 | Phase 1 瓶颈分析 | [`../phase1/bottleneck_analysis_report.md`](../phase1/bottleneck_analysis_report.md) | 给出 PyTorch 路径下的热点与 Plugin 候选边界 |
 | Phase 2 TensorRT baseline | [`../phase2/tensorrt_baseline_report.md`](../phase2/tensorrt_baseline_report.md) | 复核 TensorRT 后 LiteMLA residual runtime，证明 TensorRT 没有自动整体融合 LiteMLA |
 | Tensor contract | [`design_notes/stage2_context_tensor_contract.md`](design_notes/stage2_context_tensor_contract.md) | 定义 P1a/P1b/P1c 的真实输入输出边界 |

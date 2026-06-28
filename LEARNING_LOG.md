@@ -132,3 +132,73 @@ A: Phase 1 Plan D 是 PyTorch 源码语义边界：`qkv`、`aggregation`、`cat`
 Q: TensorRT 后各 group 的加速比应该怎么理解？
 
 A: Phase 2 报告新增了同名 group 的近似归因对比：Phase 1 Plan B attributed groups 总计约 `86.818 ms / iter`，TensorRT attributed groups 总计约 `54.454 ms / iter`，group-level 约 `1.59x`，与端到端 p50 speedup `1.57x` 接近，说明 attribution 与 CUDA Events 主结论相互吻合。逐 group 看，`stage0` 绝对节省最大（约 `9.859 ms / iter`），仍是端到端收益最大的工程热点；`stage2` 也被加速但仍保留 `12.179 ms / iter` 和较高 launch density，因此 LiteMLA Plugin 主线仍有 residual evidence。注意 Phase 1 PyTorch NVTX group 和 Phase 2 TensorRT layer-name group 语义接近但不是逐层一一对应。
+
+## 2026-06-28
+
+Q: TensorRT Plugin 的完整生命周期是什么？
+
+A: TensorRT Plugin 不是单个 CUDA kernel，而是一条从构建期到运行期的完整链路。构建期要先实现 Plugin 类和 PluginCreator，在动态库加载时注册到 TensorRT registry；ONNX graph surgery 把目标子图替换成自定义 Plugin node；TensorRT parser 识别该 node 后调用 Creator 创建 Plugin，并在 build engine 时序列化 Plugin 参数。运行期反序列化 engine 时，TensorRT 通过同名 Creator 恢复 Plugin 实例，创建 execution context 后，在推理过程中调用 Plugin 的 `enqueue()`。`enqueue()` 接收 TensorRT 分配好的 input/output/workspace 指针和 CUDA stream，然后在这个 stream 上 launch 自己的 CUDA kernel。正确的 Plugin 验收必须同时覆盖注册、build、serialize/deserialize、enqueue、数值对齐、latency、Nsight attribution 和最终语义 gate。
+
+Q: 为什么 P1a `relu_linear_att-only` 当前采用两阶段 kernel，而不是强行合并成一个 kernel？
+
+A: `relu_linear_att` 的核心不是普通逐点计算，而是先对全部 spatial positions 做全局归约，得到每个 head 的 `VK = sum_n V[n] * relu(K[n])` 和 `Z = sum_n relu(K[n])`，随后每个 spatial position 的输出都要使用这份完整的 `VK/Z`。因此第一阶段 `computeVk` 必须先完成跨 `N` 的归约，第二阶段 `computeOutput` 才能让每个位置读取完整 `VK` 并计算输出。单 kernel 合并表面上能省一次 launch 和 workspace 读写，但会遇到跨 block 全局同步不可用、重复归约、或牺牲 `VK` 复用的问题。Phase 3 的单 kernel prototype 已作为反证记录：在当前 MX250 / dim=16 / FP32 口径下，两阶段方案更稳。
+
+Q: `VK` / `Z` 归约为什么是 P1a 的主要瓶颈？
+
+A: 对固定 head 和 dim，`VK` 需要遍历完整空间维度 `N=H*W`，把所有位置的 `K/V` 信息压缩成一个很小的 `(dim+1) x dim` 矩阵。这个矩阵本身很小，真正成本在于跨 `N` 加载数据、做 ReLU、乘加和归约。P1a 优化的重点不是把小矩阵乘法写得像 GEMM，而是减少归约阶段的重复读取、提高线程协作效率、降低 launch 和 workspace 成本。Phase 3 后续 P1a-3b 的收益也主要来自更适合 dim=16 的 warp-level `d` 维并行归约和 shared-memory `VK` cache。
+
+Q: CUDA 里的 warp、lane、warp reduce、block reduce 分别是什么？
+
+A: 一个 CUDA warp 是 GPU 调度执行的 32 个线程组，lane 是线程在这个 warp 内的编号，通常是 `threadIdx.x % 32`。warp 内线程可以通过 `__shfl_down_sync` 这类 shuffle 指令直接交换寄存器值，不必先写 shared memory。warp reduce 就是让 32 个 lane 共同把各自的局部 sum 合成一个 sum；block reduce 则是在每个 warp 先归约后，把各 warp 的结果写入 shared memory，再由一个 warp 做第二次归约。P1a 的 `computeVk` 使用这种层次化归约，是因为 `VK` 的每个元素都需要把空间维度上的大量局部贡献加起来。
+
+Q: P1a、P1b、P1mix 的公平比较口径是什么？
+
+A: P1a 当前主线是 `relu_linear_att-only`，覆盖 stage2+stage3 四个 LiteMLA context block。P1b-7 是 stage2-only 的扩大边界实验，覆盖 `aggregation + cat + relu_linear_att`，它能证明 stage2 中段 kernel time / launch 数下降，但不能直接拿来和覆盖范围更大的 P1a stage2+stage3 做公平对照。真正的全范围对照是 P1mix：stage2 用 P1b-7，stage3 用 P1a。Phase 3 结果显示 P1mix 技术链路和 correctness 通过，但未稳定优于 P1a stage2+stage3，因此当前主交付线仍是 P1a stage2+stage3，P1b/P1mix 保留为消融证据和后续候选。
+
+Q: 为什么 P1b 扩大边界有价值，但没有自动成为主线？
+
+A: P1b 的价值在于验证 `aggregation + cat + relu_linear_att` 这个更大边界是否能减少中间 tensor 写回、读取和 kernel launch。P1b-7 确实把 stage2 中段 proxy 从 Phase 2 TensorRT baseline 的 `5.443 ms / 38 launches` 降到约 `3.043 ms / 6 launches`，说明扩大边界有工程价值。但 P1b 也把标准 Conv/aggregation 路径移入自写 Plugin，容易绕开 TensorRT/cuDNN 对 depthwise/grouped pointwise Conv 的成熟优化。最终是否采纳不能只看“边界更大”或“launch 更少”，还要看全范围端到端、Nsight attribution、mIoU gate 和测量稳定性。当前结论是：P1b 是重要消融，不是当前主线。
+
+Q: MX250 上做 Phase 3 性能实验时，为什么冷机和同口径复测很重要？
+
+A: MX250 是低功耗 Pascal GPU，只有少量 SM、2GB 显存、无 Tensor Core，而且在 Windows 笔记本上容易受温度、功耗墙、WDDM 调度和后台任务影响。Phase 3 中多次出现热机结果与冷机重测不同的情况，1ms 级差异尤其容易被频率波动吞掉。因此 Plugin 优化不能用单次热机 benchmark 定结论；更可靠的纪律是：固定 warmup/measure，优先冷机或稳定温度，避免后台负载，用 CUDA Events 看端到端 latency，用 Nsight attribution 看 kernel 归因，并把低于噪声阈值的小收益视为不稳定。
+
+Q: Phase 3 为什么需要 Cityscapes mIoU gate？
+
+A: 单张图 allclose、cosine similarity、argmax agreement 能证明某个输入上的数值路径没有明显偏移，但不能完全代表语义分割数据集上的行为。Phase 3 最终把 P1a Plugin 接入真实 TensorRT engine 后，用 Cityscapes val 500 张图跑 mIoU gate，验证 Plugin 替换没有破坏语义输出。这里的 mIoU 不是 latency benchmark，也不是用来证明 Plugin 更快；它是 accuracy / semantic regression gate。只有同时通过 correctness、latency、Nsight attribution 和 mIoU gate，P1a stage2+stage3 才能作为 Phase 3 主交付线。
+
+Q: CUDA 的 grid、block、warp、lane、SM 分别是什么？
+
+A: CUDA kernel 启动时会形成一个 grid，grid 由许多 thread block 组成；每个 block 内有若干 thread，这些 thread 可以共享 shared memory，并能用 `__syncthreads()` 做 block 内同步。硬件执行时，线程会按 32 个一组组成 warp；warp 内每个线程的位置叫 lane。SM（Streaming Multiprocessor）是 GPU 上真正调度和执行 warp 的计算单元，一个 SM 会同时驻留多个 block/warp 来隐藏延迟。优化 CUDA kernel 时，grid/block 决定并行任务如何拆分，warp/lane 决定线程协作粒度，SM 数量决定同一时刻能并行推进多少 block。MX250 只有很少的 SM，因此 block 数、每 block 工作量、launch 数和调度开销都比高端 GPU 更敏感。
+
+Q: MX250 / Pascal 架构对 Phase 3 CUDA 优化有什么影响？
+
+A: MX250 是 Pascal `sm_61`、低功耗、无 Tensor Core、显存容量和带宽都有限的移动端 GPU。它不像 A100/H100 那样有大量 SM 和 Tensor Core 可以吞掉低效 kernel，因此小 kernel 的 launch overhead、block 调度、访存模式、依赖链和温度降频都会直接影响结果。FP16 在 MX250 上也不能默认期待 Tensor Core 式加速；很多时候 FP32 路径更稳定。Phase 3 的经验是：面向 MX250 优化时不要照搬高端 GPU 的大规模并行假设，要特别关注少 SM 下的并行粒度、冷机复测、workspace 显存、launch 数和实际 Nsight/nvprof 证据。
+
+Q: CUDA memory hierarchy 里 global memory、shared memory、register 有什么区别？
+
+A: global memory 是显存，容量大但延迟高，所有 block 都能访问；shared memory 是每个 block 内共享的片上存储，容量小但延迟低，适合缓存一个 block 内会反复使用的数据；register 是每个线程私有的最快存储，但数量有限，过度使用会降低 occupancy 或造成 spill。Phase 3 P1a 中，`VK` 矩阵很小但会被一个 output block 的许多线程反复读取，因此适合从 global workspace 载入 shared memory 后复用。P1b 中，depthwise input tile 和 pointwise 权重也尝试放入 shared memory，是为了减少 global memory 重复读取。但 shared memory 不是免费午餐，bank conflict、同步、地址计算和占用过大都可能抵消收益。
+
+Q: occupancy 高是否一定代表 CUDA kernel 更快？
+
+A: 不一定。occupancy 表示一个 SM 上同时驻留的 active warp 比例，较高 occupancy 可以帮助隐藏 memory latency，但它不是性能目标本身。如果 kernel 的主要瓶颈是指令依赖链、shared memory bank conflict、global memory 非合并访问、同步开销、launch overhead 或 TensorRT/cuDNN 已经有更优 tactic，那么单纯提高 occupancy 可能没有收益。Phase 3 P1b-7 的 `nvprof` 结果就显示它不是简单 occupancy-bound 或纯 DRAM bandwidth-bound，更像 instruction dependency / scheduling 主导；因此后续 probe 不能只围绕 occupancy 数字打转，而要结合 stall、memory transaction、kernel time 和端到端结果判断。
+
+Q: memory-bound、compute-bound、launch-bound、dependency-bound 怎么区分？
+
+A: memory-bound 指主要时间花在读写显存或缓存层级上，优化重点是减少读写、提高 coalescing、复用 shared/register；compute-bound 指算术吞吐接近上限，优化重点是提高计算密度、使用更合适的指令或数据类型；launch-bound 指单个 kernel 很小、launch 和调度开销占比较大，优化重点是融合 kernel 或减少小 kernel 数量；dependency-bound 指线程内部指令链前后依赖太强，硬件难以并行发射，优化重点是拆依赖、增加独立工作或调整线程职责。Phase 3 的 P1a `computeVk` 主要是跨 `N` 归约和读取/依赖链问题；P1b fused kernel 虽减少 launch，但后续证据显示不是纯 DRAM 或 occupancy 问题，更像 instruction dependency / scheduling 限制。
+
+Q: coalescing、shared memory bank conflict、halo reuse 分别是什么？
+
+A: coalescing 指同一 warp 内线程访问连续或规则的 global memory 地址，让硬件能合并成更少的 memory transaction；如果线程访问分散，带宽效率会下降。shared memory bank conflict 指多个线程同时访问 shared memory 中落在同一个 bank 的不同地址，导致访问被串行化。halo reuse 常见于卷积/Stencil：相邻输出像素需要重叠的输入邻域，如果每个 block 都重复从 global memory 加载 halo，就会浪费带宽；扩大 tile 或调整 tile shape 可以复用这些 halo 数据。P1b 的 row tile、shared input tile、row pitch padding 等实验，本质都是在探索 coalescing、bank conflict 和 halo reuse 的取舍。
+
+Q: 为什么跨 block 归约类 kernel 不能像普通逐点算子那样随意融合？
+
+A: 普通逐点算子中，每个输出元素通常只依赖对应输入位置或小范围邻域，所以一个 block 可以独立完成自己的输出。但归约类 kernel 需要把多个 block 或整个空间维度的贡献合在一起。CUDA 普通 kernel 内只有 block 内同步，没有全 grid 的普通同步；不同 block 之间不能在同一次 kernel 中安全地等待彼此完成全局归约。因此跨 `N` 的 `VK/Z` 归约通常需要分阶段：先生成全局归约结果，再让后续 kernel 使用它。强行融合会带来重复计算、atomic、复杂 cooperative launch 或全局同步问题，未必比两阶段更快。
+
+Q: 为什么减少 kernel launch 数不一定代表端到端更快？
+
+A: launch 数少通常是好方向，因为它减少 CPU/GPU 调度和小 kernel 间隔；但如果为了减少 launch，把原本 TensorRT/cuDNN 擅长的标准 Conv 路径替换成较慢的手写 kernel，端到端仍可能变差。P1b 是典型例子：扩大边界显著减少了 stage2 中段 launch 数，但 naive aggregation 一开始慢于 TensorRT baseline；后续 P1b-7 才通过 fused aggregation+cat、shared-memory tile 和 CTA layout 改善中段 proxy。最终仍要用同覆盖范围的端到端结果、Nsight attribution 和 mIoU gate 判断，而不是只看 launch 数。
+
+Q: TensorRT Plugin 的 `enqueue()` 为什么不应该随意同步 CUDA stream？
+
+A: TensorRT runtime 会把整张 engine 的 layer 按依赖关系 enqueue 到 CUDA stream 上，Plugin 的 `enqueue()` 应该只在传入 stream 上异步 launch 自己的 kernel，并尽快返回。若在 Plugin 内调用 `cudaDeviceSynchronize()` 或强制 stream sync，会打断 TensorRT 的异步调度，污染 latency benchmark，也可能破坏 Nsight timeline 中的真实执行形态。正确做法是：Plugin 内检查 launch error，但不主动做全局同步；同步只放在 benchmark 的 warmup/measure 边界、CUDA Event 读取处或外层 correctness 检查处。
